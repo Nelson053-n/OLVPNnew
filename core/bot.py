@@ -8,6 +8,7 @@ from core.handlers.get_db import command_get_db
 from core.handlers.get_log_payments import command_get_log_pay
 from core.handlers.message_to_admin import send_admin_message
 from core.handlers.give_promo import command_promo
+from core.handlers.key_info import command_keyinfo
 from core.settings import api_key_tlg
 from core.api_s.outline.outline_api import OutlineManager
 from core.handlers.handler_keyboard import build_and_edit_message
@@ -28,6 +29,7 @@ async def start_bot():
     dp.message.register(command_get_log_pay, Command('get_log_pay'))
     dp.message.register(command_get_db, Command('get_db'))
     dp.message.register(command_promo, Command('promo'))
+    dp.message.register(command_keyinfo, Command('keyinfo'))
     dp.callback_query.register(build_and_edit_message)
 
     try:
