@@ -10,6 +10,7 @@ from core.handlers.handlers_keyboards.get_key_handler import choise_region, day_
 from core.handlers.handlers_keyboards.del_key_handler import del_key, ask_del_key
 from core.handlers.handlers_keyboards.get_promo_handler import get_promo
 from core.handlers.handlers_keyboards.choise_region import region_handler
+from core.handlers.handlers_keyboards.admin_block_key_handler import admin_block_key_handler
 from core.utils.throttle import throttle
 
 
@@ -37,6 +38,10 @@ async def switch_menu(case_number: str, call: CallbackQuery, state: FSMContext) 
     :param state: FSMContext - Объект FSMContext.
     :return: Результат работы соответствующего обработчика.
     """
+    # Обработка admin callback'ов для блокировки ключей
+    if case_number.startswith('admin_block_key_'):
+        return await admin_block_key_handler(call)
+    
     switch_dict = {
         'get_key': choise_region,
         'del_key': del_key,
