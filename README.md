@@ -91,4 +91,4 @@ systemctl enable olvpnbot
 
 
 
-Рабочий экземпляр бота: [@olvpnbot](https://t.me/olvpnbot). 
+Рабочий экземпляр бота: [@OneYearVpb_bot](https://t.me/OneYearVpb_bot). 
