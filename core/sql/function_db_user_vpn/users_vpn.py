@@ -166,7 +166,45 @@ async def set_promo_status(account: int, value_promo: bool) -> bool:
             user_record = session.query(Users).filter_by(account=account).one()
             if value_promo != user_record.promo_key:
                 user_record.promo_key = value_promo
+                # set or clear last issued date when changing promo status
+                if value_promo:
+                    user_record.promo_issued_at = datetime.now()
+                else:
+                    user_record.promo_issued_at = None
                 session.commit()
+            return True
+        except NoResultFound:
+            return False
+
+
+async def get_promo_issued_date(account: int) -> datetime | None:
+    """
+    Возвращает дату последнего выдачи промо-ключа для пользователя
+
+    :param account: int - id пользователя
+    :return: datetime или None
+    """
+    with Session(engine) as session:
+        try:
+            user_record = session.query(Users).filter_by(account=account).one()
+            return user_record.promo_issued_at
+        except NoResultFound:
+            return None
+
+
+async def set_promo_issued_date(account: int, issued_date: datetime) -> bool:
+    """
+    Устанавливает дату выдачи промо-ключа вручную
+
+    :param account: int - id пользователя
+    :param issued_date: datetime - дата выдачи
+    :return: bool
+    """
+    with Session(engine) as session:
+        try:
+            user_record = session.query(Users).filter_by(account=account).one()
+            user_record.promo_issued_at = issued_date
+            session.commit()
             return True
         except NoResultFound:
             return False
