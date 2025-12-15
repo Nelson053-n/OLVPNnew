@@ -22,7 +22,7 @@ async def choise_region(call: CallbackQuery, state: FSMContext) -> (str, InlineK
     name_temp = call.data
     content = await create_answer_from_html(name_temp=name_temp)
     await state.update_data(pay=(None, None))
-    return content, choise_region_keyboard()
+    return content, await choise_region_keyboard()
 
 
 async def day_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboardMarkup):
@@ -46,7 +46,7 @@ async def day_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboar
             f"Достигнут лимит ключей ({current_keys}/{max_keys})\n"
             f"Пожалуйста, выберите другой регион"
         )
-        return content, choise_region_keyboard()
+        return content, await choise_region_keyboard()
     
     id_user = call.from_user.id
     amount = 7
@@ -77,7 +77,7 @@ async def week_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboa
             f"Достигнут лимит ключей ({current_keys}/{max_keys})\n"
             f"Пожалуйста, выберите другой регион"
         )
-        return content, choise_region_keyboard()
+        return content, await choise_region_keyboard()
     
     id_user = call.from_user.id
     amount = 40
@@ -108,7 +108,7 @@ async def month_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeybo
             f"Достигнут лимит ключей ({current_keys}/{max_keys})\n"
             f"Пожалуйста, выберите другой регион"
         )
-        return content, choise_region_keyboard()
+        return content, await choise_region_keyboard()
     
     id_user = call.from_user.id
     amount = 150
@@ -141,4 +141,4 @@ async def my_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboard
                                                         untill_date=untill_date, region_name=region_name)
                 return content, my_key_keyboard()
     content = f'У вас нет ключа, но вы можете его купить\nВыберите регион'
-    return content, choise_region_keyboard()
+    return content, await choise_region_keyboard()
