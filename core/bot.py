@@ -1,6 +1,7 @@
 from aiogram.client.default import DefaultBotProperties
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 from aiogram import Bot, Dispatcher, Router
+from aiogram.fsm.storage.memory import MemoryStorage
 import asyncio
 
 from core.handlers.find_user_payments import command_findpay
@@ -10,6 +11,15 @@ from core.handlers.message_to_admin import send_admin_message
 from core.handlers.give_promo import command_promo
 from core.handlers.key_info import command_keyinfo
 from core.handlers.active_keys import command_active_keys
+from core.handlers.add_server import (
+    command_add_server,
+    process_country_name,
+    process_api_url,
+    process_cert_sha256,
+    process_max_keys,
+    process_confirmation,
+    AddServerStates
+)
 from core.settings import api_key_tlg
 from core.api_s.outline.outline_api import OutlineManager
 from core.handlers.handler_keyboard import build_and_edit_message
@@ -23,7 +33,8 @@ bot: Bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 
 async def start_bot():
     """Запуск бота"""
-    dp: Dispatcher = Dispatcher()
+    storage = MemoryStorage()
+    dp: Dispatcher = Dispatcher(storage=storage)
     dp.include_router(router=router)
     dp.message.register(command_start, Command('start'))
     dp.message.register(command_findpay, Command('findpay'))
@@ -32,6 +43,13 @@ async def start_bot():
     dp.message.register(command_promo, Command('promo'))
     dp.message.register(command_keyinfo, Command('keyinfo'))
     dp.message.register(command_active_keys, Command('activekeys'))
+    dp.message.register(command_add_server, Command('addserver'))
+    # Регистрируем обработчики FSM для добавления сервера
+    dp.message.register(process_country_name, AddServerStates.waiting_for_country_name)
+    dp.message.register(process_api_url, AddServerStates.waiting_for_api_url)
+    dp.message.register(process_cert_sha256, AddServerStates.waiting_for_cert_sha256)
+    dp.message.register(process_max_keys, AddServerStates.waiting_for_max_keys)
+    dp.message.register(process_confirmation, AddServerStates.confirming_server)
     dp.callback_query.register(build_and_edit_message)
 
     try:

@@ -7,6 +7,7 @@ from core.sql.function_db_user_vpn.users_vpn import get_user_data_from_table_use
 from core.utils.build_pay import build_pay
 from core.utils.create_view import create_answer_from_html
 from core.utils.get_region_name import get_region_name_from_json
+from core.utils.server_config import check_server_key_limit
 
 
 async def choise_region(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboardMarkup):
@@ -27,12 +28,26 @@ async def choise_region(call: CallbackQuery, state: FSMContext) -> (str, InlineK
 async def day_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboardMarkup):
     """
     Обработчик для получения ключа на день.
+    Проверяет лимит ключей на сервере.
     Отправка на страницу оплаты
 
     :param call: CallbackQuery - Объект CallbackQuery.
     :param state: FSMContext - Объект FSMContext.
     :return: Текст ответа и клавиатура.
     """
+    data = await state.get_data()
+    region_server = data.get('region_server', 'nederland')
+    
+    # Проверяем лимит ключей
+    is_available, current_keys, max_keys = await check_server_key_limit(region_server)
+    if not is_available:
+        content = (
+            f"❌ <b>Сервер недоступен</b>\n\n"
+            f"Достигнут лимит ключей ({current_keys}/{max_keys})\n"
+            f"Пожалуйста, выберите другой регион"
+        )
+        return content, choise_region_keyboard()
+    
     id_user = call.from_user.id
     amount = 7
     day_count = 1
@@ -44,12 +59,26 @@ async def day_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboar
 async def week_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboardMarkup):
     """
     Обработчик для получения ключа на неделю.
+    Проверяет лимит ключей на сервере.
     Отправка на страницу оплаты
 
     :param call: CallbackQuery - Объект CallbackQuery.
     :param state: FSMContext - Объект FSMContext.
     :return: Текст ответа и клавиатура.
     """
+    data = await state.get_data()
+    region_server = data.get('region_server', 'nederland')
+    
+    # Проверяем лимит ключей
+    is_available, current_keys, max_keys = await check_server_key_limit(region_server)
+    if not is_available:
+        content = (
+            f"❌ <b>Сервер недоступен</b>\n\n"
+            f"Достигнут лимит ключей ({current_keys}/{max_keys})\n"
+            f"Пожалуйста, выберите другой регион"
+        )
+        return content, choise_region_keyboard()
+    
     id_user = call.from_user.id
     amount = 40
     day_count = 7
@@ -61,12 +90,26 @@ async def week_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboa
 async def month_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboardMarkup):
     """
     Обработчик для получения ключа на месяц.
+    Проверяет лимит ключей на сервере.
     Отправка на страницу оплаты
 
     :param call: CallbackQuery - Объект CallbackQuery.
     :param state: FSMContext - Объект FSMContext.
     :return: Текст ответа и клавиатура.
     """
+    data = await state.get_data()
+    region_server = data.get('region_server', 'nederland')
+    
+    # Проверяем лимит ключей
+    is_available, current_keys, max_keys = await check_server_key_limit(region_server)
+    if not is_available:
+        content = (
+            f"❌ <b>Сервер недоступен</b>\n\n"
+            f"Достигнут лимит ключей ({current_keys}/{max_keys})\n"
+            f"Пожалуйста, выберите другой регион"
+        )
+        return content, choise_region_keyboard()
+    
     id_user = call.from_user.id
     amount = 150
     day_count = 30
