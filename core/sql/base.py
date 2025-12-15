@@ -31,6 +31,7 @@ class Users(Base):
     account = Column(Integer, unique=True)
     account_name = Column(String)
     promo_key = Column(Boolean, default=False)
+    promo_issued_at = Column(DateTime, nullable=True)
     premium = Column(Boolean, default=False)
     date = Column(DateTime, nullable=True)
     key = Column(String, nullable=True)
