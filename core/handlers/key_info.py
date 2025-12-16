@@ -85,30 +85,30 @@ async def command_keyinfo(message: Message) -> None:
     """
     try:
         if message.from_user.id != int(admin_tlg):
-            await message.answer("У вас нет доступа к этой команде", parse_mode=ParseMode.TEXT)
+            await message.answer("У вас нет доступа к этой команде", parse_mode=None)
             return
 
         data = message.text.split(' ')
         
         if len(data) != 2:
-            await message.answer("Ошибка использования команды\nИспользование: /keyinfo <user_id>", parse_mode=ParseMode.TEXT)
+            await message.answer("Ошибка использования команды\nИспользование: /keyinfo USER_ID", parse_mode=None)
             return
 
         try:
             user_id = int(data[1])
         except ValueError:
-            await message.answer("user_id должен быть числом", parse_mode=ParseMode.TEXT)
+            await message.answer("user_id должен быть числом", parse_mode=None)
             return
 
         # Используем общую функцию
         response_text, keyboard = await get_key_info_response(user_id)
-        await message.answer(text=response_text, reply_markup=keyboard, parse_mode=ParseMode.TEXT)
+        await message.answer(text=response_text, reply_markup=keyboard, parse_mode=None)
 
     except Exception as e:
         tb = traceback.format_exc()
         logger.log('error', f'command_keyinfo error for user {message.from_user.id}: {e}\n{tb}')
         try:
-            await message.answer(f"Ошибка при обработке /keyinfo: {str(e)}", parse_mode=ParseMode.TEXT)
+            await message.answer(f"Ошибка при обработке /keyinfo: {str(e)}", parse_mode=None)
         except:
             pass
 

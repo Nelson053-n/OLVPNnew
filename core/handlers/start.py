@@ -54,13 +54,13 @@ async def command_start(message: Message, state: FSMContext) -> None:
                 "\n📋 Администраторские команды:\n"
                 "/findpay - Найти платежи пользователя по ID\n"
                 "/findpay (без параметров) - Показать всех пользователей с платежами\n"
-                "/keyinfo <user_id> - Проверить информацию о ключе пользователя\n"
+                "/keyinfo USER_ID - Проверить информацию о ключе пользователя\n"
                 "/activekeys - Показать все активные ключи\n"
                 "/get_db - Экспортировать БД\n"
                 "/get_log_pay - Получить логи платежей\n"
-                "/promo <user_id> - Выдать промо-ключ пользователю"
+                "/promo USER_ID - Выдать промо-ключ пользователю"
             )
-            await message.answer(text=admin_commands, parse_mode=ParseMode.TEXT)
+            await message.answer(text=admin_commands, parse_mode=None)
     except Exception as e:
         tb = traceback.format_exc()
         logger.log('error', f'command_start error for user {message.from_user.id}: {e}\n{tb}')
