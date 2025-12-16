@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timedelta
 from aiogram.types import CallbackQuery
 
-from core.api_s.outline.outline_api import OutlineManager, get_name_all_active_server_ol
+from core.api_s.outline.outline_api import OutlineManager, get_name_all_active_server_ol, get_server_display_name
 from core.sql.function_db_user_vpn.users_vpn import (
     get_user_keys, 
     get_all_user_keys,
@@ -37,19 +37,24 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
         
         # Извлекаем короткий ID ключа
         short_id = callback.data.replace('rpl_key_', '')
+        logger.log('info', f'Replace key request: short_id={short_id}, from admin={callback.from_user.id}')
         
         # Находим полный ключ по короткому ID
         all_keys = await get_all_user_keys()
+        logger.log('info', f'Total keys in DB: {len(all_keys)}')
         target_key = None
         for key in all_keys:
-            if str(key.id).endswith(short_id):
+            key_id_str = str(key.id)
+            if key_id_str.endswith(short_id):
                 target_key = key
+                logger.log('info', f'Found target key: id={key.id}, user={key.account}, server={key.region_server}')
                 break
         
         if not target_key:
             await callback.message.edit_text(
                 '❌ Ключ не найден в базе данных',
-                parse_mode=None
+                parse_mode=None,
+                reply_markup=None
             )
             return
         
@@ -63,14 +68,18 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
         if not user_data:
             await callback.message.edit_text(
                 f'❌ Пользователь {user_id} не найден в базе данных',
-                parse_mode=None
+                parse_mode=None,
+                reply_markup=None
             )
             return
         
+        old_display = get_server_display_name(old_server)
+        
         await callback.message.edit_text(
             f'⏳ Замена ключа для пользователя {user_id}...\n'
-            f'Старый сервер: {old_server}',
-            parse_mode=None
+            f'Старый сервер: {old_display}',
+            parse_mode='HTML',
+            reply_markup=None
         )
         
         # Получаем список всех активных серверов, кроме старого
@@ -81,7 +90,8 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
             await callback.message.edit_text(
                 '❌ Нет доступных серверов для замены ключа\n'
                 '(все серверы либо неактивны, либо это единственный сервер)',
-                parse_mode=None
+                parse_mode=None,
+                reply_markup=None
             )
             return
         
@@ -114,6 +124,8 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
             # ИСПРАВЛЕНО: Форматируем дату в нужный формат для add_user_key
             date_str = expiry_date.strftime('%d.%m.%Y - %H:%M')
             
+            logger.log('info', f'Creating new key: user={user_id}, server={new_server}, expiry={date_str}')
+            
             # Сохраняем новый ключ в БД
             success = await add_user_key(
                 account=user_id,
@@ -137,7 +149,8 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
             logger.log('error', f'Failed to create new key: {e}')
             await callback.message.edit_text(
                 f'❌ Ошибка при создании нового ключа: {str(e)}',
-                parse_mode=None
+                parse_mode=None,
+                reply_markup=None
             )
             return
         
@@ -157,11 +170,12 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
             logger.log('error', f'Failed to delete old key from DB: {e}')
         
         # Отправляем уведомление администратору
+        new_display = get_server_display_name(new_server)
         result_message = (
             f'✅ <b>Ключ успешно заменен!</b>\n\n'
             f'<b>Пользователь:</b> {user_id}\n'
-            f'<b>Старый сервер:</b> {old_server}\n'
-            f'<b>Новый сервер:</b> {new_server}\n\n'
+            f'<b>Старый сервер:</b> {old_display}\n'
+            f'<b>Новый сервер:</b> {new_display}\n\n'
             f'<b>Новый ключ:</b>\n'
             f'<code>{new_access_url}</code>\n\n'
             f'<b>Срок действия:</b> {expiry_date.strftime("%d.%m.%Y %H:%M")}'
@@ -169,7 +183,8 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
         
         await callback.message.edit_text(
             text=result_message,
-            parse_mode='HTML'
+            parse_mode='HTML',
+            reply_markup=None
         )
         
         # Отправляем уведомление пользователю
@@ -177,7 +192,7 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
             from core.bot import bot
             user_message = (
                 f'🔄 <b>Ваш ключ был заменен!</b>\n\n'
-                f'<b>Новый сервер:</b> {new_server}\n'
+                f'<b>Новый сервер:</b> {new_display}\n'
                 f'<b>Новый ключ доступа:</b>\n'
                 f'<code>{new_access_url}</code>\n\n'
                 f'Скопируйте новый ключ и добавьте его в приложение Outline.\n'
