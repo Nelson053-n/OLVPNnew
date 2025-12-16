@@ -2,6 +2,7 @@
 Обработчик замены ключа пользователя
 """
 import traceback
+import uuid
 from datetime import datetime, timedelta
 from aiogram.types import CallbackQuery
 from aiogram import Router
@@ -81,7 +82,9 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
         # Создаем новый ключ на новом сервере
         try:
             olm_new = OutlineManager(new_server)
-            new_key = olm_new.create_key_from_ol(id_user=str(user_id))
+            # Используем уникальное имя вместо key_id (чтобы избежать PUT запроса)
+            unique_name = f"{user_id}-replaced-{uuid.uuid4().hex[:8]}"
+            new_key = olm_new._client.create_key(name=unique_name)
             
             if not new_key:
                 raise Exception("Failed to create new key")
