@@ -1,0 +1,233 @@
+"""
+Обработчик команды /editprice - редактирование цен на подписки
+"""
+import json
+import os
+import traceback
+from aiogram import Router
+from aiogram.filters import Command
+from aiogram.types import Message, CallbackQuery
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+from core.settings import admin_tlg
+from logs.log_main import RotatingFileLogger
+
+logger = RotatingFileLogger()
+router = Router()
+
+PRICES_FILE = 'core/settings_prices.json'
+
+
+class EditPriceStates(StatesGroup):
+    waiting_for_new_price = State()
+
+
+def load_prices() -> dict:
+    """Загрузить цены из JSON файла"""
+    try:
+        with open(PRICES_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        # Значения по умолчанию
+        default_prices = {
+            "day": {"amount": 7, "days": 1, "word_days": "день"},
+            "week": {"amount": 40, "days": 7, "word_days": "дней"},
+            "month": {"amount": 150, "days": 30, "word_days": "дней"}
+        }
+        save_prices(default_prices)
+        return default_prices
+
+
+def save_prices(prices: dict) -> None:
+    """Сохранить цены в JSON файл"""
+    with open(PRICES_FILE, 'w', encoding='utf-8') as f:
+        json.dump(prices, f, ensure_ascii=False, indent=2)
+
+
+@router.message(Command('editprice'))
+async def editprice_handler(message: Message, state: FSMContext) -> None:
+    """
+    Команда редактирования цен на подписки (только для администратора)
+    Показывает текущие цены и кнопки для редактирования
+    """
+    try:
+        # Проверка прав администратора
+        if not admin_tlg or str(message.from_user.id) != str(admin_tlg):
+            await message.answer('❌ Эта команда доступна только администратору', parse_mode=None)
+            return
+
+        # Загружаем текущие цены
+        prices = load_prices()
+        
+        # Создаем клавиатуру с кнопками для редактирования
+        builder = InlineKeyboardBuilder()
+        
+        # Кнопка для дня
+        day_price = prices.get('day', {}).get('amount', 7)
+        builder.button(text=f'📅 День - {day_price}₽', callback_data='edprc_day')
+        
+        # Кнопка для недели
+        week_price = prices.get('week', {}).get('amount', 40)
+        builder.button(text=f'📆 Неделя - {week_price}₽', callback_data='edprc_week')
+        
+        # Кнопка для месяца
+        month_price = prices.get('month', {}).get('amount', 150)
+        builder.button(text=f'📅 Месяц - {month_price}₽', callback_data='edprc_month')
+        
+        builder.adjust(1)  # Каждая кнопка на отдельной строке
+        
+        await message.answer(
+            text=(
+                '💰 <b>Редактирование цен</b>\n\n'
+                f'<b>День (1 день):</b> {day_price}₽\n'
+                f'<b>Неделя (7 дней):</b> {week_price}₽\n'
+                f'<b>Месяц (30 дней):</b> {month_price}₽\n\n'
+                'Выберите период для изменения цены:'
+            ),
+            reply_markup=builder.as_markup(),
+            parse_mode='HTML'
+        )
+
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.log('error', f'editprice_handler error: {e}\n{tb}')
+        await message.answer('❌ Ошибка при загрузке цен', parse_mode=None)
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith('edprc_'))
+async def select_period_to_edit(callback: CallbackQuery, state: FSMContext) -> None:
+    """
+    Обработчик выбора периода для редактирования
+    Запрашивает новую цену
+    """
+    try:
+        await callback.answer()
+        
+        # Извлекаем период (day, week, month)
+        period = callback.data.replace('edprc_', '')
+        
+        # Загружаем текущие цены
+        prices = load_prices()
+        current_price = prices.get(period, {}).get('amount', 0)
+        
+        # Определяем название периода на русском
+        period_names = {
+            'day': 'День (1 день)',
+            'week': 'Неделя (7 дней)',
+            'month': 'Месяц (30 дней)'
+        }
+        period_name = period_names.get(period, period)
+        
+        # Сохраняем период в состоянии
+        await state.update_data(edit_period=period)
+        await state.set_state(EditPriceStates.waiting_for_new_price)
+        
+        await callback.message.edit_text(
+            text=(
+                f'💰 <b>Изменение цены: {period_name}</b>\n\n'
+                f'Текущая цена: <b>{current_price}₽</b>\n\n'
+                'Введите новую цену в рублях (только число):\n'
+                'Например: 50\n\n'
+                'Или отправьте /cancel для отмены'
+            ),
+            parse_mode='HTML'
+        )
+        
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.log('error', f'select_period_to_edit error: {e}\n{tb}')
+        await callback.message.edit_text('❌ Ошибка при обработке запроса', parse_mode=None)
+
+
+@router.message(EditPriceStates.waiting_for_new_price)
+async def process_new_price(message: Message, state: FSMContext) -> None:
+    """
+    Обработка ввода новой цены
+    """
+    try:
+        if message.text == '/cancel':
+            await state.clear()
+            await message.answer('❌ Изменение цены отменено', parse_mode=None)
+            return
+        
+        # Проверяем, что введено число
+        try:
+            new_price = int(message.text.strip())
+            if new_price <= 0:
+                await message.answer(
+                    '❌ Цена должна быть положительным числом. Попробуйте снова:',
+                    parse_mode=None
+                )
+                return
+        except ValueError:
+            await message.answer(
+                '❌ Неверный формат. Введите только число, например: 50',
+                parse_mode=None
+            )
+            return
+        
+        # Получаем сохраненный период
+        data = await state.get_data()
+        period = data.get('edit_period')
+        
+        if not period:
+            await message.answer('❌ Ошибка: период не выбран', parse_mode=None)
+            await state.clear()
+            return
+        
+        # Загружаем текущие цены
+        prices = load_prices()
+        
+        # Сохраняем старую цену для логирования
+        old_price = prices.get(period, {}).get('amount', 0)
+        
+        # Обновляем цену
+        if period in prices:
+            prices[period]['amount'] = new_price
+        else:
+            # На случай если структура изменилась
+            days_map = {'day': 1, 'week': 7, 'month': 30}
+            word_map = {'day': 'день', 'week': 'дней', 'month': 'дней'}
+            prices[period] = {
+                'amount': new_price,
+                'days': days_map.get(period, 1),
+                'word_days': word_map.get(period, 'дней')
+            }
+        
+        # Сохраняем в файл
+        save_prices(prices)
+        
+        # Определяем название периода
+        period_names = {
+            'day': 'День',
+            'week': 'Неделя',
+            'month': 'Месяц'
+        }
+        period_name = period_names.get(period, period)
+        
+        # Очищаем состояние
+        await state.clear()
+        
+        # Логируем изменение
+        logger.log('info', f'Price changed by admin {message.from_user.id}: {period} {old_price}₽ -> {new_price}₽')
+        
+        # Выводим все текущие цены
+        all_prices_text = (
+            f'✅ <b>Цена успешно изменена!</b>\n\n'
+            f'<b>{period_name}:</b> {old_price}₽ → {new_price}₽\n\n'
+            f'📊 <b>Текущие цены:</b>\n'
+            f'• День (1 день): {prices["day"]["amount"]}₽\n'
+            f'• Неделя (7 дней): {prices["week"]["amount"]}₽\n'
+            f'• Месяц (30 дней): {prices["month"]["amount"]}₽\n\n'
+            f'⚠️ Изменения вступают в силу немедленно для новых подписок.'
+        )
+        
+        await message.answer(text=all_prices_text, parse_mode='HTML')
+        
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.log('error', f'process_new_price error: {e}\n{tb}')
+        await message.answer('❌ Ошибка при сохранении цены', parse_mode=None)
+        await state.clear()
