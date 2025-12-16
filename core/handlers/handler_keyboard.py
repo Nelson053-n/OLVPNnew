@@ -4,6 +4,7 @@ import traceback
 
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from core.handlers.handlers_keyboards.after_pay_handler import pay_check_key
 from core.handlers.handlers_keyboards.back_key_handler import back_key
@@ -81,7 +82,7 @@ async def switch_menu(case_number: str, call: CallbackQuery, state: FSMContext) 
     except Exception as e:
         tb = traceback.format_exc()
         logger.log('error', f'switch_menu error for user {call.from_user.id}, case={case_number}: {e}\n{tb}')
-        return ("❌ Ошибка при обработке команды", InlineKeyboardMarkup())
+        return ("Ошибка при обработке команды", InlineKeyboardBuilder().as_markup())
 
 
 def create_region_handler_from_json() -> list:
