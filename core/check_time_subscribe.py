@@ -51,19 +51,55 @@ async def finish_set_date_and_premium() -> None:
 
     :return: None
     """
-    from core.sql.function_db_user_vpn.users_vpn import (get_all_records_from_table_users, set_premium_status,
-                                                         set_date_to_table_users, set_key_to_table_users)
+    from core.sql.function_db_user_vpn.users_vpn import (
+        get_all_records_from_table_users,
+        set_premium_status,
+        set_date_to_table_users,
+        set_key_to_table_users,
+        get_all_user_keys,
+        get_user_keys,
+        delete_user_key_record,
+    )
     from core.bot import bot
+    # Сначала обрабатываем истекшие ключи на уровне UserKey
+    all_keys = await get_all_user_keys()
+    for uk in all_keys:
+        if check_time_subscribe(uk.date):
+            # удалить конкретный ключ на Outline и из БД
+            try:
+                olm = OutlineManager(region_server=uk.region_server or 'nederland')
+                try:
+                    olm.delete_key_by_id(uk.outline_id)
+                except Exception:
+                    pass
+            finally:
+                await delete_user_key_record(uk.id)
+            # если после удаления у пользователя не осталось ключей — сбросить статусы и уведомить
+            remaining = await get_user_keys(account=uk.account)
+            if not remaining:
+                await set_key_to_table_users(account=uk.account, value_key=None)
+                await set_premium_status(account=uk.account, value_premium=False)
+                await set_date_to_table_users(account=uk.account, value_date=None)
+                await send_notification_to_user(bot=bot, id_user=uk.account)
+
+    # Совместимость: если где-то ещё сохраняется Users.date — обработаем и это
     all_records = await get_all_records_from_table_users()
     all_finish_records = await get_and_check_records(all_records)
     if all_finish_records:
         for record in all_finish_records:
+            # если у пользователя ещё есть действующие ключи, пропускаем сброс флагов Users
+            remaining = await get_user_keys(account=record.account)
+            if remaining:
+                continue
             if await get_premium_status(account=record.account):
                 await set_key_to_table_users(account=record.account, value_key=None)
                 await set_premium_status(account=record.account, value_premium=False)
                 await set_date_to_table_users(account=record.account, value_date=None)
                 olm = OutlineManager(region_server=record.region_server)
-                olm.delete_key_from_ol(id_user=str(record.account))
+                try:
+                    olm.delete_key_from_ol(id_user=str(record.account))
+                except Exception:
+                    pass
                 await send_notification_to_user(bot=bot, id_user=record.account)
 
 

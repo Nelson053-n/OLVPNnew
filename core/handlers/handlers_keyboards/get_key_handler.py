@@ -2,8 +2,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup
 
 from core.keyboards.choise_region_button import choise_region_keyboard
-from core.keyboards.my_key_button import my_key_keyboard
-from core.sql.function_db_user_vpn.users_vpn import get_user_data_from_table_users, get_region_server
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import InlineKeyboardButton
+from core.sql.function_db_user_vpn.users_vpn import get_user_data_from_table_users, get_region_server, get_user_keys
 from core.utils.build_pay import build_pay
 from core.utils.create_view import create_answer_from_html
 from core.utils.get_region_name import get_region_name_from_json
@@ -85,17 +86,31 @@ async def my_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboard
     :return: Текст ответа и клавиатура.
     """
     id_user = call.from_user.id
-    user_data = await get_user_data_from_table_users(account=id_user)
     name_temp = call.data
-    if user_data:
-        untill_date = user_data.date
-        if untill_date:
-            untill_date = untill_date.strftime('%d.%m.%Y - %H:%M')
-            if untill_date != '01.01.2000 - 00:00':
-                region = await get_region_server(account=id_user)
-                region_name = await get_region_name_from_json(region=region)
-                content = await create_answer_from_html(name_temp=name_temp, user_key=user_data.key,
-                                                        untill_date=untill_date, region_name=region_name)
-                return content, my_key_keyboard()
-    content = f'У вас нет ключа, но вы можете его купить\nВыберите регион'
+    # Получаем все ключи пользователя (поддержка нескольких ключей)
+    keys = await get_user_keys(account=id_user)
+    if keys:
+        # Собираем HTML-ответ со списком ключей
+        lines = ["<b>🔑 Ваши ключи:</b>"]
+        kb = InlineKeyboardBuilder()
+        for k in keys:
+            # region name via json
+            region_name = await get_region_name_from_json(region=k.region_server or 'nederland')
+            date_str = k.date.strftime('%d.%m.%Y - %H:%M') if k.date else '—'
+            # Строка по каждому ключу
+            lines.append(f"\n<b>🌍 Регион:</b> {region_name}")
+            lines.append(f"<b>⏳ Действителен до:</b> {date_str}")
+            lines.append(f"<a href=\"{k.access_url}\"><code>{k.access_url}</code></a>")
+            # Кнопки по каждому ключу: копировать / удалить
+            kb.row(
+                InlineKeyboardButton(text='📋 Копировать', callback_data=f'copy_userkey_{k.id}'),
+                InlineKeyboardButton(text='🗑️ Удалить', callback_data=f'ask_del_userkey_{k.id}')
+            )
+        # Добавляем кнопку назад
+        kb.row(InlineKeyboardButton(text='🔙 Назад', callback_data='back'))
+        content = "\n".join(lines)
+        return content, kb.as_markup()
+
+    # Fallback для пользователей без ключей — предлагаем выбрать регион и купить
+    content = 'У вас нет ключа, но вы можете его купить\nВыберите регион'
     return content, choise_region_keyboard()

@@ -10,6 +10,8 @@ from core.handlers.message_to_admin import send_admin_message
 from core.handlers.give_promo import command_promo
 from core.handlers.key_info import command_keyinfo
 from core.handlers.active_keys import command_active_keys
+from core.handlers.admin_block_reason import command_block_reason
+from core.handlers.mass_block import command_mass_block
 from core.settings import api_key_tlg
 from core.api_s.outline.outline_api import OutlineManager
 from core.handlers.handler_keyboard import build_and_edit_message
@@ -32,6 +34,8 @@ async def start_bot():
     dp.message.register(command_promo, Command('promo'))
     dp.message.register(command_keyinfo, Command('keyinfo'))
     dp.message.register(command_active_keys, Command('activekeys'))
+    dp.message.register(command_block_reason)
+    dp.message.register(command_mass_block, Command('massblock'))
     dp.callback_query.register(build_and_edit_message)
 
     try:

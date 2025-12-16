@@ -2,8 +2,14 @@ from aiogram.types import CallbackQuery
 from datetime import datetime, timedelta
 
 from core.api_s.outline.outline_api import OutlineManager
-from core.sql.function_db_user_vpn.users_vpn import set_key_to_table_users, set_premium_status, set_date_to_table_users, \
-    set_region_server
+from core.sql.function_db_user_vpn.users_vpn import (
+    set_key_to_table_users,
+    set_premium_status,
+    set_date_to_table_users,
+    set_region_server,
+    add_user_key,
+)
+import uuid
 
 
 def get_future_date(add_day: int) -> str:
@@ -33,13 +39,23 @@ async def get_ol_key_func(call: CallbackQuery, untill_date: str, region_server: 
     """
     olm = OutlineManager(region_server)
     id_user = call.from_user.id
-    key_user = olm.get_key_from_ol(id_user=str(id_user))
-    if key_user is None:
-        key_user = olm.create_key_from_ol(id_user=str(id_user))
+    # Всегда создаём новый ключ (поддержка множественных ключей) с уникальным outline_id
+    outline_id = f"{id_user}-{uuid.uuid4().hex[:8]}"
+    key_user = olm.create_key_from_ol(id_user=str(outline_id))
     premium_user_db = await set_premium_status(account=id_user, value_premium=True)
     date_user_db = await set_date_to_table_users(account=id_user, value_date=untill_date)
     region_server_to_db = await set_region_server(account=id_user, value_region=region_server)
     if all((premium_user_db, date_user_db, region_server_to_db)):
+        # Добавляем запись в новую таблицу множественных ключей
+        await add_user_key(
+            account=id_user,
+            access_url=key_user.access_url,
+            outline_id=str(outline_id),
+            region_server=region_server,
+            date_str=untill_date,
+            promo=False,
+        )
+        # Для обратной совместимости — сохраняем последний ключ в users_vpn.key
         await set_key_to_table_users(account=id_user, value_key=key_user.access_url)
         return key_user
     return False

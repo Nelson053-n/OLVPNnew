@@ -13,3 +13,17 @@ def accept_del_keyboard() -> InlineKeyboardMarkup:
     keyboard_builder.button(text='❌ Отмена', callback_data='my_key')
     keyboard_builder.adjust(2)
     return keyboard_builder.as_markup()
+
+
+def accept_del_userkey_keyboard(key_id: str) -> InlineKeyboardMarkup:
+    """
+    Клавиатура подтверждения удаления конкретного ключа пользователя (по key_id записи в БД)
+
+    :param key_id: str - Идентификатор записи UserKey
+    :return: InlineKeyboardMarkup
+    """
+    keyboard_builder = InlineKeyboardBuilder()
+    keyboard_builder.button(text='✅ Подтверждаю', callback_data=f'del_userkey_{key_id}')
+    keyboard_builder.button(text='❌ Отмена', callback_data='my_key')
+    keyboard_builder.adjust(2)
+    return keyboard_builder.as_markup()
