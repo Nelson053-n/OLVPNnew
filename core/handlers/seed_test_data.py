@@ -89,9 +89,12 @@ async def command_seed(message: Message) -> None:
             ),
             parse_mode=None,
         )
-    except Exception:
+    except Exception as e:
         tb = traceback.format_exc()
+        from logs.log_main import RotatingFileLogger
+        logger = RotatingFileLogger()
+        logger.log('error', f'command_seed error: {e}\n{tb}')
         try:
-            await message.answer(f'Ошибка при создании тестовых данных:\n{tb}', parse_mode=None)
+            await message.answer(f'Ошибка при создании тестовых данных:\n{str(e)}', parse_mode=None)
         except Exception:
             pass

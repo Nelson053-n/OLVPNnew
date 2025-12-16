@@ -101,10 +101,11 @@ async def my_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboard
             lines.append(f"\n<b>🌍 Регион:</b> {region_name}")
             lines.append(f"<b>⏳ Действителен до:</b> {date_str}")
             lines.append(f"<a href=\"{k.access_url}\"><code>{k.access_url}</code></a>")
-            # Кнопки по каждому ключу: копировать / удалить
+            # Кнопки по каждому ключу: копировать / удалить (используем короткие ID)
+            short_id = str(k.id)[-8:]  # Последние 8 символов UUID
             kb.row(
-                InlineKeyboardButton(text='📋 Копировать', callback_data=f'copy_userkey_{k.id}'),
-                InlineKeyboardButton(text='🗑️ Удалить', callback_data=f'ask_del_userkey_{k.id}')
+                InlineKeyboardButton(text='📋 Копировать', callback_data=f'cpy_k_{short_id}'),
+                InlineKeyboardButton(text='🗑️ Удалить', callback_data=f'ask_del_{short_id}')
             )
         # Добавляем кнопку назад
         kb.row(InlineKeyboardButton(text='🔙 Назад', callback_data='back'))

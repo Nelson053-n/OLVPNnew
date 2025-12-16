@@ -79,9 +79,12 @@ async def command_unseed(message: Message) -> None:
             await _reset_user_if_no_keys(uid)
 
         await message.answer(f'✅ Удалено seed-ключей: {count}. Пользователи обновлены: {len(affected_users)}', parse_mode=None)
-    except Exception:
+    except Exception as e:
         tb = traceback.format_exc()
+        from logs.log_main import RotatingFileLogger
+        logger = RotatingFileLogger()
+        logger.log('error', f'command_unseed error: {e}\n{tb}')
         try:
-            await message.answer(f'Ошибка при удалении seed-данных:\n{tb}', parse_mode=None)
+            await message.answer(f'Ошибка при удалении seed-данных:\n{str(e)}', parse_mode=None)
         except Exception:
             pass
