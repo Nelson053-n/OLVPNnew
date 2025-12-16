@@ -12,7 +12,10 @@ from core.sql.function_db_user_vpn.users_vpn import (
     get_user_keys, 
     get_all_user_keys,
     delete_user_key_record,
-    add_user_key
+    add_user_key,
+    get_user_data_from_table_users,
+    set_premium_status,
+    set_date_to_table_users
 )
 from core.settings import admin_tlg
 from logs.log_main import RotatingFileLogger
@@ -58,6 +61,15 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
         old_outline_id = target_key.outline_id
         old_key_url = target_key.access_url
         
+        # Проверяем существование пользователя в БД
+        user_data = await get_user_data_from_table_users(account=user_id)
+        if not user_data:
+            await callback.message.edit_text(
+                f'❌ Пользователь {user_id} не найден в базе данных',
+                parse_mode=None
+            )
+            return
+        
         await callback.message.edit_text(
             f'⏳ Замена ключа для пользователя {user_id}...\n'
             f'Старый сервер: {old_server}',
@@ -102,9 +114,11 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
             else:
                 expiry_date = datetime.now() + timedelta(days=30)
             
+            # ИСПРАВЛЕНО: Форматируем дату в нужный формат для add_user_key
+            date_str = expiry_date.strftime('%d.%m.%Y - %H:%M')
+            
             # Сохраняем новый ключ в БД
-            date_str = expiry_date.isoformat()
-            await add_user_key(
+            success = await add_user_key(
                 account=user_id,
                 outline_id=new_outline_id,
                 access_url=new_access_url,
@@ -113,7 +127,14 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
                 promo=False
             )
             
+            if not success:
+                raise Exception("Failed to save key to database")
+            
             logger.log('info', f'Created new key for user {user_id} on server {new_server}, outline_id={new_outline_id}')
+            
+            # Обновляем статус premium и дату в основной таблице Users
+            await set_premium_status(account=user_id, value_premium=True)
+            await set_date_to_table_users(account=user_id, value_date=expiry_date)
             
         except Exception as e:
             logger.log('error', f'Failed to create new key: {e}')
