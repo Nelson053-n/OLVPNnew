@@ -143,7 +143,7 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
             
             # Обновляем статус premium и дату в основной таблице Users
             await set_premium_status(account=user_id, value_premium=True)
-            await set_date_to_table_users(account=user_id, value_date=expiry_date)
+            await set_date_to_table_users(account=user_id, value_date=date_str)
             
         except Exception as e:
             logger.log('error', f'Failed to create new key: {e}')
