@@ -13,5 +13,9 @@
     "amount": 150,
     "days": 30,
     "word_days": "дней"
+  },
+  "promo": {
+    "days": 7,
+    "word_days": "дней"
   }
 }
