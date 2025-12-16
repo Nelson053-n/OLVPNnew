@@ -187,8 +187,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                     await call.message.edit_text(text=content, reply_markup=start_keyboard(), parse_mode=None)
             except Exception:
                 tb = traceback.format_exc()
-                logger.log('error', f'del_k
-                logger.log('error', f'del_userkey error for user {call.from_user.id}, data={call.data}: {tb}')
+                logger.log('error', f'del_k error for user {call.from_user.id}, data={call.data}: {tb}')
                 try:
                     await call.message.answer(text='Ошибка при удалении ключа.', parse_mode=None)
                 except Exception:
