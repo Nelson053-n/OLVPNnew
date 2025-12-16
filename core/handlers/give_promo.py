@@ -148,11 +148,13 @@ async def give_promo_to_user(callback: CallbackQuery, target_user_id: int) -> No
         # Expiry date (промо период из настроек)
         expiry_date = datetime.now() + timedelta(days=promo_days)
 
-        # Create key on Outline server with unique outline_id
-        outline_id = f"{target_user_id}-promo-{uuid.uuid4().hex[:8]}"
+        # Create key on Outline server (without key_id, let server generate it)
+        # Use unique name for identification
+        unique_name = f"{target_user_id}-promo-{uuid.uuid4().hex[:8]}"
         olm = OutlineManager(region_server=region)
         try:
-            key_data = olm.create_key_from_ol(id_user=outline_id)
+            # Create key without key_id parameter - only with name
+            key_data = olm._client.create_key(name=unique_name)
         except Exception as e:
             logger.log('error', f'Promo create_key error for {target_user_id}: {e}')
             await callback.answer(f'❌ Ошибка создания промо-ключа на сервере: {e}', show_alert=True)
