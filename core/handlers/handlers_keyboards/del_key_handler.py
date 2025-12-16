@@ -54,8 +54,9 @@ async def del_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboar
     date_user_db = await set_date_to_table_users(account=id_user, value_date=None)
     key_user = olm.delete_key_from_ol(id_user=str(id_user))
     name_temp = call.data
-    if all((key_user_db, premium_user_db,  region_server_to_db, date_user_db, key_user)):
-        logger_payments.log('info', f'{id_user} удалил свой ключ')
+    # Consider deletion successful if DB was cleared even if the key was already absent on the server
+    if all((key_user_db, premium_user_db,  region_server_to_db, date_user_db)):
+        logger_payments.log('info', f'{id_user} удалил свой ключ (server_delete={key_user})')
         result = 'удален.'
     else:
         result = 'не удален.\nВозможно произошла ошибка, либо ключа у вас не существует.'

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 import uuid
 
 from core.api_s.outline.outline_api import OutlineManager
-from core.sql.base import Base, Users
+from core.sql.base import Base, Users, UserKey
 
 DATABASE_URL = 'sqlite:///olvpnbot.db'
 engine = create_engine(DATABASE_URL, echo=True)
@@ -218,4 +218,95 @@ async def get_region_server(account: int) -> str:
             return user_record.region_server
         except NoResultFound:
             return None
+
+
+# --- Multiple keys support ---
+
+async def add_user_key(account: int, access_url: str, outline_id: str, region_server: str, date_str: str, promo: bool) -> bool:
+    with Session(engine) as session:
+        try:
+            record_id = f"{account}_key_{uuid.uuid4()}"
+            date = datetime.strptime(date_str, '%d.%m.%Y - %H:%M') if date_str else None
+            new_key = UserKey(
+                id=record_id,
+                account=account,
+                access_url=access_url,
+                outline_id=outline_id,
+                region_server=region_server,
+                premium=True,
+                date=date,
+                promo=promo,
+            )
+            session.add(new_key)
+            session.commit()
+            return True
+        except Exception:
+            return False
+
+
+async def get_user_keys(account: int) -> list[UserKey]:
+    session = Session(engine)
+    try:
+        return session.query(UserKey).filter_by(account=account).all()
+    finally:
+        session.close()
+
+
+async def get_all_user_keys() -> list[UserKey]:
+    session = Session(engine)
+    try:
+        return session.query(UserKey).all()
+    finally:
+        session.close()
+
+
+async def get_user_key_by_id(key_id: str) -> UserKey | None:
+    session = Session(engine)
+    try:
+        return session.query(UserKey).filter_by(id=key_id).one()
+    except NoResultFound:
+        return None
+    finally:
+        session.close()
+
+
+async def delete_user_key_record(key_id: str) -> bool:
+    with Session(engine) as session:
+        try:
+            k: UserKey = session.query(UserKey).filter_by(id=key_id).one()
+            session.delete(k)
+            session.commit()
+            return True
+        except NoResultFound:
+            return False
+
+
+
+async def add_block_record(account: int, admin_id: int, reason: str, key: str) -> bool:
+    """
+    Добавляет запись о блокировке ключа в таблицу block_history
+
+    :param account: int - id пользователя
+    :param admin_id: int - id администратора
+    :param reason: str - причина блокировки
+    :param key: str - сам ключ или access_url
+    :return: bool
+    """
+    with Session(engine) as session:
+        try:
+            record_id = f"{account}_block_{uuid.uuid4()}"
+            from core.sql.base import BlockHistory
+
+            new_record = BlockHistory(
+                id=record_id,
+                account=account,
+                admin_id=admin_id,
+                reason=reason,
+                key=key,
+            )
+            session.add(new_record)
+            session.commit()
+            return True
+        except Exception:
+            return False
 

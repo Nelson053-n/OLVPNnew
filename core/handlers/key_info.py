@@ -4,7 +4,7 @@ import traceback
 
 from core.settings import admin_tlg
 from core.api_s.outline.outline_api import OutlineManager, get_name_all_active_server_ol
-from core.sql.function_db_user_vpn.users_vpn import get_all_records_from_table_users
+from core.sql.function_db_user_vpn.users_vpn import get_all_records_from_table_users, get_user_keys
 from core.utils.create_view import create_answer_from_html
 from logs.log_main import RotatingFileLogger
 
@@ -35,41 +35,38 @@ async def get_key_info_response(user_id: int) -> tuple:
         if not user_record:
             return (f"Пользователь с ID {user_id} не найден в БД", InlineKeyboardBuilder().as_markup())
 
-        if not user_record.key:
-            return (f"У пользователя {user_id} нет активного ключа", InlineKeyboardBuilder().as_markup())
+        # Получаем ключи пользователя (возможны несколько)
+        user_keys = await get_user_keys(account=user_id)
+        if not user_keys:
+            return (f"У пользователя {user_id} нет активных ключей", InlineKeyboardBuilder().as_markup())
 
-        # Получаем информацию о ключе из Outline
-        region_server = user_record.region_server or "nederland"
-        try:
-            olm = OutlineManager(region_server=region_server)
-            outline_key = olm.get_key_from_ol(id_user=str(user_id))
-            
-            if not outline_key:
-                return (f"Ключ пользователя {user_id} не найден на сервере {region_server}", InlineKeyboardBuilder().as_markup())
-
-            # Форматируем информацию о трафике
-            used_bytes = outline_key.used_bytes or 0  # Защита от None
-            used_gb = used_bytes / (1024**3)  # Конвертируем в ГБ
-            telegram_name = user_record.account_name
-            
-            # Создаём ответ
-            response_text = (
-                f"Информация о ключе\n\n"
-                f"Пользователь: {telegram_name} (ID: {user_id})\n"
-                f"Регион: {region_server}\n"
-                f"Трафик использован: {used_gb:.2f} ГБ\n"
-                f"Статус: {'Активен' if user_record.premium else 'Неактивен'}"
-            )
-            
-            # Создаём клавиатуру с кнопкой блокировки
-            keyboard = create_key_info_keyboard(user_id)
-            
-            return (response_text, keyboard)
-
-        except Exception as e:
-            tb = traceback.format_exc()
-            logger.log('error', f'get_key_info_response outline error: {e}\n{tb}')
-            return (f"Ошибка при получении информации о ключе: {str(e)}", InlineKeyboardBuilder().as_markup())
+        # Собираем информацию по каждому ключу
+        parts = [f"📊 Информация о ключах\n\nПользователь: {user_record.account_name} (ID: {user_id})"]
+        keyboard = InlineKeyboardBuilder()
+        for uk in user_keys:
+            try:
+                olm = OutlineManager(region_server=uk.region_server or 'nederland')
+                outline_key = olm.get_key_by_id(uk.outline_id)
+                used_bytes = getattr(outline_key, 'used_bytes', 0) or 0
+                used_gb = used_bytes / (1024**3)
+                parts.append(
+                    f"\n— Регион: {uk.region_server}\n"
+                    f"  Трафик использован: {used_gb:.2f} ГБ\n"
+                    f"  Статус: {'Активен' if uk.premium else 'Неактивен'}\n"
+                    f"  Истекает: {uk.date.strftime('%d.%m.%Y - %H:%M') if uk.date else '—'}\n"
+                    f"  URL: {uk.access_url}"
+                )
+            except Exception:
+                parts.append(
+                    f"\n— Регион: {uk.region_server} (ключ не найден на сервере)\n"
+                    f"  URL: {uk.access_url}"
+                )
+            # Добавляем кнопку блокировки для конкретного ключа
+            keyboard.button(text=f"🔒 Заблокировать ключ", callback_data=f"confirm_block_keyid_{uk.id}")
+        # Кнопка для блокировки всех ключей пользователя
+        keyboard.button(text='🔒 Заблокировать все ключи', callback_data=f'confirm_block_key_{user_id}')
+        keyboard.adjust(1)
+        return ("\n".join(parts), keyboard.as_markup())
     except Exception as e:
         tb = traceback.format_exc()
         logger.log('error', f'get_key_info_response error: {e}\n{tb}')
@@ -124,6 +121,6 @@ def create_key_info_keyboard(user_id: int) -> InlineKeyboardMarkup:
     keyboard_builder = InlineKeyboardBuilder()
     keyboard_builder.button(
         text='🔒 Заблокировать ключ',
-        callback_data=f'admin_block_key_{user_id}'
+        callback_data=f'confirm_block_key_{user_id}'
     )
     return keyboard_builder.as_markup()
