@@ -40,6 +40,7 @@ from core.handlers.test_key_broadcast import (
     process_testkey_server_choice,
     TestKeyStates
 )
+from core.handlers.replace_key import replace_key_handler
 from core.settings import api_key_tlg, admin_tlg
 from core.api_s.outline.outline_api import OutlineManager
 from core.handlers.handler_keyboard import build_and_edit_message
@@ -146,6 +147,12 @@ async def start_bot():
     dp.callback_query.register(
         cancel_delete,
         lambda c: c.data == 'cancel_delete'
+    )
+    
+    # 4a. Callback для замены ключа
+    dp.callback_query.register(
+        replace_key_handler,
+        lambda c: c.data.startswith('rpl_key_')
     )
     
     # 5. Обработчик блокировки с причиной (БЕЗ фильтра, регистрируется ПОСЛЕДНИМ)
