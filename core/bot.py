@@ -12,6 +12,8 @@ from core.handlers.key_info import command_keyinfo
 from core.handlers.active_keys import command_active_keys
 from core.handlers.admin_block_reason import command_block_reason
 from core.handlers.mass_block import command_mass_block
+from core.handlers.seed_test_data import command_seed
+from core.handlers.unseed_test_data import command_unseed
 from core.settings import api_key_tlg
 from core.api_s.outline.outline_api import OutlineManager
 from core.handlers.handler_keyboard import build_and_edit_message
@@ -36,6 +38,8 @@ async def start_bot():
     dp.message.register(command_active_keys, Command('activekeys'))
     dp.message.register(command_block_reason)
     dp.message.register(command_mass_block, Command('massblock'))
+    dp.message.register(command_seed, Command('seed'))
+    dp.message.register(command_unseed, Command('unseed'))
     dp.callback_query.register(build_and_edit_message)
 
     try:
