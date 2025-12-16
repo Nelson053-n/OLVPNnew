@@ -98,7 +98,8 @@ async def get_key_info_response(user_id: int) -> tuple:
                     f"  URL: {uk.access_url}\n"
                 )
             # Добавляем кнопки для каждого ключа
-            short_id = str(uk.id)[-8:]  # Последние 8 символов UUID
+            # uk.id формата "{account}_key_{uuid}", берем последние 8 символов полного ID
+            short_id = str(uk.id)[-8:]
             keyboard.button(text=f"🔁 Заменить ключ {idx}", callback_data=f"rpl_key_{short_id}")
             keyboard.button(text=f"🔒 Заблокировать {idx}", callback_data=f"cfm_blk_{short_id}")
         keyboard.adjust(2)  # 2 кнопки в ряд для каждого ключа
