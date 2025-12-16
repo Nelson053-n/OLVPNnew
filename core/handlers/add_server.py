@@ -10,38 +10,39 @@ from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
 
-# Словарь флагов стран (Unicode escape последовательности)
+# Словарь флагов стран (настоящие emoji символы)
 COUNTRY_FLAGS = {
-    'nederland': '\uD83C\uDDF3\uD83C\uDDF1',
-    'netherlands': '\uD83C\uDDF3\uD83C\uDDF1',
-    'germany': '\uD83C\uDDE9\uD83C\uDDEA',
-    'france': '\uD83C\uDDEB\uD83C\uDDF7',
-    'spain': '\uD83C\uDDEA\uD83C\uDDF8',
-    'italy': '\uD83C\uDDEE\uD83C\uDDF9',
-    'poland': '\uD83C\uDDF5\uD83C\uDDF1',
-    'uk': '\uD83C\uDDEC\uD83C\uDDE7',
-    'usa': '\uD83C\uDDFA\uD83C\uDDF8',
-    'canada': '\uD83C\uDDE8\uD83C\uDDE6',
-    'japan': '\uD83C\uDDEF\uD83C\uDDF5',
-    'singapore': '\uD83C\uDDF8\uD83C\uDDEC',
-    'australia': '\uD83C\uDDE6\uD83C\uDDFA',
-    'brazil': '\uD83C\uDDE7\uD83C\uDDF7',
-    'india': '\uD83C\uDDEE\uD83C\uDDF3',
-    'turkey': '\uD83C\uDDF9\uD83C\uDDF7',
-    'uae': '\uD83C\uDDE6\uD83C\uDDEA',
-    'sweden': '\uD83C\uDDF8\uD83C\uDDEA',
-    'norway': '\uD83C\uDDF3\uD83C\uDDF4',
-    'finland': '\uD83C\uDDEB\uD83C\uDDEE',
-    'switzerland': '\uD83C\uDDE8\uD83C\uDDED',
-    'austria': '\uD83C\uDDE6\uD83C\uDDF9',
-    'belgium': '\uD83C\uDDE7\uD83C\uDDEA',
-    'czech': '\uD83C\uDDE8\uD83C\uDDFF',
-    'denmark': '\uD83C\uDDE9\uD83C\uDDF0',
-    'ireland': '\uD83C\uDDEE\uD83C\uDDEA',
-    'portugal': '\uD83C\uDDF5\uD83C\uDDF9',
-    'romania': '\uD83C\uDDF7\uD83C\uDDF4',
-    'ukraine': '\uD83C\uDDFA\uD83C\uDDE6',
-    'kazakhstan': '\uD83C\uDDF0\uD83C\uDDFF',
+    'nederland': '🇳🇱',
+    'netherlands': '🇳🇱',
+    'germany': '🇩🇪',
+    'france': '🇫🇷',
+    'spain': '🇪🇸',
+    'italy': '🇮🇹',
+    'poland': '🇵🇱',
+    'uk': '🇬🇧',
+    'usa': '🇺🇸',
+    'canada': '🇨🇦',
+    'japan': '🇯🇵',
+    'singapore': '🇸🇬',
+    'australia': '🇦🇺',
+    'brazil': '🇧🇷',
+    'india': '🇮🇳',
+    'turkey': '🇹🇷',
+    'uae': '🇦🇪',
+    'sweden': '🇸🇪',
+    'norway': '🇳🇴',
+    'finland': '🇫🇮',
+    'switzerland': '🇨🇭',
+    'austria': '🇦🇹',
+    'belgium': '🇧🇪',
+    'czech': '🇨🇿',
+    'denmark': '🇩🇰',
+    'ireland': '🇮🇪',
+    'portugal': '🇵🇹',
+    'romania': '🇷🇴',
+    'ukraine': '🇺🇦',
+    'russia': '🇷🇺',
+    'kazakhstan': '🇰🇿',
 }
 
 
@@ -104,7 +105,7 @@ async def process_country_choice(callback: CallbackQuery, state: FSMContext) -> 
         country_name = callback.data.replace('addsvr_', '')
         
         # Определяем флаг
-        flag = COUNTRY_FLAGS.get(country_name, '\uD83C\uDF10')
+        flag = COUNTRY_FLAGS.get(country_name, '🌐')
         
         # Сохраняем данные в состоянии
         await state.update_data(country_name=country_name, flag=flag)
