@@ -189,9 +189,10 @@ async def execute_delete_server(callback: CallbackQuery) -> None:
         server_data = config[server_name]
         name_ru = server_data.get('name_ru', server_name)
         
-        # Получаем всех пользователей с ключами на этом сервере
-        all_users = await get_all_records_from_table_users()
-        users_on_server = [u for u in all_users if u.region_server == server_name]
+        # Получаем все ключи на этом сервере из таблицы UserKey
+        from core.sql.function_db_user_vpn.users_vpn import get_all_user_keys, delete_user_key_record
+        all_keys = await get_all_user_keys()
+        keys_on_server = [k for k in all_keys if k.region_server == server_name]
         
         # Инициализируем Outline Manager для этого сервера
         olm = OutlineManager(server_name)
@@ -199,54 +200,50 @@ async def execute_delete_server(callback: CallbackQuery) -> None:
         deleted_keys = 0
         deleted_db_keys = 0
         errors = 0
+        affected_users = set()
         
-        # Удаляем ключи из Outline и обновляем БД
-        for user in users_on_server:
+        # Удаляем ключи из Outline и БД
+        for key in keys_on_server:
             try:
-                account_id = user.account
-                outline_id = user.outline_id
+                account_id = key.account
+                outline_id = key.outline_id
+                affected_users.add(account_id)
                 
                 # Удаляем ключ из Outline VPN
                 if outline_id:
                     try:
-                        olm.delete_key_by_id(outline_id)
+                        result = olm.delete_key_by_id(outline_id)
                         deleted_keys += 1
                         logger.log('info', f'Deleted Outline key {outline_id} for user {account_id}')
                     except Exception as e:
-                        logger.log('warning', f'Failed to delete key {outline_id} from Outline: {e}')
+                        logger.log('error', f'Failed to delete key {outline_id} from Outline: {e}')
                         errors += 1
                 
-                # Удаляем записи UserKey из БД для этого пользователя на этом сервере
-                from core.sql.function_db_user_vpn.users_vpn import get_user_keys, delete_user_key_record
-                user_keys = await get_user_keys(account=account_id)
-                for key in user_keys:
-                    if key.region_server == server_name:
-                        try:
-                            await delete_user_key_record(key.id)
-                            deleted_db_keys += 1
-                            logger.log('info', f'Deleted DB key record {key.id} for user {account_id}')
-                        except Exception as e:
-                            logger.log('warning', f'Failed to delete DB key record {key.id}: {e}')
-                
-                # Очищаем данные пользователя в таблице Users
-                from core.sql.function_db_user_vpn.users_vpn import set_premium_status, get_user_data_from_table_users
-                await set_premium_status(account_id, value_premium=False)
-                
-                # Очищаем поля region_server и outline_id у пользователя
-                with Session(engine) as session:
-                    try:
-                        user_record = session.query(Users).filter_by(account=account_id).one()
-                        if user_record.region_server == server_name:
-                            user_record.region_server = None
-                            user_record.outline_id = None
-                            session.commit()
-                            logger.log('info', f'Cleared server data for user {account_id}')
-                    except Exception as e:
-                        logger.log('warning', f'Failed to clear user data for {account_id}: {e}')
+                # Удаляем запись из таблицы UserKey
+                try:
+                    await delete_user_key_record(key.id)
+                    deleted_db_keys += 1
+                    logger.log('info', f'Deleted DB key record {key.id} for user {account_id}')
+                except Exception as e:
+                    logger.log('error', f'Failed to delete DB key record {key.id}: {e}')
+                    errors += 1
                 
             except Exception as e:
-                logger.log('error', f'Error deleting key for user {user.account}: {e}')
+                logger.log('error', f'Error processing key {key.id}: {e}')
                 errors += 1
+        
+        # Обновляем статус пользователей (если у них нет других активных ключей)
+        from core.sql.function_db_user_vpn.users_vpn import get_user_keys, set_premium_status
+        for account_id in affected_users:
+            try:
+                remaining_keys = await get_user_keys(account=account_id)
+                # Проверяем есть ли у пользователя другие активные ключи
+                has_active_keys = any(k.premium for k in remaining_keys)
+                if not has_active_keys:
+                    await set_premium_status(account_id, value_premium=False)
+                    logger.log('info', f'Set premium=False for user {account_id} (no active keys)')
+            except Exception as e:
+                logger.log('error', f'Failed to update user {account_id}: {e}')
         
         # Удаляем сервер из конфигурации
         del config[server_name]
@@ -261,7 +258,7 @@ async def execute_delete_server(callback: CallbackQuery) -> None:
             f'<b>Сервер:</b> {name_ru}\n'
             f'<b>Удалено ключей из Outline:</b> {deleted_keys}\n'
             f'<b>Удалено записей из БД:</b> {deleted_db_keys}\n'
-            f'<b>Обработано пользователей:</b> {len(users_on_server)}\n'
+            f'<b>Затронуто пользователей:</b> {len(affected_users)}\n'
         )
         
         if errors > 0:

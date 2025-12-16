@@ -61,10 +61,11 @@ async def get_key_info_response(user_id: int) -> tuple:
                     f"\n— Регион: {uk.region_server} (ключ не найден на сервере)\n"
                     f"  URL: {uk.access_url}"
                 )
-            # Добавляем кнопку блокировки для конкретного ключа (используем короткий ID)
+            # Добавляем кнопки для каждого ключа
             short_id = str(uk.id)[-8:]  # Последние 8 символов UUID
-            keyboard.button(text=f"🔒 Заблокировать ключ", callback_data=f"cfm_blk_{short_id}")
-        keyboard.adjust(1)
+            keyboard.button(text=f"🔁 Заменить ключ ({uk.region_server})", callback_data=f"rpl_key_{short_id}")
+            keyboard.button(text=f"🔒 Заблокировать ({uk.region_server})", callback_data=f"cfm_blk_{short_id}")
+        keyboard.adjust(2)  # 2 кнопки в ряд для каждого ключа
         return ("\n".join(parts), keyboard.as_markup())
     except Exception as e:
         tb = traceback.format_exc()
