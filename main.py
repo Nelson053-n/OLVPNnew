@@ -19,11 +19,14 @@ def run_bot() -> None:
     """
     try:
         logger.log('info', 'run_bot: starting bot loop')
+        print('[main] run_bot: starting bot loop')
         asyncio.run(bot.start_bot())
     except Exception as e:
         tb = traceback.format_exc()
         logger_payments.log('error', f'run_bot exception: {e}\n{tb}')
         logger.log('error', f'run_bot exception: {e}')
+        print('[main] run_bot exception:', e)
+        print(tb)
         raise
 
 
@@ -34,11 +37,14 @@ def run_checker() -> None:
     """
     try:
         logger.log('info', 'run_checker: starting checker loop')
+        print('[main] run_checker: starting checker loop')
         asyncio.run(check_time_subscribe.main_check_subscribe())
     except Exception as e:
         tb = traceback.format_exc()
         logger_payments.log('error', f'run_checker exception: {e}\n{tb}')
         logger.log('error', f'run_checker exception: {e}')
+        print('[main] run_checker exception:', e)
+        print(tb)
         raise
 
 
@@ -62,6 +68,7 @@ if __name__ == "__main__":
 
     logger.log('info', 'Запуск приложения')
     logger_payments.log('warning', 'Запуск логгера payments')
+    print('[main] Запуск приложения')
     bot_th = multiprocessing.Process(target=run_bot)
     plan_th = multiprocessing.Process(target=run_checker)
     bot_th.start()
@@ -72,10 +79,12 @@ if __name__ == "__main__":
             if not bot_th.is_alive():
                 logger.log('warning', f'Bot process exited with code {bot_th.exitcode}')
                 logger_payments.log('warning', f'Bot process exited with code {bot_th.exitcode}')
+                print('[main] Bot process exited with code', bot_th.exitcode)
                 break
             if not plan_th.is_alive():
                 logger.log('warning', f'Checker process exited with code {plan_th.exitcode}')
                 logger_payments.log('warning', f'Checker process exited with code {plan_th.exitcode}')
+                print('[main] Checker process exited with code', plan_th.exitcode)
                 break
             time.sleep(1)
     finally:
