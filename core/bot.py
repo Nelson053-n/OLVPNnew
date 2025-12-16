@@ -1,5 +1,5 @@
 from aiogram.client.default import DefaultBotProperties
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 from aiogram import Bot, Dispatcher, Router
 import asyncio
 
@@ -14,6 +14,13 @@ from core.handlers.admin_block_reason import command_block_reason
 from core.handlers.mass_block import command_mass_block
 from core.handlers.seed_test_data import command_seed
 from core.handlers.unseed_test_data import command_unseed
+from core.handlers.add_server import (
+    command_addserver, 
+    process_country_input, 
+    process_api_url_input, 
+    process_cert_input,
+    AddServerStates
+)
 from core.settings import api_key_tlg
 from core.api_s.outline.outline_api import OutlineManager
 from core.handlers.handler_keyboard import build_and_edit_message
@@ -40,6 +47,13 @@ async def start_bot():
     dp.message.register(command_mass_block, Command('massblock'))
     dp.message.register(command_seed, Command('seed'))
     dp.message.register(command_unseed, Command('unseed'))
+    dp.message.register(command_addserver, Command('addserver'))
+    
+    # Регистрация обработчиков состояний для добавления сервера
+    dp.message.register(process_country_input, AddServerStates.waiting_for_country)
+    dp.message.register(process_api_url_input, AddServerStates.waiting_for_api_url)
+    dp.message.register(process_cert_input, AddServerStates.waiting_for_cert)
+    
     dp.callback_query.register(build_and_edit_message)
 
     try:
