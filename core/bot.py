@@ -15,6 +15,8 @@ from core.handlers.admin_block_reason import command_block_reason
 from core.handlers.mass_block import command_mass_block
 from core.handlers.seed_test_data import command_seed
 from core.handlers.unseed_test_data import command_unseed
+from core.handlers.server_stats import command_server_stats
+from core.handlers.migrate_server import command_migrate_server, handle_migration_confirmation, MigrateServerStates
 from core.handlers.add_server import (
     command_addserver, 
     process_country_choice,
@@ -67,6 +69,8 @@ async def setup_bot_commands(bot: Bot):
         BotCommand(command="activekeys", description="📋 Активные ключи"),
         BotCommand(command="keyinfo", description="ℹ️ Информация о ключе"),
         BotCommand(command="massblock", description="🔒 Блокировка просроченных"),
+        BotCommand(command="serverstats", description="📊 Статистика серверов"),
+        BotCommand(command="migrateserver", description="🔄 Перенос между серверами"),
         BotCommand(command="findpay", description="💳 Поиск платежей"),
         BotCommand(command="editprice", description="💰 Редактировать цены"),
         BotCommand(command="addserver", description="➕ Добавить сервер"),
@@ -106,6 +110,8 @@ async def start_bot():
     dp.message.register(command_keyinfo, Command('keyinfo'))
     dp.message.register(command_active_keys, Command('activekeys'))
     dp.message.register(command_mass_block, Command('massblock'))
+    dp.message.register(command_server_stats, Command('serverstats'))
+    dp.message.register(command_migrate_server, Command('migrateserver'))
     dp.message.register(command_seed, Command('seed'))
     dp.message.register(command_unseed, Command('unseed'))
     dp.message.register(command_addserver, Command('addserver'))
@@ -153,6 +159,12 @@ async def start_bot():
     dp.callback_query.register(
         replace_key_handler,
         lambda c: c.data.startswith('rpl_key_')
+    )
+    
+    # 4b. Callback'и для миграции сервера
+    dp.callback_query.register(
+        handle_migration_confirmation,
+        lambda c: c.data in ['confirm_migrate', 'cancel_migrate']
     )
     
     # 5. Обработчик блокировки с причиной (БЕЗ фильтра, регистрируется ПОСЛЕДНИМ)

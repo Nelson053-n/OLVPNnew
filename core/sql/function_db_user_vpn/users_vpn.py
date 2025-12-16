@@ -223,9 +223,21 @@ async def get_region_server(account: int) -> str:
 # --- Multiple keys support ---
 
 async def add_user_key(account: int, access_url: str, outline_id: str, region_server: str, date_str: str, promo: bool) -> bool:
+    """
+    Добавить новый ключ пользователя в таблицу user_keys
+    
+    :param account: ID пользователя Telegram
+    :param access_url: URL доступа к VPN ключу
+    :param outline_id: ID ключа в Outline
+    :param region_server: Регион сервера
+    :param date_str: Дата истечения в формате '%d.%m.%Y - %H:%M'
+    :param promo: Флаг промо-ключа
+    :return: True в случае успеха, False при ошибке
+    """
     with Session(engine) as session:
         try:
             record_id = f"{account}_key_{uuid.uuid4()}"
+            # Парсим дату
             date = datetime.strptime(date_str, '%d.%m.%Y - %H:%M') if date_str else None
             new_key = UserKey(
                 id=record_id,
@@ -240,7 +252,15 @@ async def add_user_key(account: int, access_url: str, outline_id: str, region_se
             session.add(new_key)
             session.commit()
             return True
-        except Exception:
+        except ValueError as e:
+            # Ошибка парсинга даты
+            print(f"ERROR add_user_key: Invalid date format '{date_str}': {e}")
+            return False
+        except Exception as e:
+            # Другие ошибки БД
+            print(f"ERROR add_user_key: Database error for user {account}: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
 
