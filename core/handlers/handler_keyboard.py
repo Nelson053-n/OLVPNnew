@@ -52,6 +52,14 @@ async def switch_menu(case_number: str, call: CallbackQuery, state: FSMContext) 
         if case_number.startswith('admin_block_key_'):
             return await admin_block_key_handler(call)
         
+        # Обработка callback для проверки ключа пользователя (из findpay)
+        if case_number.startswith('check_user_key_'):
+            user_id = int(case_number.split('_')[-1])
+            # Вызываем логику keyinfo
+            from core.handlers.key_info import get_key_info_response
+            response_text, keyboard = await get_key_info_response(user_id)
+            return (response_text, keyboard)
+        
         switch_dict = {
             'get_key': choise_region,
             'del_key': del_key,
