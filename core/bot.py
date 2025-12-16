@@ -16,7 +16,13 @@ from core.handlers.mass_block import command_mass_block
 from core.handlers.seed_test_data import command_seed
 from core.handlers.unseed_test_data import command_unseed
 from core.handlers.server_stats import command_server_stats
-from core.handlers.migrate_server import command_migrate_server, handle_migration_confirmation, MigrateServerStates
+from core.handlers.migrate_server import (
+    command_migrate_server, 
+    select_source_server,
+    select_target_server,
+    handle_migration_confirmation, 
+    MigrateServerStates
+)
 from core.handlers.add_server import (
     command_addserver, 
     process_country_choice,
@@ -162,6 +168,14 @@ async def start_bot():
     )
     
     # 4b. Callback'и для миграции сервера
+    dp.callback_query.register(
+        select_source_server,
+        lambda c: c.data.startswith('migrate_from_')
+    )
+    dp.callback_query.register(
+        select_target_server,
+        lambda c: c.data.startswith('migrate_to_')
+    )
     dp.callback_query.register(
         handle_migration_confirmation,
         lambda c: c.data in ['confirm_migrate', 'cancel_migrate']

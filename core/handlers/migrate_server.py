@@ -8,7 +8,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 import traceback
 
 from core.settings import admin_tlg
-from core.api_s.outline.outline_api import OutlineManager, get_name_all_active_server_ol
+from core.api_s.outline.outline_api import OutlineManager, get_name_all_active_server_ol, get_server_display_name
 from core.sql.function_db_user_vpn.users_vpn import (
     get_all_user_keys,
     delete_user_key_record,
@@ -20,65 +20,125 @@ logger = RotatingFileLogger()
 
 
 class MigrateServerStates(StatesGroup):
-    waiting_for_confirmation = State()
+    waiting_for_source_server = State()
+    waiting_for_target_server = State()
 
 
 async def command_migrate_server(message: Message, state: FSMContext) -> None:
     """
     -- Админ-команда --
-    /migrateserver <from_server> <to_server>
-    Переносит всех пользователей с одного сервера на другой
-    
-    Пример: /migrateserver nederland germany
+    /migrateserver
+    Переносит всех пользователей с одного сервера на другой через кнопки выбора
     """
     try:
         if not admin_tlg or message.from_user.id != int(admin_tlg):
             await message.answer('❌ У вас нет доступа к этой команде', parse_mode=None)
             return
 
-        parts = message.text.split()
-        if len(parts) != 3:
-            all_servers = get_name_all_active_server_ol()
-            servers_list = ', '.join(all_servers)
+        # Получаем список активных серверов
+        all_servers = get_name_all_active_server_ol()
+        
+        if len(all_servers) < 2:
             await message.answer(
-                f'❌ Неверный формат команды\n\n'
-                f'Использование: /migrateserver <откуда> <куда>\n\n'
-                f'Доступные серверы: {servers_list}',
+                '❌ Недостаточно серверов для миграции\n'
+                'Требуется минимум 2 активных сервера',
                 parse_mode=None
             )
             return
+        
+        # Создаем кнопки для выбора исходного сервера
+        kb = InlineKeyboardBuilder()
+        for server in all_servers:
+            server_display = get_server_display_name(server)
+            kb.button(text=server_display, callback_data=f"migrate_from_{server}")
+        kb.adjust(2)  # 2 кнопки в ряд
+        kb.row(InlineKeyboardBuilder().button(text='❌ Отмена', callback_data='cancel_migrate').as_markup().inline_keyboard[0][0])
+        
+        await message.answer(
+            '<b>🔄 Миграция пользователей между серверами</b>\n\n'
+            '<b>Шаг 1 из 2:</b> Выберите сервер, <u>откуда</u> переносить пользователей:',
+            reply_markup=kb.as_markup(),
+            parse_mode='HTML'
+        )
+        
+        await state.set_state(MigrateServerStates.waiting_for_source_server)
+        
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.log('error', f'command_migrate_server error: {e}\n{tb}')
+        await message.answer(f'❌ Ошибка: {str(e)}', parse_mode=None)
 
-        from_server = parts[1]
-        to_server = parts[2]
+
+async def select_source_server(callback: CallbackQuery, state: FSMContext) -> None:
+    """
+    Обработчик выбора исходного сервера
+    """
+    try:
+        await callback.answer()
         
-        # Проверяем существование серверов
+        from_server = callback.data.replace('migrate_from_', '')
+        
+        # Сохраняем выбранный сервер
+        await state.update_data(from_server=from_server)
+        
+        # Получаем количество ключей на этом сервере
+        all_keys = await get_all_user_keys()
+        keys_count = len([k for k in all_keys if k.region_server == from_server and k.premium])
+        
+        if keys_count == 0:
+            await callback.message.edit_text(
+                f'❌ На сервере "{get_server_display_name(from_server)}" нет активных ключей для переноса',
+                parse_mode='HTML'
+            )
+            await state.clear()
+            return
+        
+        # Создаем кнопки для выбора целевого сервера (исключая исходный)
         all_servers = get_name_all_active_server_ol()
-        if from_server not in all_servers:
-            await message.answer(f'❌ Сервер "{from_server}" не найден или неактивен', parse_mode=None)
-            return
+        available_servers = [s for s in all_servers if s != from_server]
         
-        if to_server not in all_servers:
-            await message.answer(f'❌ Сервер "{to_server}" не найден или неактивен', parse_mode=None)
-            return
+        kb = InlineKeyboardBuilder()
+        for server in available_servers:
+            server_display = get_server_display_name(server)
+            kb.button(text=server_display, callback_data=f"migrate_to_{server}")
+        kb.adjust(2)  # 2 кнопки в ряд
+        kb.row(InlineKeyboardBuilder().button(text='❌ Отмена', callback_data='cancel_migrate').as_markup().inline_keyboard[0][0])
         
-        if from_server == to_server:
-            await message.answer('❌ Исходный и целевой серверы совпадают', parse_mode=None)
-            return
+        await callback.message.edit_text(
+            f'<b>🔄 Миграция пользователей</b>\n\n'
+            f'<b>Выбран исходный сервер:</b> {get_server_display_name(from_server)}\n'
+            f'<b>Количество ключей:</b> {keys_count}\n\n'
+            f'<b>Шаг 2 из 2:</b> Выберите сервер, <u>куда</u> переносить пользователей:',
+            reply_markup=kb.as_markup(),
+            parse_mode='HTML'
+        )
         
-        # Получаем количество ключей для переноса
+        await state.set_state(MigrateServerStates.waiting_for_target_server)
+        
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.log('error', f'select_source_server error: {e}\n{tb}')
+        await callback.message.answer(f'❌ Ошибка: {str(e)}', parse_mode=None)
+        await state.clear()
+
+
+async def select_target_server(callback: CallbackQuery, state: FSMContext) -> None:
+    """
+    Обработчик выбора целевого сервера и подтверждения миграции
+    """
+    try:
+        await callback.answer()
+        
+        to_server = callback.data.replace('migrate_to_', '')
+        data = await state.get_data()
+        from_server = data.get('from_server')
+        
+        # Получаем количество ключей для миграции
         all_keys = await get_all_user_keys()
         keys_to_migrate = [k for k in all_keys if k.region_server == from_server and k.premium]
         
-        if not keys_to_migrate:
-            await message.answer(f'❌ На сервере "{from_server}" нет активных ключей для переноса', parse_mode=None)
-            return
-        
-        # Сохраняем данные в state
-        await state.update_data(
-            from_server=from_server,
-            to_server=to_server,
-            keys_count=len(keys_to_migrate)
-        )
+        # Сохраняем данные
+        await state.update_data(to_server=to_server, keys_count=len(keys_to_migrate))
         
         # Запрашиваем подтверждение
         kb = InlineKeyboardBuilder()
@@ -86,23 +146,23 @@ async def command_migrate_server(message: Message, state: FSMContext) -> None:
         kb.button(text='❌ Отмена', callback_data='cancel_migrate')
         kb.adjust(2)
         
-        await message.answer(
+        await callback.message.edit_text(
             f'⚠️ <b>Подтверждение переноса</b>\n\n'
-            f'Будет перенесено <b>{len(keys_to_migrate)}</b> активных ключей\n'
-            f'С сервера: <b>{from_server}</b>\n'
-            f'На сервер: <b>{to_server}</b>\n\n'
-            f'Процесс может занять несколько минут.\n'
-            f'Вы уверены?',
+            f'<b>С сервера:</b> {get_server_display_name(from_server)}\n'
+            f'<b>На сервер:</b> {get_server_display_name(to_server)}\n'
+            f'<b>Будет перенесено:</b> {len(keys_to_migrate)} активных ключей\n\n'
+            f'⚠️ Процесс может занять несколько минут.\n'
+            f'Всем пользователям будут отправлены уведомления.\n\n'
+            f'<b>Вы уверены?</b>',
             reply_markup=kb.as_markup(),
             parse_mode='HTML'
         )
         
-        await state.set_state(MigrateServerStates.waiting_for_confirmation)
-        
     except Exception as e:
         tb = traceback.format_exc()
-        logger.log('error', f'command_migrate_server error: {e}\n{tb}')
-        await message.answer(f'❌ Ошибка: {str(e)}', parse_mode=None)
+        logger.log('error', f'select_target_server error: {e}\n{tb}')
+        await callback.message.answer(f'❌ Ошибка: {str(e)}', parse_mode=None)
+        await state.clear()
 
 
 async def handle_migration_confirmation(callback: CallbackQuery, state: FSMContext) -> None:
@@ -122,9 +182,14 @@ async def handle_migration_confirmation(callback: CallbackQuery, state: FSMConte
             from_server = data.get('from_server')
             to_server = data.get('to_server')
             
+            from_display = get_server_display_name(from_server)
+            to_display = get_server_display_name(to_server)
+            
             await callback.message.edit_text(
-                f'⏳ Начинаем миграцию с {from_server} на {to_server}...\n'
-                f'Это может занять несколько минут.'
+                f'⏳ Начинаем миграцию...\n'
+                f'С {from_display} → {to_display}\n\n'
+                f'Это может занять несколько минут.',
+                parse_mode='HTML'
             )
             
             # Выполняем миграцию
@@ -186,12 +251,18 @@ async def handle_migration_confirmation(callback: CallbackQuery, state: FSMConte
                         await bot.send_message(
                             chat_id=old_key.account,
                             text=(
-                                f'🔄 <b>Ваш ключ был перенесен на новый сервер!</b>\n\n'
-                                f'<b>Новый сервер:</b> {to_server}\n'
-                                f'<b>Новый ключ доступа:</b>\n'
+                                f'🔄 <b>Ваш VPN-ключ был автоматически перенесен на новый сервер!</b>\n\n'
+                                f'<b>Старый сервер:</b> {from_display}\n'
+                                f'<b>Новый сервер:</b> {to_display}\n\n'
+                                f'<b>🔑 Ваш новый ключ доступа:</b>\n'
                                 f'<code>{new_access_url}</code>\n\n'
-                                f'Пожалуйста, обновите ключ в приложении Outline.\n'
-                                f'Старый ключ больше не действителен.'
+                                f'<b>📱 Что нужно сделать:</b>\n'
+                                f'1️⃣ Скопируйте новый ключ выше\n'
+                                f'2️⃣ Откройте приложение Outline\n'
+                                f'3️⃣ Добавьте новый ключ\n'
+                                f'4️⃣ Удалите старый ключ\n\n'
+                                f'⚠️ <i>Старый ключ больше не работает!</i>\n\n'
+                                f'❓ Если возникли проблемы, обратитесь в поддержку.'
                             ),
                             parse_mode='HTML'
                         )
@@ -206,8 +277,10 @@ async def handle_migration_confirmation(callback: CallbackQuery, state: FSMConte
                         try:
                             await callback.message.edit_text(
                                 f'⏳ Миграция в процессе...\n'
+                                f'С {from_display} → {to_display}\n\n'
                                 f'Перенесено: {success_count}/{len(keys_to_migrate)}\n'
-                                f'Ошибок: {error_count}'
+                                f'Ошибок: {error_count}',
+                                parse_mode='HTML'
                             )
                         except:
                             pass
@@ -219,11 +292,11 @@ async def handle_migration_confirmation(callback: CallbackQuery, state: FSMConte
             # Финальный отчет
             await callback.message.edit_text(
                 f'✅ <b>Миграция завершена!</b>\n\n'
-                f'<b>С сервера:</b> {from_server}\n'
-                f'<b>На сервер:</b> {to_server}\n\n'
+                f'<b>С сервера:</b> {from_display}\n'
+                f'<b>На сервер:</b> {to_display}\n\n'
                 f'✅ Успешно перенесено: {success_count}\n'
                 f'❌ Ошибок: {error_count}\n\n'
-                f'Всем пользователям отправлены уведомления.',
+                f'📧 Всем пользователям отправлены уведомления с инструкциями.',
                 parse_mode='HTML'
             )
             
