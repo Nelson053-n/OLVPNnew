@@ -45,7 +45,7 @@ async def command_findpay(message: Message) -> None:
                 
                 # Создаём кнопку для проверки ключа
                 keyboard = InlineKeyboardBuilder()
-                keyboard.button(text="Проверить ключ /keyinfo", callback_data=f"check_user_key_{id_find_user_int}")
+                keyboard.button(text="Проверить ключ /keyinfo", callback_data=f"chk_usr_{id_find_user_int}")
                 
                 await message.answer(text=response, reply_markup=keyboard.as_markup(), parse_mode=None)
             elif len(data) == 1:
@@ -62,7 +62,7 @@ async def command_findpay(message: Message) -> None:
                             user_record = await get_user_data_from_table_users(account=user_id_int)
                             user_name = user_record.account_name if user_record else "Unknown"
                             response += f"{user_name} (ID: {user_id_int})\n"
-                            keyboard.button(text=f"{user_name} ({user_id_int})", callback_data=f"check_user_key_{user_id_int}")
+                            keyboard.button(text=f"{user_name} ({user_id_int})", callback_data=f"chk_usr_{user_id_int}")
                         except:
                             pass
                     keyboard.adjust(1)
