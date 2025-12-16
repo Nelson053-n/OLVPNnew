@@ -89,8 +89,8 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
             if not new_key:
                 raise Exception("Failed to create new key")
             
-            # Получаем данные нового ключа
-            new_outline_id = getattr(new_key, 'key_id', None)
+            # Получаем данные нового ключа (конвертируем в строку)
+            new_outline_id = str(getattr(new_key, 'key_id', None))
             new_access_url = getattr(new_key, 'access_url', None)
             
             if not new_outline_id or not new_access_url:

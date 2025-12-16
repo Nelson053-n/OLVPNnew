@@ -164,8 +164,8 @@ async def give_promo_to_user(callback: CallbackQuery, target_user_id: int) -> No
             await callback.answer('❌ Ошибка создания промо-ключа на сервере', show_alert=True)
             return
 
-        # Получаем сгенерированный сервером outline_id
-        outline_id = key_data.key_id
+        # Получаем сгенерированный сервером outline_id (конвертируем в строку)
+        outline_id = str(key_data.key_id)
 
         # Update DB - add to UserKey table and update Users for compatibility
         await add_user_key(
