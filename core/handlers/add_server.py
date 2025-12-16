@@ -1,6 +1,7 @@
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 import json
 import traceback
 
@@ -45,7 +46,6 @@ COUNTRY_FLAGS = {
 
 
 class AddServerStates(StatesGroup):
-    waiting_for_country = State()
     waiting_for_country_ru = State()
     waiting_for_api_url = State()
     waiting_for_cert = State()
@@ -56,21 +56,37 @@ async def command_addserver(message: Message, state: FSMContext) -> None:
     -- Админ-команда --
     /addserver
     Запускает процесс добавления нового Outline сервера.
-    Пошагово запрашивает: страну, API URL, сертификат.
+    Пошагово запрашивает: страну (через кнопки), русское название, API URL, сертификат.
     """
     try:
-        if not admin_tlg or message.from_user.id != int(admin_tlg):
+        if not admin_tlg or str(message.from_user.id) != str(admin_tlg):
             await message.answer('❌ У вас нет доступа к этой команде', parse_mode=None)
             return
 
-        await state.set_state(AddServerStates.waiting_for_country)
+        # Создаем кнопки со странами
+        builder = InlineKeyboardBuilder()
+        
+        # Сортируем страны по алфавиту для удобства
+        sorted_countries = sorted(COUNTRY_FLAGS.items())
+        
+        for country_key, flag in sorted_countries:
+            # Название кнопки: флаг + название страны
+            button_text = f"{flag} {country_key.title()}"
+            builder.button(
+                text=button_text,
+                callback_data=f"addsvr_{country_key}"
+            )
+        
+        # Располагаем по 2 кнопки в ряд
+        builder.adjust(2)
+        
         await message.answer(
             text=(
                 '🌍 <b>Добавление нового Outline сервера</b>\n\n'
-                'Шаг 1/4: Введите название страны на английском\n'
-                '(например: germany, france, usa, kazakhstan)\n\n'
+                'Шаг 1/4: Выберите страну из списка\n\n'
                 'Или отправьте /cancel для отмены'
             ),
+            reply_markup=builder.as_markup(),
             parse_mode='HTML'
         )
     except Exception as e:
@@ -79,32 +95,14 @@ async def command_addserver(message: Message, state: FSMContext) -> None:
         await message.answer('❌ Ошибка при запуске команды', parse_mode=None)
 
 
-async def process_country_input(message: Message, state: FSMContext) -> None:
-    """Обработка ввода названия страны"""
+async def process_country_choice(callback: CallbackQuery, state: FSMContext) -> None:
+    """Обработка выбора страны через кнопку"""
     try:
-        if message.text == '/cancel':
-            await state.clear()
-            await message.answer('❌ Добавление сервера отменено', parse_mode=None)
-            return
-
-        country_name = message.text.strip().lower()
+        await callback.answer()
         
-        # Проверяем, не существует ли уже сервер с таким именем
-        config_file = 'core/api_s/outline/settings_api_outline.json'
-        try:
-            with open(config_file, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-            
-            if country_name in config:
-                await message.answer(
-                    f'⚠️ Сервер "{country_name}" уже существует в конфигурации.\n'
-                    'Используйте другое имя или отредактируйте файл вручную.',
-                    parse_mode=None
-                )
-                return
-        except FileNotFoundError:
-            config = {}
-
+        # Извлекаем название страны из callback_data
+        country_name = callback.data.replace('addsvr_', '')
+        
         # Определяем флаг
         flag = COUNTRY_FLAGS.get(country_name, '\uD83C\uDF10')
         
@@ -112,7 +110,7 @@ async def process_country_input(message: Message, state: FSMContext) -> None:
         await state.update_data(country_name=country_name, flag=flag)
         await state.set_state(AddServerStates.waiting_for_country_ru)
         
-        await message.answer(
+        await callback.message.edit_text(
             text=(
                 f'✅ Страна (EN): {country_name}\n'
                 f'✅ Флаг: {flag}\n\n'
@@ -124,8 +122,8 @@ async def process_country_input(message: Message, state: FSMContext) -> None:
         )
     except Exception as e:
         tb = traceback.format_exc()
-        logger.log('error', f'process_country_input error: {e}\n{tb}')
-        await message.answer('❌ Ошибка при обработке названия страны', parse_mode=None)
+        logger.log('error', f'process_country_choice error: {e}\n{tb}')
+        await callback.message.answer('❌ Ошибка при обработке выбора страны', parse_mode=None)
 
 
 async def process_country_ru_input(message: Message, state: FSMContext) -> None:
