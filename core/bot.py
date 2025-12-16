@@ -29,6 +29,12 @@ from core.handlers.delete_server import (
     execute_delete_server,
     cancel_delete
 )
+from core.handlers.edit_price import (
+    editprice_handler,
+    select_period_to_edit,
+    process_new_price,
+    EditPriceStates
+)
 from core.handlers.test_key_broadcast import (
     command_testkey,
     process_testkey_server_choice,
@@ -61,6 +67,7 @@ async def setup_bot_commands(bot: Bot):
         BotCommand(command="keyinfo", description="ℹ️ Информация о ключе"),
         BotCommand(command="massblock", description="🔒 Блокировка просроченных"),
         BotCommand(command="findpay", description="💳 Поиск платежей"),
+        BotCommand(command="editprice", description="💰 Редактировать цены"),
         BotCommand(command="addserver", description="➕ Добавить сервер"),
         BotCommand(command="deleteserver", description="🗑️ Удалить сервер"),
         BotCommand(command="seed", description="🧪 Создать тестовые данные"),
@@ -102,6 +109,7 @@ async def start_bot():
     dp.message.register(command_unseed, Command('unseed'))
     dp.message.register(command_addserver, Command('addserver'))
     dp.message.register(deleteserver_handler, Command('deleteserver'))
+    dp.message.register(editprice_handler, Command('editprice'))
     dp.message.register(command_testkey, Command('testkey'))
     
     # 2. Обработчики состояний (FSM) для добавления сервера
@@ -112,6 +120,13 @@ async def start_bot():
     dp.message.register(process_country_ru_input, AddServerStates.waiting_for_country_ru)
     dp.message.register(process_api_url_input, AddServerStates.waiting_for_api_url)
     dp.message.register(process_cert_input, AddServerStates.waiting_for_cert)
+    
+    # 2a. Обработчики состояний (FSM) для редактирования цен
+    dp.callback_query.register(
+        select_period_to_edit,
+        lambda c: c.data.startswith('edprc_')
+    )
+    dp.message.register(process_new_price, EditPriceStates.waiting_for_new_price)
     
     # 3. Обработчики для тестовых ключей (callback для выбора сервера)
     dp.callback_query.register(

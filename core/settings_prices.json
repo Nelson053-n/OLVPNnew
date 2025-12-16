@@ -1,0 +1,17 @@
+{
+  "day": {
+    "amount": 7,
+    "days": 1,
+    "word_days": "день"
+  },
+  "week": {
+    "amount": 40,
+    "days": 7,
+    "word_days": "дней"
+  },
+  "month": {
+    "amount": 150,
+    "days": 30,
+    "word_days": "дней"
+  }
+}

@@ -1,5 +1,6 @@
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup
+import json
 
 from core.keyboards.choise_region_button import choise_region_keyboard
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -8,6 +9,23 @@ from core.sql.function_db_user_vpn.users_vpn import get_user_data_from_table_use
 from core.utils.build_pay import build_pay
 from core.utils.create_view import create_answer_from_html
 from core.utils.get_region_name import get_region_name_from_json
+
+
+PRICES_FILE = 'core/settings_prices.json'
+
+
+def load_prices() -> dict:
+    """Загрузить цены из JSON файла"""
+    try:
+        with open(PRICES_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        # Значения по умолчанию если файл не найден
+        return {
+            "day": {"amount": 7, "days": 1, "word_days": "день"},
+            "week": {"amount": 40, "days": 7, "word_days": "дней"},
+            "month": {"amount": 150, "days": 30, "word_days": "дней"}
+        }
 
 
 async def choise_region(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboardMarkup):
@@ -35,9 +53,13 @@ async def day_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboar
     :return: Текст ответа и клавиатура.
     """
     id_user = call.from_user.id
-    amount = 7
-    day_count = 1
-    word_days = "день"
+    prices = load_prices()
+    day_config = prices.get('day', {"amount": 7, "days": 1, "word_days": "день"})
+    
+    amount = day_config['amount']
+    day_count = day_config['days']
+    word_days = day_config['word_days']
+    
     content, url_pay_keyboard = await build_pay(state, id_user, amount, day_count, word_days)
     return content, url_pay_keyboard
 
@@ -52,9 +74,13 @@ async def week_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboa
     :return: Текст ответа и клавиатура.
     """
     id_user = call.from_user.id
-    amount = 40
-    day_count = 7
-    word_days = "дней"
+    prices = load_prices()
+    week_config = prices.get('week', {"amount": 40, "days": 7, "word_days": "дней"})
+    
+    amount = week_config['amount']
+    day_count = week_config['days']
+    word_days = week_config['word_days']
+    
     content, url_pay_keyboard = await build_pay(state, id_user, amount, day_count, word_days)
     return content, url_pay_keyboard
 
@@ -69,9 +95,13 @@ async def month_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeybo
     :return: Текст ответа и клавиатура.
     """
     id_user = call.from_user.id
-    amount = 150
-    day_count = 30
-    word_days = "дней"
+    prices = load_prices()
+    month_config = prices.get('month', {"amount": 150, "days": 30, "word_days": "дней"})
+    
+    amount = month_config['amount']
+    day_count = month_config['days']
+    word_days = month_config['word_days']
+    
     content, url_pay_keyboard = await build_pay(state, id_user, amount, day_count, word_days)
     return content, url_pay_keyboard
 
