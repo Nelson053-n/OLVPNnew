@@ -5,7 +5,6 @@ import traceback
 import uuid
 from datetime import datetime, timedelta
 from aiogram.types import CallbackQuery
-from aiogram import Router
 
 from core.api_s.outline.outline_api import OutlineManager, get_name_all_active_server_ol
 from core.sql.function_db_user_vpn.users_vpn import (
@@ -21,10 +20,8 @@ from core.settings import admin_tlg
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
-router = Router()
 
 
-@router.callback_query(lambda c: c.data and c.data.startswith('rpl_key_'))
 async def replace_key_handler(callback: CallbackQuery) -> None:
     """
     Обработчик замены ключа пользователя

@@ -74,9 +74,9 @@ async def command_server_stats(message: Message) -> None:
                 
                 lines.append(
                     f'<b>{idx}.</b> {server_display}\n'
-                    f'   📦 Ключей на сервере: {total_keys}\n'
-                    f'   ✅ Активных в БД: {active_db_keys} из {len(db_keys)}\n'
-                    f'   📊 Общий трафик: {total_traffic_gb:.2f} ГБ\n'
+                    f'   Ключей на сервере: {total_keys}\n'
+                    f'   Активных в БД: {active_db_keys} из {len(db_keys)}\n'
+                    f'   Общий трафик: {total_traffic_gb:.2f} ГБ\n'
                 )
                 
             except Exception as e:
