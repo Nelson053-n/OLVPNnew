@@ -22,6 +22,11 @@ from core.handlers.add_server import (
     process_cert_input,
     AddServerStates
 )
+from core.handlers.test_key_broadcast import (
+    command_testkey,
+    process_testkey_server_choice,
+    TestKeyStates
+)
 from core.settings import api_key_tlg, admin_tlg
 from core.api_s.outline.outline_api import OutlineManager
 from core.handlers.handler_keyboard import build_and_edit_message
@@ -40,17 +45,18 @@ async def setup_bot_commands(bot: Bot):
         BotCommand(command="start", description="🏠 Главное меню"),
     ]
     
-    # Команды для администратора
+    # Администрирование:
     admin_commands = [
         BotCommand(command="start", description="🏠 Главное меню"),
         BotCommand(command="promo", description="🎁 Выдать промо-ключ"),
+        BotCommand(command="testkey", description="🎉 Рассылка тестовых ключей"),
         BotCommand(command="activekeys", description="📋 Активные ключи"),
         BotCommand(command="keyinfo", description="ℹ️ Информация о ключе"),
         BotCommand(command="massblock", description="🔒 Блокировка просроченных"),
         BotCommand(command="findpay", description="💳 Поиск платежей"),
+        BotCommand(command="addserver", description="➕ Добавить сервер"),
         BotCommand(command="seed", description="🧪 Создать тестовые данные"),
         BotCommand(command="unseed", description="🗑️ Удалить тестовые данные"),
-        BotCommand(command="addserver", description="➕ Добавить сервер"),
         BotCommand(command="get_db", description="💾 Скачать БД"),
         BotCommand(command="get_log_pay", description="📄 Скачать логи"),
     ]
@@ -87,16 +93,23 @@ async def start_bot():
     dp.message.register(command_seed, Command('seed'))
     dp.message.register(command_unseed, Command('unseed'))
     dp.message.register(command_addserver, Command('addserver'))
+    dp.message.register(command_testkey, Command('testkey'))
     
     # 2. Обработчики состояний (FSM) для добавления сервера
     dp.message.register(process_country_input, AddServerStates.waiting_for_country)
     dp.message.register(process_api_url_input, AddServerStates.waiting_for_api_url)
     dp.message.register(process_cert_input, AddServerStates.waiting_for_cert)
     
-    # 3. Обработчик блокировки с причиной (БЕЗ фильтра, регистрируется ПОСЛЕДНИМ)
+    # 3. Обработчики для тестовых ключей (callback для выбора сервера)
+    dp.callback_query.register(
+        process_testkey_server_choice,
+        lambda c: c.data.startswith('testkey_')
+    )
+    
+    # 4. Обработчик блокировки с причиной (БЕЗ фильтра, регистрируется ПОСЛЕДНИМ)
     dp.message.register(command_block_reason)
     
-    # 4. Callback query обработчик
+    # 5. Callback query обработчик (общий, регистрируется после специфичных)
     dp.callback_query.register(build_and_edit_message)
 
     try:
