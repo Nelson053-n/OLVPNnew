@@ -9,42 +9,44 @@ from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
 
-# Словарь флагов стран (emoji)
+# Словарь флагов стран (Unicode escape последовательности)
 COUNTRY_FLAGS = {
-    'nederland': '🇳🇱',
-    'netherlands': '🇳🇱',
-    'germany': '🇩🇪',
-    'france': '🇫🇷',
-    'spain': '🇪🇸',
-    'italy': '🇮🇹',
-    'poland': '🇵🇱',
-    'uk': '🇬🇧',
-    'usa': '🇺🇸',
-    'canada': '🇨🇦',
-    'japan': '🇯🇵',
-    'singapore': '🇸🇬',
-    'australia': '🇦🇺',
-    'brazil': '🇧🇷',
-    'india': '🇮🇳',
-    'turkey': '🇹🇷',
-    'uae': '🇦🇪',
-    'sweden': '🇸🇪',
-    'norway': '🇳🇴',
-    'finland': '🇫🇮',
-    'switzerland': '🇨🇭',
-    'austria': '🇦🇹',
-    'belgium': '🇧🇪',
-    'czech': '🇨🇿',
-    'denmark': '🇩🇰',
-    'ireland': '🇮🇪',
-    'portugal': '🇵🇹',
-    'romania': '🇷🇴',
-    'ukraine': '🇺🇦',
+    'nederland': '\uD83C\uDDF3\uD83C\uDDF1',
+    'netherlands': '\uD83C\uDDF3\uD83C\uDDF1',
+    'germany': '\uD83C\uDDE9\uD83C\uDDEA',
+    'france': '\uD83C\uDDEB\uD83C\uDDF7',
+    'spain': '\uD83C\uDDEA\uD83C\uDDF8',
+    'italy': '\uD83C\uDDEE\uD83C\uDDF9',
+    'poland': '\uD83C\uDDF5\uD83C\uDDF1',
+    'uk': '\uD83C\uDDEC\uD83C\uDDE7',
+    'usa': '\uD83C\uDDFA\uD83C\uDDF8',
+    'canada': '\uD83C\uDDE8\uD83C\uDDE6',
+    'japan': '\uD83C\uDDEF\uD83C\uDDF5',
+    'singapore': '\uD83C\uDDF8\uD83C\uDDEC',
+    'australia': '\uD83C\uDDE6\uD83C\uDDFA',
+    'brazil': '\uD83C\uDDE7\uD83C\uDDF7',
+    'india': '\uD83C\uDDEE\uD83C\uDDF3',
+    'turkey': '\uD83C\uDDF9\uD83C\uDDF7',
+    'uae': '\uD83C\uDDE6\uD83C\uDDEA',
+    'sweden': '\uD83C\uDDF8\uD83C\uDDEA',
+    'norway': '\uD83C\uDDF3\uD83C\uDDF4',
+    'finland': '\uD83C\uDDEB\uD83C\uDDEE',
+    'switzerland': '\uD83C\uDDE8\uD83C\uDDED',
+    'austria': '\uD83C\uDDE6\uD83C\uDDF9',
+    'belgium': '\uD83C\uDDE7\uD83C\uDDEA',
+    'czech': '\uD83C\uDDE8\uD83C\uDDFF',
+    'denmark': '\uD83C\uDDE9\uD83C\uDDF0',
+    'ireland': '\uD83C\uDDEE\uD83C\uDDEA',
+    'portugal': '\uD83C\uDDF5\uD83C\uDDF9',
+    'romania': '\uD83C\uDDF7\uD83C\uDDF4',
+    'ukraine': '\uD83C\uDDFA\uD83C\uDDE6',
+    'kazakhstan': '\uD83C\uDDF0\uD83C\uDDFF',
 }
 
 
 class AddServerStates(StatesGroup):
     waiting_for_country = State()
+    waiting_for_country_ru = State()
     waiting_for_api_url = State()
     waiting_for_cert = State()
 
@@ -65,8 +67,8 @@ async def command_addserver(message: Message, state: FSMContext) -> None:
         await message.answer(
             text=(
                 '🌍 <b>Добавление нового Outline сервера</b>\n\n'
-                'Шаг 1/3: Введите название страны на английском\n'
-                '(например: germany, france, usa)\n\n'
+                'Шаг 1/4: Введите название страны на английском\n'
+                '(например: germany, france, usa, kazakhstan)\n\n'
                 'Или отправьте /cancel для отмены'
             ),
             parse_mode='HTML'
@@ -104,17 +106,18 @@ async def process_country_input(message: Message, state: FSMContext) -> None:
             config = {}
 
         # Определяем флаг
-        flag = COUNTRY_FLAGS.get(country_name, '🌐')
+        flag = COUNTRY_FLAGS.get(country_name, '\uD83C\uDF10')
         
         # Сохраняем данные в состоянии
         await state.update_data(country_name=country_name, flag=flag)
-        await state.set_state(AddServerStates.waiting_for_api_url)
+        await state.set_state(AddServerStates.waiting_for_country_ru)
         
         await message.answer(
             text=(
-                f'✅ Страна: {flag} {country_name.title()}\n\n'
-                'Шаг 2/3: Введите API URL сервера Outline\n'
-                '(например: https://123.456.789.012:12345/aBcDeFgH)\n\n'
+                f'✅ Страна (EN): {country_name}\n'
+                f'✅ Флаг: {flag}\n\n'
+                'Шаг 2/4: Введите название страны на РУССКОМ языке\n'
+                '(например: Германия, Франция, США, Казахстан)\n\n'
                 'Или /cancel для отмены'
             ),
             parse_mode=None
@@ -122,6 +125,41 @@ async def process_country_input(message: Message, state: FSMContext) -> None:
     except Exception as e:
         tb = traceback.format_exc()
         logger.log('error', f'process_country_input error: {e}\n{tb}')
+        await message.answer('❌ Ошибка при обработке названия страны', parse_mode=None)
+
+
+async def process_country_ru_input(message: Message, state: FSMContext) -> None:
+    """Обработка ввода названия страны на русском"""
+    try:
+        if message.text == '/cancel':
+            await state.clear()
+            await message.answer('❌ Добавление сервера отменено', parse_mode=None)
+            return
+
+        country_name_ru = message.text.strip()
+        
+        # Сохраняем русское название
+        await state.update_data(country_name_ru=country_name_ru)
+        await state.set_state(AddServerStates.waiting_for_api_url)
+        
+        data = await state.get_data()
+        country_name = data.get('country_name', '')
+        flag = data.get('flag', '🌐')
+        
+        await message.answer(
+            text=(
+                f'✅ Страна (EN): {country_name}\n'
+                f'✅ Страна (RU): {country_name_ru}\n'
+                f'✅ Флаг: {flag}\n\n'
+                'Шаг 3/4: Введите API URL сервера Outline\n'
+                '(например: https://123.456.789.012:12345/aBcDeFgH)\n\n'
+                'Или /cancel для отмены'
+            ),
+            parse_mode=None
+        )
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.log('error', f'process_country_ru_input error: {e}\n{tb}')
         await message.answer('❌ Ошибка при обработке названия страны', parse_mode=None)
 
 
@@ -150,13 +188,16 @@ async def process_api_url_input(message: Message, state: FSMContext) -> None:
         
         data = await state.get_data()
         country_name = data.get('country_name', '')
+        country_name_ru = data.get('country_name_ru', '')
         flag = data.get('flag', '🌐')
         
         await message.answer(
             text=(
-                f'✅ Страна: {flag} {country_name.title()}\n'
+                f'✅ Страна (EN): {country_name}\n'
+                f'✅ Страна (RU): {country_name_ru}\n'
+                f'✅ Флаг: {flag}\n'
                 f'✅ API URL: {api_url}\n\n'
-                'Шаг 3/3: Введите SHA256 сертификат\n'
+                'Шаг 4/4: Введите SHA256 сертификат\n'
                 '(64-символьная строка шестнадцатеричных символов)\n\n'
                 'Или /cancel для отмены'
             ),
@@ -191,6 +232,7 @@ async def process_cert_input(message: Message, state: FSMContext) -> None:
         # Получаем все сохраненные данные
         data = await state.get_data()
         country_name = data.get('country_name', '')
+        country_name_ru = data.get('country_name_ru', '')
         flag = data.get('flag', '🌐')
         api_url = data.get('api_url', '')
         
@@ -205,7 +247,7 @@ async def process_cert_input(message: Message, state: FSMContext) -> None:
         # Добавляем новый сервер
         config[country_name] = {
             "name_en": country_name,
-            "name_ru": f"{flag} {country_name.title()}",
+            "name_ru": f"{flag} {country_name_ru}",
             "api_url": api_url,
             "cert_sha256": cert_sha256,
             "is_active": True
@@ -220,7 +262,8 @@ async def process_cert_input(message: Message, state: FSMContext) -> None:
         await message.answer(
             text=(
                 '✅ <b>Сервер успешно добавлен!</b>\n\n'
-                f'<b>Страна:</b> {flag} {country_name.title()}\n'
+                f'<b>Страна (EN):</b> {country_name}\n'
+                f'<b>Страна (RU):</b> {flag} {country_name_ru}\n'
                 f'<b>API URL:</b> {api_url}\n'
                 f'<b>Сертификат:</b> {cert_sha256[:16]}...\n'
                 f'<b>Статус:</b> Активен\n\n'
