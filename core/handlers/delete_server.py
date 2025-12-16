@@ -12,8 +12,9 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from core.settings import admin_tlg
 from core.sql.function_db_user_vpn.users_vpn import get_all_records_from_table_users
 from core.api_s.outline.outline_api import OutlineManager
-from logs.log_main import logger
+from logs.log_main import RotatingFileLogger
 
+logger = RotatingFileLogger()
 
 router = Router()
 
