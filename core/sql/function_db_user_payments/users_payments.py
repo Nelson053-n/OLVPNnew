@@ -12,30 +12,45 @@ Session = sessionmaker(bind=engine)
 Base.metadata.create_all(engine)
 
 
-async def add_payment_to_db(account: int, payment_key: str, payment_date: str) -> None:
+async def add_payment_to_db(account: int, payment_key: str = None, payment_date: str = None, paykey: str = None) -> None:
     """
     Добавить новый платеж пользователя в таблицу users_payments
 
-    :param account: int - id пользователя телеграм
-    :param payment_key: str - ключ платежа
+    :param account: int - id пользователя телеграм (теперь называется account вместо account_id)
+    :param payment_key: str - ключ платежа (устаревший параметр, используйте paykey)
     :param payment_date: str - дата и время платежа
+    :param paykey: str - ключ платежа (новый параметр)
     :return: None
     """
+    # Поддержка старого и нового API
+    if paykey is None and payment_key is not None:
+        paykey = payment_key
+    
+    if paykey is None:
+        raise ValueError("paykey is required")
+    
     with Session() as session:
         existing_record = session.query(UserPay).filter(UserPay.account_id == account).first()
-        payment_date = format_iso_datetime(iso_datetime=payment_date)
+        
+        if payment_date:
+            payment_date = format_iso_datetime(iso_datetime=payment_date)
+            payment_entry = f"[{paykey}|{payment_date}]"
+        else:
+            # Для тестовых платежей без даты
+            payment_entry = f"[{paykey}|test]"
+        
         if existing_record:
-            existing_record.paykey += f"\n[{payment_key}|{payment_date}]"
+            existing_record.paykey += f"\n{payment_entry}"
         else:
             record_from_table_user = await get_user_data_from_table_users(account=account)
             if record_from_table_user is None:
-                await add_user_to_db(account=account, account_name=account)
+                await add_user_to_db(account=account, account_name=str(account))
                 record_from_table_user = await get_user_data_from_table_users(account=account)
             record_id = record_from_table_user.id
             new_record = UserPay(
                 id=record_id,
                 account_id=account,
-                paykey=f"[{payment_key}|{payment_date}]",
+                paykey=payment_entry,
                 time_added=datetime.now()
             )
             session.add(new_record)
