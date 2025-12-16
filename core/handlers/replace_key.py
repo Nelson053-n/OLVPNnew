@@ -81,7 +81,7 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
         # Создаем новый ключ на новом сервере
         try:
             olm_new = OutlineManager(new_server)
-            new_key = olm_new.create_key_from_ol(id_user=user_id)
+            new_key = olm_new.create_key_from_ol(id_user=str(user_id))
             
             if not new_key:
                 raise Exception("Failed to create new key")

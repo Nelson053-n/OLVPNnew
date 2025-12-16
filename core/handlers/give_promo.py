@@ -137,8 +137,16 @@ async def give_promo_to_user(callback: CallbackQuery, target_user_id: int) -> No
         # Determine region
         region = await get_region_server(account=target_user_id) or 'nederland'
 
-        # Expiry date (7 days from now)
-        expiry_date = datetime.now() + timedelta(days=7)
+        # Загружаем настройки промо из JSON
+        import json
+        from pathlib import Path
+        settings_path = Path(__file__).parent.parent / 'settings_prices.json'
+        with open(settings_path, 'r', encoding='utf-8') as f:
+            prices = json.load(f)
+        promo_days = prices.get('promo', {}).get('days', 7)
+        
+        # Expiry date (промо период из настроек)
+        expiry_date = datetime.now() + timedelta(days=promo_days)
 
         # Create key on Outline server with unique outline_id
         outline_id = f"{target_user_id}-promo-{uuid.uuid4().hex[:8]}"
