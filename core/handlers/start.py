@@ -47,23 +47,6 @@ async def command_start(message: Message, state: FSMContext) -> None:
             await add_user_to_db(account=message.from_user.id, account_name=name_user)
             await set_key_to_table_users(account=id_user, value_key=check_key.access_url)
         await message.answer(text=content, reply_markup=start_keyboard())
-        
-        # Если это администратор, добавить список команд
-        if message.from_user.id == int(admin_tlg):
-            admin_commands = (
-                "\n📋 Администраторские команды:\n"
-                "/findpay - Найти платежи пользователя по ID\n"
-                "/findpay (без параметров) - Показать всех пользователей с платежами\n"
-                "/keyinfo USER_ID - Проверить информацию о ключе пользователя\n"
-                "/activekeys - Показать все активные ключи\n"
-                "/get_db - Экспортировать БД\n"
-                "/get_log_pay - Получить логи платежей\n"
-                "/promo USER_ID - Выдать промо-ключ пользователю\n"
-                "/massblock - Немедленно заблокировать все просроченные ключи\n"
-                "/seed [USER_ID] - Создать тестовые ключи для проверки\n"
-                "/unseed [USER_ID|all] - Удалить seed-ключи из БД"
-            )
-            await message.answer(text=admin_commands, parse_mode=None)
     except Exception as e:
         tb = traceback.format_exc()
         logger.log('error', f'command_start error for user {message.from_user.id}: {e}\n{tb}')
