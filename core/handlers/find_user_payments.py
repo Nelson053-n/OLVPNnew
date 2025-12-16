@@ -30,7 +30,7 @@ async def command_findpay(message: Message) -> None:
                 try:
                     id_find_user_int = int(id_find_user)
                 except ValueError:
-                    await message.answer("user_id должен быть числом", parse_mode=ParseMode.TEXT)
+                    await message.answer("user_id должен быть числом", parse_mode=None)
                     return
                 
                 # Получаем платежи
@@ -47,7 +47,7 @@ async def command_findpay(message: Message) -> None:
                 keyboard = InlineKeyboardBuilder()
                 keyboard.button(text="Проверить ключ /keyinfo", callback_data=f"check_user_key_{id_find_user_int}")
                 
-                await message.answer(text=response, reply_markup=keyboard.as_markup(), parse_mode=ParseMode.TEXT)
+                await message.answer(text=response, reply_markup=keyboard.as_markup(), parse_mode=None)
             elif len(data) == 1:
                 name_temp = data[0]
                 users_who_paid = await get_all_accounts_from_db()
@@ -66,14 +66,14 @@ async def command_findpay(message: Message) -> None:
                         except:
                             pass
                     keyboard.adjust(1)
-                    await message.answer(text=response, reply_markup=keyboard.as_markup(), parse_mode=ParseMode.TEXT)
+                    await message.answer(text=response, reply_markup=keyboard.as_markup(), parse_mode=None)
                 else:
-                    await message.answer("Нет пользователей с платежами", parse_mode=ParseMode.TEXT)
+                    await message.answer("Нет пользователей с платежами", parse_mode=None)
     except Exception as e:
         tb = traceback.format_exc()
         logger.log('error', f'command_findpay error: {e}\n{tb}')
         try:
-            await message.answer(f"Ошибка при обработке /findpay: {str(e)}", parse_mode=ParseMode.TEXT)
+            await message.answer(f"Ошибка при обработке /findpay: {str(e)}", parse_mode=None)
         except:
             pass
 

@@ -32,7 +32,7 @@ async def command_promo(message: Message) -> None:
         tb = traceback.format_exc()
         logger.log('error', f'command_promo error for user {message.from_user.id}: {e}\n{tb}')
         try:
-            await message.answer(f"Ошибка при обработке /promo: {str(e)}")
+            await message.answer(f"Ошибка при обработке /promo: {str(e)}", parse_mode=None)
         except:
             pass
 
