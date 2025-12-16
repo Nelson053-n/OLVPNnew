@@ -8,7 +8,10 @@ from core.sql.function_db_user_payments.users_payments import add_payment_to_db
 from core.utils.create_view import create_answer_from_html
 from core.utils.get_key_utils import get_future_date, get_ol_key_func
 from core.utils.get_region_name import get_region_name_from_json
-from main import logger_payments
+from logs.log_main import RotatingFileLogger
+
+# Use a dedicated payments logger here to avoid circular imports with main
+logger_payments = RotatingFileLogger(config_file='logs/log_settings_payments.json')
 
 
 async def after_pay(call: CallbackQuery, state: FSMContext) -> str:

@@ -7,7 +7,10 @@ from core.keyboards.start_button import start_keyboard
 from core.sql.function_db_user_vpn.users_vpn import set_key_to_table_users, set_premium_status, set_date_to_table_users, \
     get_key_from_table_users, set_region_server
 from core.utils.create_view import create_answer_from_html
-from main import logger_payments
+from logs.log_main import RotatingFileLogger
+
+# Use a dedicated payments logger here to avoid circular imports with main
+logger_payments = RotatingFileLogger(config_file='logs/log_settings_payments.json')
 
 
 async def ask_del_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboardMarkup):
