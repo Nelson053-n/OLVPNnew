@@ -1,5 +1,6 @@
 import json
 from typing import Callable, Tuple
+import traceback
 
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup
@@ -12,6 +13,9 @@ from core.handlers.handlers_keyboards.get_promo_handler import get_promo
 from core.handlers.handlers_keyboards.choise_region import region_handler
 from core.handlers.handlers_keyboards.admin_block_key_handler import admin_block_key_handler
 from core.utils.throttle import throttle
+from logs.log_main import RotatingFileLogger
+
+logger = RotatingFileLogger()
 
 
 @throttle(seconds=0.2)
@@ -22,11 +26,15 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
     :param call: CallbackQuery - Объект CallbackQuery.
     :param state: FSMContext - Объект FSMContext.
     """
-    await call.answer()
-    data = call.data
-    text, reply_markup = await switch_menu(data, call, state)
-    if text != call.message.text:
-        await call.message.edit_text(text=text, reply_markup=reply_markup)
+    try:
+        await call.answer()
+        data = call.data
+        text, reply_markup = await switch_menu(data, call, state)
+        if text != call.message.text:
+            await call.message.edit_text(text=text, reply_markup=reply_markup)
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.log('error', f'build_and_edit_message error for user {call.from_user.id}, data={call.data}: {e}\n{tb}')
 
 
 async def switch_menu(case_number: str, call: CallbackQuery, state: FSMContext) -> Tuple[str, InlineKeyboardMarkup]:
@@ -38,37 +46,42 @@ async def switch_menu(case_number: str, call: CallbackQuery, state: FSMContext) 
     :param state: FSMContext - Объект FSMContext.
     :return: Результат работы соответствующего обработчика.
     """
-    # Обработка admin callback'ов для блокировки ключей
-    if case_number.startswith('admin_block_key_'):
-        return await admin_block_key_handler(call)
-    
-    switch_dict = {
-        'get_key': choise_region,
-        'del_key': del_key,
-        'ask_del_key': ask_del_key,
-        'day': day_key,
-        'week': week_key,
-        'month': month_key,
-        'back': back_key,
-        'pay_check': pay_check_key,
-        'my_key': my_key,
-        'promo': get_promo,
-    }
-    region_handler_switch = create_region_handler_from_json()
-    if region_handler_switch:
-        for region_switch in region_handler_switch:
-            name = region_switch[0]
-            handler = region_switch[1]
-            switch_dict[name] = handler
-    default_handler: Callable[[CallbackQuery, FSMContext],
-                     Tuple[str, InlineKeyboardMarkup]] = \
-                    lambda call, state: ("", InlineKeyboardMarkup())
+    try:
+        # Обработка admin callback'ов для блокировки ключей
+        if case_number.startswith('admin_block_key_'):
+            return await admin_block_key_handler(call)
+        
+        switch_dict = {
+            'get_key': choise_region,
+            'del_key': del_key,
+            'ask_del_key': ask_del_key,
+            'day': day_key,
+            'week': week_key,
+            'month': month_key,
+            'back': back_key,
+            'pay_check': pay_check_key,
+            'my_key': my_key,
+            'promo': get_promo,
+        }
+        region_handler_switch = create_region_handler_from_json()
+        if region_handler_switch:
+            for region_switch in region_handler_switch:
+                name = region_switch[0]
+                handler = region_switch[1]
+                switch_dict[name] = handler
+        default_handler: Callable[[CallbackQuery, FSMContext],
+                         Tuple[str, InlineKeyboardMarkup]] = \
+                        lambda call, state: ("", InlineKeyboardMarkup())
 
-    handler: Callable[[CallbackQuery, FSMContext],
-             Tuple[str, InlineKeyboardMarkup]] = (
-            switch_dict.get(case_number, default_handler))
+        handler: Callable[[CallbackQuery, FSMContext],
+                 Tuple[str, InlineKeyboardMarkup]] = (
+                switch_dict.get(case_number, default_handler))
 
-    return await handler(call, state)
+        return await handler(call, state)
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.log('error', f'switch_menu error for user {call.from_user.id}, case={case_number}: {e}\n{tb}')
+        return ("❌ Ошибка при обработке команды", InlineKeyboardMarkup())
 
 
 def create_region_handler_from_json() -> list:
