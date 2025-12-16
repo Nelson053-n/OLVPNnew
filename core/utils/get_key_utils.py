@@ -39,9 +39,12 @@ async def get_ol_key_func(call: CallbackQuery, untill_date: str, region_server: 
     """
     olm = OutlineManager(region_server)
     id_user = call.from_user.id
-    # Всегда создаём новый ключ (поддержка множественных ключей) с уникальным outline_id
-    outline_id = f"{id_user}-{uuid.uuid4().hex[:8]}"
-    key_user = olm.create_key_from_ol(id_user=str(outline_id))
+    # Всегда создаём новый ключ (поддержка множественных ключей) с уникальным именем
+    # Используем POST запрос без key_id, чтобы избежать ошибки парсинга
+    unique_name = f"{id_user}-{uuid.uuid4().hex[:8]}"
+    key_user = olm._client.create_key(name=unique_name)
+    # Сохраняем сгенерированный сервером outline_id
+    outline_id = key_user.key_id
     premium_user_db = await set_premium_status(account=id_user, value_premium=True)
     date_user_db = await set_date_to_table_users(account=id_user, value_date=untill_date)
     region_server_to_db = await set_region_server(account=id_user, value_region=region_server)
@@ -50,7 +53,7 @@ async def get_ol_key_func(call: CallbackQuery, untill_date: str, region_server: 
         await add_user_key(
             account=id_user,
             access_url=key_user.access_url,
-            outline_id=str(outline_id),
+            outline_id=outline_id,
             region_server=region_server,
             date_str=untill_date,
             promo=False,
