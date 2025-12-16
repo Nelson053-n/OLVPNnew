@@ -17,7 +17,7 @@ from core.handlers.seed_test_data import command_seed
 from core.handlers.unseed_test_data import command_unseed
 from core.handlers.add_server import (
     command_addserver, 
-    process_country_input,
+    process_country_choice,
     process_country_ru_input,
     process_api_url_input, 
     process_cert_input,
@@ -105,7 +105,10 @@ async def start_bot():
     dp.message.register(command_testkey, Command('testkey'))
     
     # 2. Обработчики состояний (FSM) для добавления сервера
-    dp.message.register(process_country_input, AddServerStates.waiting_for_country)
+    dp.callback_query.register(
+        process_country_choice,
+        lambda c: c.data.startswith('addsvr_')
+    )
     dp.message.register(process_country_ru_input, AddServerStates.waiting_for_country_ru)
     dp.message.register(process_api_url_input, AddServerStates.waiting_for_api_url)
     dp.message.register(process_cert_input, AddServerStates.waiting_for_cert)
