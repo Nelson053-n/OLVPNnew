@@ -43,8 +43,8 @@ async def get_ol_key_func(call: CallbackQuery, untill_date: str, region_server: 
     # Используем POST запрос без key_id, чтобы избежать ошибки парсинга
     unique_name = f"{id_user}-{uuid.uuid4().hex[:8]}"
     key_user = olm._client.create_key(name=unique_name)
-    # Сохраняем сгенерированный сервером outline_id
-    outline_id = key_user.key_id
+    # Сохраняем сгенерированный сервером outline_id (конвертируем в строку)
+    outline_id = str(key_user.key_id)
     premium_user_db = await set_premium_status(account=id_user, value_premium=True)
     date_user_db = await set_date_to_table_users(account=id_user, value_date=untill_date)
     region_server_to_db = await set_region_server(account=id_user, value_region=region_server)
