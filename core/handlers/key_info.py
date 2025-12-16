@@ -10,6 +10,9 @@ from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
 
+# Import ParseMode to disable HTML parsing for certain messages
+from aiogram.enums import ParseMode
+
 
 async def command_keyinfo(message: Message) -> None:
     """
@@ -25,19 +28,19 @@ async def command_keyinfo(message: Message) -> None:
     """
     try:
         if message.from_user.id != int(admin_tlg):
-            await message.answer("❌ У вас нет доступа к этой команде")
+            await message.answer("У вас нет доступа к этой команде", parse_mode=ParseMode.TEXT)
             return
 
         data = message.text.split(' ')
         
         if len(data) != 2:
-            await message.answer("❌ Ошибка использования команды\nИспользование: /keyinfo <user_id>")
+            await message.answer("Ошибка использования команды\nИспользование: /keyinfo <user_id>", parse_mode=ParseMode.TEXT)
             return
 
         try:
             user_id = int(data[1])
         except ValueError:
-            await message.answer("❌ user_id должен быть числом")
+            await message.answer("user_id должен быть числом", parse_mode=ParseMode.TEXT)
             return
 
         # Получаем все записи из БД
@@ -50,11 +53,11 @@ async def command_keyinfo(message: Message) -> None:
                 break
 
         if not user_record:
-            await message.answer(f"❌ Пользователь с ID {user_id} не найден в БД")
+            await message.answer(f"Пользователь с ID {user_id} не найден в БД", parse_mode=ParseMode.TEXT)
             return
 
         if not user_record.key:
-            await message.answer(f"❌ У пользователя {user_id} нет активного ключа")
+            await message.answer(f"У пользователя {user_id} нет активного ключа", parse_mode=ParseMode.TEXT)
             return
 
         # Получаем информацию о ключе из Outline
@@ -64,7 +67,7 @@ async def command_keyinfo(message: Message) -> None:
             outline_key = olm.get_key_from_ol(id_user=str(user_id))
             
             if not outline_key:
-                await message.answer(f"❌ Ключ пользователя {user_id} не найден на сервере {region_server}")
+                await message.answer(f"Ключ пользователя {user_id} не найден на сервере {region_server}", parse_mode=ParseMode.TEXT)
                 return
 
             # Форматируем информацию о трафике
@@ -83,17 +86,17 @@ async def command_keyinfo(message: Message) -> None:
             # Создаём клавиатуру с кнопкой блокировки
             keyboard = create_key_info_keyboard(user_id)
             
-            await message.answer(text=response_text, reply_markup=keyboard)
+            await message.answer(text=response_text, reply_markup=keyboard, parse_mode=ParseMode.TEXT)
 
         except Exception as e:
             tb = traceback.format_exc()
             logger.log('error', f'command_keyinfo outline error: {e}\n{tb}')
-            await message.answer(f"Ошибка при получении информации о ключе: {str(e)}")
+            await message.answer(f"Ошибка при получении информации о ключе: {str(e)}", parse_mode=ParseMode.TEXT)
     except Exception as e:
         tb = traceback.format_exc()
         logger.log('error', f'command_keyinfo error for user {message.from_user.id}: {e}\n{tb}')
         try:
-            await message.answer(f"Ошибка при обработке /keyinfo: {str(e)}")
+            await message.answer(f"Ошибка при обработке /keyinfo: {str(e)}", parse_mode=ParseMode.TEXT)
         except:
             pass
 
