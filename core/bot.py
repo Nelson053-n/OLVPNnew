@@ -17,10 +17,17 @@ from core.handlers.seed_test_data import command_seed
 from core.handlers.unseed_test_data import command_unseed
 from core.handlers.add_server import (
     command_addserver, 
-    process_country_input, 
+    process_country_input,
+    process_country_ru_input,
     process_api_url_input, 
     process_cert_input,
     AddServerStates
+)
+from core.handlers.delete_server import (
+    deleteserver_handler,
+    confirm_delete_server,
+    execute_delete_server,
+    cancel_delete
 )
 from core.handlers.test_key_broadcast import (
     command_testkey,
@@ -55,6 +62,7 @@ async def setup_bot_commands(bot: Bot):
         BotCommand(command="massblock", description="🔒 Блокировка просроченных"),
         BotCommand(command="findpay", description="💳 Поиск платежей"),
         BotCommand(command="addserver", description="➕ Добавить сервер"),
+        BotCommand(command="deleteserver", description="🗑️ Удалить сервер"),
         BotCommand(command="seed", description="🧪 Создать тестовые данные"),
         BotCommand(command="unseed", description="🗑️ Удалить тестовые данные"),
         BotCommand(command="get_db", description="💾 Скачать БД"),
@@ -93,10 +101,12 @@ async def start_bot():
     dp.message.register(command_seed, Command('seed'))
     dp.message.register(command_unseed, Command('unseed'))
     dp.message.register(command_addserver, Command('addserver'))
+    dp.message.register(deleteserver_handler, Command('deleteserver'))
     dp.message.register(command_testkey, Command('testkey'))
     
     # 2. Обработчики состояний (FSM) для добавления сервера
     dp.message.register(process_country_input, AddServerStates.waiting_for_country)
+    dp.message.register(process_country_ru_input, AddServerStates.waiting_for_country_ru)
     dp.message.register(process_api_url_input, AddServerStates.waiting_for_api_url)
     dp.message.register(process_cert_input, AddServerStates.waiting_for_cert)
     
@@ -106,10 +116,24 @@ async def start_bot():
         lambda c: c.data.startswith('testkey_')
     )
     
-    # 4. Обработчик блокировки с причиной (БЕЗ фильтра, регистрируется ПОСЛЕДНИМ)
+    # 4. Callback'и для удаления сервера
+    dp.callback_query.register(
+        confirm_delete_server,
+        lambda c: c.data.startswith('delsvr_')
+    )
+    dp.callback_query.register(
+        execute_delete_server,
+        lambda c: c.data.startswith('cfmdel_')
+    )
+    dp.callback_query.register(
+        cancel_delete,
+        lambda c: c.data == 'cancel_delete'
+    )
+    
+    # 5. Обработчик блокировки с причиной (БЕЗ фильтра, регистрируется ПОСЛЕДНИМ)
     dp.message.register(command_block_reason)
     
-    # 5. Callback query обработчик (общий, регистрируется после специфичных)
+    # 6. Callback query обработчик (общий, регистрируется после специфичных)
     dp.callback_query.register(build_and_edit_message)
 
     try:
