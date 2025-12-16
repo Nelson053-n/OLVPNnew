@@ -73,11 +73,11 @@ async def command_keyinfo(message: Message) -> None:
             
             # Создаём ответ
             response_text = (
-                f"<b>📊 Информация о ключе</b>\n\n"
-                f"<b>Пользователь:</b> <code>{telegram_name}</code> (ID: <code>{user_id}</code>)\n"
-                f"<b>Регион:</b> {region_server}\n"
-                f"<b>Трафик использован:</b> {used_gb:.2f} ГБ\n"
-                f"<b>Статус:</b> {'✅ Активен' if user_record.premium else '❌ Неактивен'}"
+                f"Информация о ключе\n\n"
+                f"Пользователь: {telegram_name} (ID: {user_id})\n"
+                f"Регион: {region_server}\n"
+                f"Трафик использован: {used_gb:.2f} ГБ\n"
+                f"Статус: {'Активен' if user_record.premium else 'Неактивен'}"
             )
             
             # Создаём клавиатуру с кнопкой блокировки
@@ -88,12 +88,12 @@ async def command_keyinfo(message: Message) -> None:
         except Exception as e:
             tb = traceback.format_exc()
             logger.log('error', f'command_keyinfo outline error: {e}\n{tb}')
-            await message.answer(f"❌ Ошибка при получении информации о ключе: {str(e)}")
+            await message.answer(f"Ошибка при получении информации о ключе: {str(e)}")
     except Exception as e:
         tb = traceback.format_exc()
         logger.log('error', f'command_keyinfo error for user {message.from_user.id}: {e}\n{tb}')
         try:
-            await message.answer(f"❌ Ошибка при обработке /keyinfo: {str(e)}")
+            await message.answer(f"Ошибка при обработке /keyinfo: {str(e)}")
         except:
             pass
 

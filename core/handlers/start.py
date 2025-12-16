@@ -27,8 +27,14 @@ async def command_start(message: Message, state: FSMContext) -> None:
         name_servers = get_name_all_active_server_ol()
         check_key = None
         for region_server in name_servers:
-            olm = OutlineManager(region_server=region_server)
-            check_key = olm.get_key_from_ol(id_user=str(id_user))
+            try:
+                olm = OutlineManager(region_server=region_server)
+                check_key = olm.get_key_from_ol(id_user=str(id_user))
+                if check_key:
+                    break
+            except Exception as region_error:
+                logger.log('warning', f'Error checking key in region {region_server}: {region_error}')
+                continue
         check_user = await get_user_data_from_table_users(account=id_user)
         content = await create_answer_from_html(name_temp=message.text)
         if check_user is None and check_key is None:
@@ -43,6 +49,6 @@ async def command_start(message: Message, state: FSMContext) -> None:
         tb = traceback.format_exc()
         logger.log('error', f'command_start error for user {message.from_user.id}: {e}\n{tb}')
         try:
-            await message.answer(f"❌ Ошибка при обработке /start: {str(e)}")
+            await message.answer(f"Ошибка при обработке /start: {str(e)}")
         except:
             pass
