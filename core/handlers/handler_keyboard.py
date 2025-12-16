@@ -112,14 +112,14 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
             except Exception:
                 pass
             return
-'):
+
+        if data.startswith('ask_del_'):
             try:
                 short_id = data.split('_')[-1]
                 from core.keyboards.accept_del_button import accept_del_userkey_keyboard
                 from core.utils.create_view import create_answer_from_html
                 content = await create_answer_from_html(name_temp='ask_del_key', result='Подтверждаете удаление ключа?')
-                await call.message.edit_text(text=content, reply_markup=accept_del_userkey_keyboard(shortудаление ключа?')
-                await call.message.edit_text(text=content, reply_markup=accept_del_userkey_keyboard(key_id), parse_mode='HTML')
+                await call.message.edit_text(text=content, reply_markup=accept_del_userkey_keyboard(short_id), parse_mode='HTML')
             except Exception:
                 # fallback notify
                 try:
@@ -127,7 +127,8 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 except Exception:
                     pass
             return
-k_'):
+
+        if data.startswith('del_k_'):
             try:
                 short_id = data.split('_')[-1]
                 from core.sql.function_db_user_vpn.users_vpn import (
