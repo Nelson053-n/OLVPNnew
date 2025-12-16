@@ -8,6 +8,8 @@ from core.sql.function_db_user_vpn.users_vpn import add_user_to_db, get_user_dat
     set_key_to_table_users, get_region_server
 from core.utils.create_view import create_answer_from_html
 from logs.log_main import RotatingFileLogger
+from core.settings import admin_tlg
+from aiogram.enums import ParseMode
 
 logger = RotatingFileLogger()
 
@@ -45,6 +47,20 @@ async def command_start(message: Message, state: FSMContext) -> None:
             await add_user_to_db(account=message.from_user.id, account_name=name_user)
             await set_key_to_table_users(account=id_user, value_key=check_key.access_url)
         await message.answer(text=content, reply_markup=start_keyboard())
+        
+        # Если это администратор, добавить список команд
+        if message.from_user.id == int(admin_tlg):
+            admin_commands = (
+                "\n📋 Администраторские команды:\n"
+                "/findpay - Найти платежи пользователя по ID\n"
+                "/findpay (без параметров) - Показать всех пользователей с платежами\n"
+                "/keyinfo <user_id> - Проверить информацию о ключе пользователя\n"
+                "/activekeys - Показать все активные ключи\n"
+                "/get_db - Экспортировать БД\n"
+                "/get_log_pay - Получить логи платежей\n"
+                "/promo <user_id> - Выдать промо-ключ пользователю"
+            )
+            await message.answer(text=admin_commands, parse_mode=ParseMode.TEXT)
     except Exception as e:
         tb = traceback.format_exc()
         logger.log('error', f'command_start error for user {message.from_user.id}: {e}\n{tb}')
