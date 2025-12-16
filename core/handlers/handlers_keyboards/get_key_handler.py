@@ -147,7 +147,7 @@ async def my_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboard
             
             # Строка по каждому ключу
             lines.append(f"<b>{idx}.</b> {server_display}")
-            lines.append(f"⏳ <b>Действителен до:</b> {date_str}{days_left}")
+            lines.append(f"<b>Действителен до:</b> {date_str}{days_left}")
             lines.append(f"<a href=\"{k.access_url}\"><code>{k.access_url}</code></a>\n")
             
             # Кнопки по каждому ключу: копировать / удалить (используем короткие ID)
