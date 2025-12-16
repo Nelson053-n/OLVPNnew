@@ -58,7 +58,10 @@ async def command_start(message: Message, state: FSMContext) -> None:
                 "/activekeys - Показать все активные ключи\n"
                 "/get_db - Экспортировать БД\n"
                 "/get_log_pay - Получить логи платежей\n"
-                "/promo USER_ID - Выдать промо-ключ пользователю"
+                "/promo USER_ID - Выдать промо-ключ пользователю\n"
+                "/massblock - Немедленно заблокировать все просроченные ключи\n"
+                "/seed [USER_ID] - Создать тестовые ключи для проверки\n"
+                "/unseed [USER_ID|all] - Удалить seed-ключи из БД"
             )
             await message.answer(text=admin_commands, parse_mode=None)
     except Exception as e:
