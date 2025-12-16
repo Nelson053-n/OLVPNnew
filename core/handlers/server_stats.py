@@ -5,7 +5,7 @@ from aiogram.types import Message
 import traceback
 
 from core.settings import admin_tlg
-from core.api_s.outline.outline_api import OutlineManager, get_name_all_active_server_ol
+from core.api_s.outline.outline_api import OutlineManager, get_name_all_active_server_ol, get_server_display_name
 from core.sql.function_db_user_vpn.users_vpn import get_all_user_keys
 from logs.log_main import RotatingFileLogger
 
@@ -48,7 +48,7 @@ async def command_server_stats(message: Message) -> None:
         # Формируем ответ
         lines = ['<b>📊 Статистика серверов Outline</b>\n']
         
-        for server in all_servers:
+        for idx, server in enumerate(all_servers, 1):
             try:
                 olm = OutlineManager(region_server=server)
                 
@@ -69,17 +69,21 @@ async def command_server_stats(message: Message) -> None:
                 db_keys = keys_by_server[server]
                 active_db_keys = sum(1 for k in db_keys if k.premium)
                 
+                # Получаем отображаемое имя с флагом
+                server_display = get_server_display_name(server)
+                
                 lines.append(
-                    f'<b>🌍 {server}</b>\n'
-                    f'   Ключей на сервере: {total_keys}\n'
-                    f'   Активных в БД: {active_db_keys} из {len(db_keys)}\n'
-                    f'   Общий трафик: {total_traffic_gb:.2f} ГБ\n'
+                    f'<b>{idx}.</b> {server_display}\n'
+                    f'   📦 Ключей на сервере: {total_keys}\n'
+                    f'   ✅ Активных в БД: {active_db_keys} из {len(db_keys)}\n'
+                    f'   📊 Общий трафик: {total_traffic_gb:.2f} ГБ\n'
                 )
                 
             except Exception as e:
                 logger.log('error', f'Error getting stats for server {server}: {e}')
+                server_display = get_server_display_name(server)
                 lines.append(
-                    f'<b>🌍 {server}</b>\n'
+                    f'<b>{idx}.</b> {server_display}\n'
                     f'   ❌ Ошибка получения статистики: {str(e)}\n'
                 )
         

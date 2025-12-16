@@ -115,27 +115,46 @@ async def my_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboard
     :param state: FSMContext - Объект FSMContext.
     :return: Текст ответа и клавиатура.
     """
+    from datetime import datetime
+    from core.api_s.outline.outline_api import get_server_display_name
+    
     id_user = call.from_user.id
     name_temp = call.data
     # Получаем все ключи пользователя (поддержка нескольких ключей)
     keys = await get_user_keys(account=id_user)
     if keys:
         # Собираем HTML-ответ со списком ключей
-        lines = ["<b>🔑 Ваши ключи:</b>"]
+        lines = ["<b>🔑 Ваши ключи:</b>\n"]
         kb = InlineKeyboardBuilder()
-        for k in keys:
-            # region name via json
-            region_name = await get_region_name_from_json(region=k.region_server or 'nederland')
+        for idx, k in enumerate(keys, 1):
+            # Получаем отображаемое имя с флагом
+            server_display = get_server_display_name(k.region_server or 'nederland')
+            
+            # Вычисляем количество дней до истечения
+            days_left = ""
+            if k.date:
+                delta = k.date - datetime.now()
+                days = delta.days
+                hours = delta.seconds // 3600
+                if days > 0:
+                    days_left = f" ({days} дн.)"
+                elif days == 0 and hours >= 0:
+                    days_left = f" ({hours} ч.)"
+                else:
+                    days_left = " (истёк)"
+            
             date_str = k.date.strftime('%d.%m.%Y - %H:%M') if k.date else '—'
+            
             # Строка по каждому ключу
-            lines.append(f"\n<b>🌍 Регион:</b> {region_name}")
-            lines.append(f"<b>⏳ Действителен до:</b> {date_str}")
-            lines.append(f"<a href=\"{k.access_url}\"><code>{k.access_url}</code></a>")
+            lines.append(f"<b>{idx}.</b> {server_display}")
+            lines.append(f"⏳ <b>Действителен до:</b> {date_str}{days_left}")
+            lines.append(f"<a href=\"{k.access_url}\"><code>{k.access_url}</code></a>\n")
+            
             # Кнопки по каждому ключу: копировать / удалить (используем короткие ID)
             short_id = str(k.id)[-8:]  # Последние 8 символов UUID
             kb.row(
-                InlineKeyboardButton(text='📋 Копировать', callback_data=f'cpy_k_{short_id}'),
-                InlineKeyboardButton(text='🗑️ Удалить', callback_data=f'ask_del_{short_id}')
+                InlineKeyboardButton(text=f'📋 Копировать {idx}', callback_data=f'cpy_k_{short_id}'),
+                InlineKeyboardButton(text=f'🗑️ Удалить {idx}', callback_data=f'ask_del_{short_id}')
             )
         # Добавляем кнопку назад
         kb.row(InlineKeyboardButton(text='🔙 Назад', callback_data='back'))

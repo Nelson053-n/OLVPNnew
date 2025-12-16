@@ -17,8 +17,24 @@ def get_name_all_active_server_ol() -> list:
     for value in config.values():
         if value['is_active']:
             active_servers.append(value['name_en'])
-        return active_servers
+    return active_servers
 
+def get_server_display_name(region_server: str) -> str:
+    """
+    Получить отображаемое имя сервера с флагом страны
+    
+    :param region_server: название региона (name_en)
+    :return: отображаемое имя с флагом (name_ru)
+    """
+    config_file = 'core/api_s/outline/settings_api_outline.json'
+    try:
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+        if region_server in config:
+            return config[region_server].get('name_ru', region_server)
+        return region_server
+    except Exception:
+        return region_server
 
 class OutlineManager:
     """

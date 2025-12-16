@@ -23,6 +23,7 @@ async def get_key_info_response(user_id: int) -> tuple:
     :return: tuple(text, keyboard)
     """
     try:
+        from datetime import datetime
         # Получаем все записи из БД
         all_users = await get_all_records_from_table_users()
         user_record = None
@@ -40,31 +41,66 @@ async def get_key_info_response(user_id: int) -> tuple:
         if not user_keys:
             return (f"У пользователя {user_id} нет активных ключей", InlineKeyboardBuilder().as_markup())
 
+        # Импортируем функцию для получения отображаемого имени сервера
+        from core.api_s.outline.outline_api import get_server_display_name
+        
         # Собираем информацию по каждому ключу
-        parts = [f"📊 Информация о ключах\n\nПользователь: {user_record.account_name} (ID: {user_id})"]
+        parts = [f"📊 <b>Информация о ключах</b>\n\nПользователь: {user_record.account_name} (ID: {user_id})\n"]
         keyboard = InlineKeyboardBuilder()
-        for uk in user_keys:
+        
+        for idx, uk in enumerate(user_keys, 1):
             try:
                 olm = OutlineManager(region_server=uk.region_server or 'nederland')
                 outline_key = olm.get_key_by_id(uk.outline_id)
                 used_bytes = getattr(outline_key, 'used_bytes', 0) or 0
                 used_gb = used_bytes / (1024**3)
+                
+                # Получаем отображаемое имя с флагом
+                server_display = get_server_display_name(uk.region_server or 'nederland')
+                
+                # Вычисляем количество дней до истечения
+                days_left = ""
+                if uk.date:
+                    delta = uk.date - datetime.now()
+                    days = delta.days
+                    hours = delta.seconds // 3600
+                    if days > 0:
+                        days_left = f" ({days} дн.)"
+                    elif days == 0 and hours >= 0:
+                        days_left = f" ({hours} ч.)"
+                    else:
+                        days_left = " (истёк)"
+                
                 parts.append(
-                    f"\n— Регион: {uk.region_server}\n"
-                    f"  Трафик использован: {used_gb:.2f} ГБ\n"
-                    f"  Статус: {'Активен' if uk.premium else 'Неактивен'}\n"
-                    f"  Истекает: {uk.date.strftime('%d.%m.%Y - %H:%M') if uk.date else '—'}\n"
-                    f"  URL: {uk.access_url}"
+                    f"<b>{idx}.</b> {server_display}\n"
+                    f"  📊 Трафик: {used_gb:.2f} ГБ\n"
+                    f"  {'✅' if uk.premium else '❌'} Статус: {'Активен' if uk.premium else 'Неактивен'}\n"
+                    f"  ⏳ Истекает: {uk.date.strftime('%d.%m.%Y - %H:%M') if uk.date else '—'}{days_left}\n"
+                    f"  🔑 URL: {uk.access_url}\n"
                 )
-            except Exception:
+            except Exception as e:
+                # Получаем отображаемое имя с флагом даже если ключ не найден
+                server_display = get_server_display_name(uk.region_server or 'nederland')
+                
+                # Вычисляем количество дней до истечения
+                days_left = ""
+                if uk.date:
+                    delta = uk.date - datetime.now()
+                    days = delta.days
+                    if days >= 0:
+                        days_left = f" ({days} дн.)"
+                    else:
+                        days_left = " (истёк)"
+                
                 parts.append(
-                    f"\n— Регион: {uk.region_server} (ключ не найден на сервере)\n"
-                    f"  URL: {uk.access_url}"
+                    f"<b>{idx}.</b> {server_display} (ключ не найден на сервере)\n"
+                    f"  ⏳ Истекает: {uk.date.strftime('%d.%m.%Y - %H:%M') if uk.date else '—'}{days_left}\n"
+                    f"  🔑 URL: {uk.access_url}\n"
                 )
             # Добавляем кнопки для каждого ключа
             short_id = str(uk.id)[-8:]  # Последние 8 символов UUID
-            keyboard.button(text=f"🔁 Заменить ключ ({uk.region_server})", callback_data=f"rpl_key_{short_id}")
-            keyboard.button(text=f"🔒 Заблокировать ({uk.region_server})", callback_data=f"cfm_blk_{short_id}")
+            keyboard.button(text=f"🔁 Заменить ключ {idx}", callback_data=f"rpl_key_{short_id}")
+            keyboard.button(text=f"🔒 Заблокировать {idx}", callback_data=f"cfm_blk_{short_id}")
         keyboard.adjust(2)  # 2 кнопки в ряд для каждого ключа
         return ("\n".join(parts), keyboard.as_markup())
     except Exception as e:
