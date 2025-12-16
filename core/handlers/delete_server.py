@@ -11,12 +11,19 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from core.settings import admin_tlg
 from core.sql.function_db_user_vpn.users_vpn import get_all_records_from_table_users
+from core.sql.base import Users
+from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
 from core.api_s.outline.outline_api import OutlineManager
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
 
 router = Router()
+
+# Подключение к БД
+DATABASE_URL = 'sqlite:///olvpnbot.db'
+engine = create_engine(DATABASE_URL, echo=True)
 
 
 @router.message(Command('deleteserver'))
@@ -190,6 +197,7 @@ async def execute_delete_server(callback: CallbackQuery) -> None:
         olm = OutlineManager(server_name)
         
         deleted_keys = 0
+        deleted_db_keys = 0
         errors = 0
         
         # Удаляем ключи из Outline и обновляем БД
@@ -198,18 +206,43 @@ async def execute_delete_server(callback: CallbackQuery) -> None:
                 account_id = user.account
                 outline_id = user.outline_id
                 
+                # Удаляем ключ из Outline VPN
                 if outline_id:
-                    # Удаляем ключ из Outline
                     try:
                         olm.delete_key_by_id(outline_id)
                         deleted_keys += 1
+                        logger.log('info', f'Deleted Outline key {outline_id} for user {account_id}')
                     except Exception as e:
                         logger.log('warning', f'Failed to delete key {outline_id} from Outline: {e}')
                         errors += 1
                 
-                # Обновляем данные пользователя в БД
-                from core.sql.function_db_user_vpn.users_vpn import set_premium_status
+                # Удаляем записи UserKey из БД для этого пользователя на этом сервере
+                from core.sql.function_db_user_vpn.users_vpn import get_user_keys, delete_user_key_record
+                user_keys = await get_user_keys(account=account_id)
+                for key in user_keys:
+                    if key.region_server == server_name:
+                        try:
+                            await delete_user_key_record(key.id)
+                            deleted_db_keys += 1
+                            logger.log('info', f'Deleted DB key record {key.id} for user {account_id}')
+                        except Exception as e:
+                            logger.log('warning', f'Failed to delete DB key record {key.id}: {e}')
+                
+                # Очищаем данные пользователя в таблице Users
+                from core.sql.function_db_user_vpn.users_vpn import set_premium_status, get_user_data_from_table_users
                 await set_premium_status(account_id, value_premium=False)
+                
+                # Очищаем поля region_server и outline_id у пользователя
+                with Session(engine) as session:
+                    try:
+                        user_record = session.query(Users).filter_by(account=account_id).one()
+                        if user_record.region_server == server_name:
+                            user_record.region_server = None
+                            user_record.outline_id = None
+                            session.commit()
+                            logger.log('info', f'Cleared server data for user {account_id}')
+                    except Exception as e:
+                        logger.log('warning', f'Failed to clear user data for {account_id}: {e}')
                 
             except Exception as e:
                 logger.log('error', f'Error deleting key for user {user.account}: {e}')
@@ -226,7 +259,9 @@ async def execute_delete_server(callback: CallbackQuery) -> None:
         result_text = (
             f'✅ <b>Сервер удален</b>\n\n'
             f'<b>Сервер:</b> {name_ru}\n'
-            f'<b>Удалено ключей:</b> {deleted_keys}\n'
+            f'<b>Удалено ключей из Outline:</b> {deleted_keys}\n'
+            f'<b>Удалено записей из БД:</b> {deleted_db_keys}\n'
+            f'<b>Обработано пользователей:</b> {len(users_on_server)}\n'
         )
         
         if errors > 0:
