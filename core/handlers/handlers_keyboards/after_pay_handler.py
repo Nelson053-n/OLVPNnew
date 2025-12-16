@@ -34,7 +34,7 @@ async def after_pay(call: CallbackQuery, state: FSMContext) -> str:
     content = await create_answer_from_html(name_temp=name_temp, key_user=key_user.access_url,
                                             day_count=add_day, word_days=word_days,
                                             untill_date=untill_date, region_name=region_name)
-    logger_payments.log('info', f'\tрегион: {region_server}\n\tКлюч: {key_user}')
+    logger_payments.log('info', f'\tRegion: {region_server}\n\tKey: {key_user}')
     await state.update_data(pay=(None, None))
     return content
 
@@ -59,11 +59,11 @@ async def pay_check_key(call: CallbackQuery, state: FSMContext) -> tuple:
         if result_pay:
             content = await after_pay(call, state)
             await add_payment_to_db(account=id_user, payment_key=payment.id, payment_date=payment.created_at)
-            logger_payments.log('info', f'{id_user} - Успешный платеж\n\tплатежный id {payment.id}\n\tдата и время: {payment.created_at}')
+            logger_payments.log('info', f'{id_user} - Successful payment\n\tPayment ID: {payment.id}\n\tDate & Time: {payment.created_at}')
             return content, start_keyboard()
         else:
             name_temp = 'error_pay'
             content = await create_answer_from_html(name_temp=name_temp)
             url_pay_keyboard = url_pay_keyboard_build(url_payment=payment_url, back_button=region_server)
-            logger_payments.log('info', f'{id_user} - Платеж не прошел\n\tплатежный url {payment_url}\n\tплатежный id: {(payment.id if payment else None)}')
+            logger_payments.log('info', f'{id_user} - Payment failed\n\tPayment URL: {payment_url}\n\tPayment ID: {(payment.id if payment else None)}')
             return content, url_pay_keyboard

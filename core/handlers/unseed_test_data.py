@@ -78,7 +78,13 @@ async def command_unseed(message: Message) -> None:
         for uid in affected_users:
             await _reset_user_if_no_keys(uid)
 
-        await message.answer(f'✅ Удалено seed-ключей: {count}. Пользователи обновлены: {len(affected_users)}', parse_mode=None)
+        await message.answer(
+            text=(
+                f'✅ Удалено seed-ключей: {count}\n'
+                f'Затронуто пользователей: {len(affected_users)}'
+            ),
+            parse_mode=None,
+        )
     except Exception as e:
         tb = traceback.format_exc()
         from logs.log_main import RotatingFileLogger
