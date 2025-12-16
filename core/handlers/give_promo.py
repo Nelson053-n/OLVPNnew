@@ -25,7 +25,7 @@ async def command_promo(message: Message) -> None:
                 content = f"Пользователю {id_find_user} {'удалось' if result_set_promo else 'не удалось'} выдать промо"
                 await message.answer(text=content)
             else:
-                await message.answer("❌ Ошибка использования команды\nИспользование: /promo <user_id>")
+                await message.answer("❌ Ошибка использования команды\nИспользование: /promo USER_ID", parse_mode=None)
         else:
             await message.answer("❌ У вас нет доступа к этой команде")
     except Exception as e:

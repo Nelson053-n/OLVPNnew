@@ -48,7 +48,8 @@ async def get_key_info_response(user_id: int) -> tuple:
                 return (f"Ключ пользователя {user_id} не найден на сервере {region_server}", InlineKeyboardBuilder().as_markup())
 
             # Форматируем информацию о трафике
-            used_gb = outline_key.used_bytes / (1024**3)  # Конвертируем в ГБ
+            used_bytes = outline_key.used_bytes or 0  # Защита от None
+            used_gb = used_bytes / (1024**3)  # Конвертируем в ГБ
             telegram_name = user_record.account_name
             
             # Создаём ответ
