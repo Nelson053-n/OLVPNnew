@@ -3,7 +3,6 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardMarkup
 
 from core.api_s.outline.outline_api import OutlineManager
-from core.bot import bot
 from core.sql.function_db_user_vpn.users_vpn import (
     get_user_data_from_table_users,
     set_premium_status,
@@ -47,6 +46,7 @@ async def admin_block_key_handler(call: CallbackQuery) -> tuple[str, InlineKeybo
             # Отправляем уведомление пользователю
             notification_text = 'Действие вашего ключа завершено\nВы можете купить новый,\nчто бы продолжить пользоваться сервисом'
             try:
+                from core.bot import bot
                 await bot.send_message(chat_id=user_id, text=notification_text)
             except Exception as e:
                 # Если не удалось отправить сообщение, продолжаем
