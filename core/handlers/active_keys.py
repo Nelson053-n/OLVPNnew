@@ -83,7 +83,7 @@ async def command_active_keys(message: Message) -> None:
                     uname = getattr(u, 'account_name', '—') if u else '—'
                     chunk_lines.append(f"<b>{idx}.</b> <code>{uid}</code> | <b>{uname}</b>")
                     # Кнопка для подробностей по пользователю
-                    kb.button(text=f"ℹ️ {uid}", callback_data=f"check_user_key_{uid}")
+                    kb.button(text=f"ℹ️ {uid}", callback_data=f"chk_usr_{uid}")
                     for k in sorted(keys, key=lambda x: x.date):
                         days_remaining = (k.date - now).days if k.date else 0
                         if days_remaining <= 1:
@@ -103,7 +103,7 @@ async def command_active_keys(message: Message) -> None:
         else:
             kb = InlineKeyboardBuilder()
             for uid, _, _ in user_summaries:
-                kb.button(text=f"ℹ️ {uid}", callback_data=f"check_user_key_{uid}")
+                kb.button(text=f"ℹ️ {uid}", callback_data=f"chk_usr_{uid}")
             kb.adjust(3)
             await message.answer(response_text, reply_markup=kb.as_markup())
             

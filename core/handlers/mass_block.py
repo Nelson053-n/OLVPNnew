@@ -16,8 +16,8 @@ async def command_mass_block(message: Message) -> None:
             await message.answer('У вас нет доступа к этой команде', parse_mode=None)
             return
         from core.check_time_subscribe import finish_set_date_and_premium
-        await finish_set_date_and_premium()
-        await message.answer('Массовая проверка выполнена. Просроченные ключи удалены.', parse_mode=None)
+        deleted_count = await finish_set_date_and_premium()
+        await message.answer(f'✅ Массовая проверка выполнена.\n🔒 Удалено просроченных ключей: {deleted_count}', parse_mode=None)
     except Exception as e:
         tb = traceback.format_exc()
         logger.log('error', f'command_mass_block error for admin {message.from_user.id}: {e}\n{tb}')

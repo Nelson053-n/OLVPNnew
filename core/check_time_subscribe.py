@@ -44,12 +44,12 @@ async def send_notification_to_user(bot: Bot, id_user: int) -> None:
     await bot.send_message(chat_id=id_user, text=text)
 
 
-async def finish_set_date_and_premium() -> None:
+async def finish_set_date_and_premium() -> int:
     """
     Изменение параметров (дата, премиум, ключ) в БД в случае окончания подписки
     Удаление ключа из Outline
 
-    :return: None
+    :return: int - Количество удалённых ключей
     """
     from core.sql.function_db_user_vpn.users_vpn import (
         get_all_records_from_table_users,
@@ -61,6 +61,7 @@ async def finish_set_date_and_premium() -> None:
         delete_user_key_record,
     )
     from core.bot import bot
+    deleted_count = 0
     # Сначала обрабатываем истекшие ключи на уровне UserKey
     all_keys = await get_all_user_keys()
     for uk in all_keys:
@@ -74,6 +75,7 @@ async def finish_set_date_and_premium() -> None:
                     pass
             finally:
                 await delete_user_key_record(uk.id)
+                deleted_count += 1
             # если после удаления у пользователя не осталось ключей — сбросить статусы и уведомить
             remaining = await get_user_keys(account=uk.account)
             if not remaining:
@@ -101,6 +103,7 @@ async def finish_set_date_and_premium() -> None:
                 except Exception:
                     pass
                 await send_notification_to_user(bot=bot, id_user=record.account)
+    return deleted_count
 
 
 async def main_check_subscribe() -> None:

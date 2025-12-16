@@ -1,74 +1,106 @@
 from aiogram.types import Message
+from datetime import datetime, timedelta
 import traceback
+import uuid
 
+from core.api_s.outline.outline_api import OutlineManager
 from core.settings import admin_tlg
 from core.sql.function_db_user_vpn.users_vpn import (
     set_promo_status,
     set_key_to_table_users,
     set_premium_status,
     set_date_to_table_users,
-    get_region_server,
     set_region_server,
+    get_promo_status,
+    get_user_data_from_table_users,
+    add_user_key,
+    get_region_server,
 )
-from core.api_s.outline.outline_api import OutlineManager
-from core.utils.get_key_utils import get_future_date
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
+
+
+def fmt(dt: datetime) -> str:
+    return dt.strftime('%d.%m.%Y - %H:%M')
 
 
 async def command_promo(message: Message) -> None:
     """
     -- Админ-команда --
     Обработчик команды /promo <id>.
-    Дает пользователю возможность получить промо - по id
+    Даёт пользователю промо-ключ на 1 день.
 
     :param message: Message - Объект Message, полученный при вызове команды.
     """
     try:
-        if message.from_user.id == int(admin_tlg):
-            data = message.text.split(' ')
-            if len(data) == 2:
-                name_temp, id_find_user = data
-                try:
-                    user_id = int(id_find_user)
-                except ValueError:
-                    await message.answer("❌ Неверный USER_ID", parse_mode=None)
-                    return
+        if message.from_user.id != int(admin_tlg):
+            await message.answer("❌ У вас нет доступа к этой команде", parse_mode=None)
+            return
 
-                # Попробуем взять предпочитаемый регион пользователя, иначе используем nederland
-                region = await get_region_server(account=user_id) or 'nederland'
-                olm = OutlineManager(region_server=region)
+        data = message.text.split(' ')
+        if len(data) != 2:
+            await message.answer("❌ Использование: /promo USER_ID", parse_mode=None)
+            return
 
-                # Создаём ключ на сервере Outline
-                try:
-                    key_obj = olm.create_key_from_ol(id_user=str(user_id))
-                except Exception as e:
-                    logger.log('error', f'Give promo create_key error for {user_id}: {e}')
-                    await message.answer(f"❌ Ошибка создания промо-ключа на сервере: {e}", parse_mode=None)
-                    return
+        try:
+            target_user_id = int(data[1])
+        except ValueError:
+            await message.answer("❌ Неверный USER_ID", parse_mode=None)
+            return
 
-                # Записываем ключ и статус в БД
-                access_url = getattr(key_obj, 'access_url', None)
-                set_key_ok = False
-                if access_url:
-                    set_key_ok = await set_key_to_table_users(account=user_id, value_key=access_url)
+        # Check user exists
+        user = await get_user_data_from_table_users(account=target_user_id)
+        if not user:
+            await message.answer(f'❌ Пользователь {target_user_id} не найден в БД', parse_mode=None)
+            return
 
-                premium_ok = await set_premium_status(account=user_id, value_premium=True)
-                date_ok = await set_date_to_table_users(account=user_id, value_date=get_future_date(1))
-                region_ok = await set_region_server(account=user_id, value_region=region)
-                promo_ok = await set_promo_status(account=user_id, value_promo=True)
+        # Check if already had promo
+        had_promo = await get_promo_status(account=target_user_id)
+        if had_promo:
+            await message.answer(f'❌ Пользователь {target_user_id} уже получал промо-ключ', parse_mode=None)
+            return
 
-                if all((set_key_ok, premium_ok, date_ok, region_ok, promo_ok)):
-                    content = f"Пользователю {user_id} успешно выдан промо-ключ"
-                else:
-                    content = f"Пользователю {user_id} выдан промо-ключ, но запись в БД не полностью обновилась"
+        # Determine region
+        region = await get_region_server(account=target_user_id) or 'nederland'
 
-                await message.answer(text=content, parse_mode=None)
-            else:
-                await message.answer("❌ Ошибка использования команды\nИспользование: /promo USER_ID", parse_mode=None)
-        else:
-            await message.answer("❌ У вас нет доступа к этой команде")
+        # Expiry date (1 day from now)
+        expiry_date = datetime.now() + timedelta(days=1)
+
+        # Create key on Outline server with unique outline_id
+        outline_id = f"{target_user_id}-promo-{uuid.uuid4().hex[:8]}"
+        olm = OutlineManager(region_server=region)
+        try:
+            key_data = olm.create_key_from_ol(id_user=outline_id)
+        except Exception as e:
+            logger.log('error', f'Promo create_key error for {target_user_id}: {e}')
+            await message.answer(f'❌ Ошибка создания промо-ключа на сервере: {e}', parse_mode=None)
+            return
+
+        if not key_data or not getattr(key_data, 'access_url', None):
+            await message.answer('❌ Ошибка создания промо-ключа на сервере', parse_mode=None)
+            return
+
+        # Update DB - add to UserKey table and update Users for compatibility
+        await add_user_key(
+            account=target_user_id,
+            access_url=key_data.access_url,
+            outline_id=outline_id,
+            region_server=region,
+            date_str=fmt(expiry_date),
+            promo=True,
+        )
+        await set_premium_status(account=target_user_id, value_premium=True)
+        await set_date_to_table_users(account=target_user_id, value_date=fmt(expiry_date))
+        await set_region_server(account=target_user_id, value_region=region)
+        await set_key_to_table_users(account=target_user_id, value_key=key_data.access_url)
+        await set_promo_status(account=target_user_id, value_promo=True)
+
+        await message.answer(
+            f'✅ Пользователю {target_user_id} выдан промо-ключ\nРегион: {region}\nИстекает: {fmt(expiry_date)}',
+            parse_mode=None
+        )
+
     except Exception as e:
         tb = traceback.format_exc()
         logger.log('error', f'command_promo error for user {message.from_user.id}: {e}\n{tb}')

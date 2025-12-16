@@ -20,16 +20,30 @@ async def command_block_reason(message: Message, state: FSMContext) -> None:
             return
         
         data = await state.get_data()
-        # приоритет: блокировка конкретного ключа, затем пользователя целиком
+        # приоритет: блокировка конкретного ключа (по short_id или полному), затем пользователя целиком
+        pending_key_short = data.get('pending_block_key_short_id')
         pending_key = data.get('pending_block_key_id')
         pending_user = data.get('pending_block_user')
         
         # Если нет pending-запроса — это обычное сообщение админа, просто игнорируем
-        if not pending_key and not pending_user:
+        if not pending_key_short and not pending_key and not pending_user:
             return
         
         reason = message.text.strip()
         await state.clear()
+
+        if pending_key_short:
+            # Найти полный ID ключа по short_id
+            from core.sql.function_db_user_vpn.users_vpn import get_all_user_keys
+            from core.handlers.handlers_keyboards.admin_block_key_handler import perform_block_userkey
+            all_keys = await get_all_user_keys()
+            k = next((uk for uk in all_keys if str(uk.id).endswith(pending_key_short)), None)
+            if k:
+                text, keyboard = await perform_block_userkey(key_id=str(k.id), admin_id=message.from_user.id, reason=reason)
+                await message.answer(text=text, parse_mode=None)
+            else:
+                await message.answer('Ключ не найден.', parse_mode=None)
+            return
 
         if pending_key:
             from core.handlers.handlers_keyboards.admin_block_key_handler import perform_block_userkey
