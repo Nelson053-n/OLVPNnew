@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Union
 from sqlalchemy import create_engine
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
@@ -222,7 +223,7 @@ async def get_region_server(account: int) -> str:
 
 # --- Multiple keys support ---
 
-async def add_user_key(account: int, access_url: str, outline_id: str, region_server: str, date_str: str, promo: bool) -> bool:
+async def add_user_key(account: int, access_url: str, outline_id: str, region_server: str, date_str: Union[str, datetime], promo: bool) -> bool:
     """
     Добавить новый ключ пользователя в таблицу user_keys
     
@@ -230,7 +231,7 @@ async def add_user_key(account: int, access_url: str, outline_id: str, region_se
     :param access_url: URL доступа к VPN ключу
     :param outline_id: ID ключа в Outline
     :param region_server: Регион сервера
-    :param date_str: Дата истечения в формате '%d.%m.%Y - %H:%M'
+    :param date_str: Дата истечения в формате '%d.%m.%Y - %H:%M' (str) или объект datetime
     :param promo: Флаг промо-ключа
     :return: True в случае успеха, False при ошибке
     """
@@ -238,7 +239,17 @@ async def add_user_key(account: int, access_url: str, outline_id: str, region_se
         try:
             record_id = f"{account}_key_{uuid.uuid4()}"
             # Парсим дату
-            date = datetime.strptime(date_str, '%d.%m.%Y - %H:%M') if date_str else None
+            if date_str:
+                # Проверяем, не является ли date_str уже объектом datetime
+                if isinstance(date_str, datetime):
+                    date = date_str
+                elif isinstance(date_str, str):
+                    date = datetime.strptime(date_str, '%d.%m.%Y - %H:%M')
+                else:
+                    raise ValueError(f"date_str must be str or datetime, got {type(date_str)}")
+            else:
+                date = None
+            
             new_key = UserKey(
                 id=record_id,
                 account=account,
@@ -254,7 +265,7 @@ async def add_user_key(account: int, access_url: str, outline_id: str, region_se
             return True
         except ValueError as e:
             # Ошибка парсинга даты
-            print(f"ERROR add_user_key: Invalid date format '{date_str}': {e}")
+            print(f"ERROR add_user_key: Invalid date format '{date_str}' (type: {type(date_str)}): {e}")
             return False
         except Exception as e:
             # Другие ошибки БД

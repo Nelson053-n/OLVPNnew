@@ -20,7 +20,33 @@
 
 ## Дополнительные улучшения
 
-### 1. Улучшенное логирование
+### 1. Исправлена ошибка передачи datetime вместо str
+**Проблема**: В строке 146 функции `replace_key_handler` передавался объект `datetime` в функцию `set_date_to_table_users`, которая ожидает строку.
+
+**Решение**: Исправлено на передачу `date_str` (строкового формата даты):
+```python
+await set_date_to_table_users(account=user_id, value_date=date_str)
+```
+
+### 2. Улучшена функция add_user_key
+**Проблема**: Функция `add_user_key` падала с ошибкой "strptime() argument 1 must be str, not datetime.datetime" при получении datetime объекта.
+
+**Решение**: 
+- Добавлена проверка типа параметра `date_str`
+- Функция теперь принимает как строку, так и datetime объект
+- Обновлена type annotation: `date_str: Union[str, datetime]`
+- Улучшено сообщение об ошибке с выводом типа переменной
+
+```python
+if isinstance(date_str, datetime):
+    date = date_str
+elif isinstance(date_str, str):
+    date = datetime.strptime(date_str, '%d.%m.%Y - %H:%M')
+else:
+    raise ValueError(f"date_str must be str or datetime, got {type(date_str)}")
+```
+
+### 3. Улучшенное логирование
 Добавлено детальное логирование всех этапов замены ключа:
 - Запрос на замену с `short_id` и ID администратора
 - Общее количество ключей в БД
