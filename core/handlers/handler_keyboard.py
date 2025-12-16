@@ -30,6 +30,18 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
     try:
         await call.answer()
         data = call.data
+        
+        # Handle promo give callback
+        if data.startswith('give_promo_'):
+            try:
+                user_id = int(data.split('_')[-1])
+                from core.handlers.give_promo import give_promo_to_user
+                await give_promo_to_user(call, user_id)
+            except Exception as e:
+                logger.log('error', f'give_promo callback error: {e}')
+                await call.answer("Ошибка при выдаче промо", show_alert=True)
+            return
+        
         # Handle special callbacks that perform side-effects (copy key, confirmations)
         if data.startswith('confirm_block_key_'):
             try:
