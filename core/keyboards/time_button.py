@@ -29,7 +29,7 @@ async def time_keyboard(id_user: int) -> InlineKeyboardMarkup:
     buttons = [
         [
             InlineKeyboardButton(text=f'🪙 День {day_price}₽', callback_data='day'),
-            InlineKeyboardButton(text=f'💵 Месяц {month_price}₽', callback_data='month'),
+            InlineKeyboardButton(text=f'Месяц {month_price}₽', callback_data='month'),
             InlineKeyboardButton(text=f'💰 Год {year_price}₽', callback_data='year')
         ],
         [InlineKeyboardButton(text='🔙 Назад', callback_data='get_key')]
