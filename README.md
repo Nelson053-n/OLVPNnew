@@ -158,4 +158,4 @@ systemctl enable olvpnbot
 
 ## Рабочий экземпляр
 
-Рабочий экземпляр бота: [@oneyear2026_bot]([https://t.me/olvpnbot](https://t.me/oneyear2026_bot). 
+Рабочий экземпляр бота: [@oneyear2026_bot]([https://t.me/oneyear2026_bot](https://t.me/oneyear2026_bot). 
