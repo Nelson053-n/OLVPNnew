@@ -19,6 +19,7 @@ from core.sql.function_db_user_vpn.users_vpn import (
     get_user_keys,
     get_promo_status,
     set_promo_status,
+    get_all_user_keys,
 )
 from core.utils.create_view import create_answer_from_html
 from logs.log_main import RotatingFileLogger
@@ -121,16 +122,53 @@ async def command_start(message: Message, state: FSMContext) -> None:
             pass
 
 
+async def get_least_loaded_server() -> str:
+    """
+    Определяет наименее загруженный сервер по количеству ключей
+    
+    :return: Название региона с минимальной нагрузкой
+    """
+    try:
+        # Получаем список всех активных серверов
+        active_servers = get_name_all_active_server_ol()
+        
+        if not active_servers:
+            return 'nederland'  # Fallback на дефолтный
+        
+        # Получаем все ключи из БД
+        all_keys = await get_all_user_keys()
+        
+        # Подсчитываем количество ключей на каждом сервере
+        server_load = {server: 0 for server in active_servers}
+        
+        if all_keys:
+            for key in all_keys:
+                if key.region_server and key.region_server in server_load:
+                    server_load[key.region_server] += 1
+        
+        # Находим сервер с минимальной нагрузкой
+        min_server = min(server_load.items(), key=lambda x: x[1])
+        
+        logger.log('info', f'Server load distribution: {server_load}')
+        logger.log('info', f'Selected least loaded server: {min_server[0]} ({min_server[1]} keys)')
+        
+        return min_server[0]
+        
+    except Exception as e:
+        logger.log('error', f'Error selecting least loaded server: {e}')
+        return 'nederland'  # Fallback
+
+
 async def generate_promo_key(user_id: int) -> str:
     """
-    Генерирует промо-ключ для нового пользователя
+    Генерирует промо-ключ для нового пользователя на наименее загруженном сервере
     
     :param user_id: ID пользователя
     :return: URL ключа доступа
     """
     try:
-        # Определяем регион
-        region = await get_region_server(account=user_id) or 'nederland'
+        # Выбираем наименее загруженный сервер
+        region = await get_least_loaded_server()
         
         # Загружаем настройки промо
         settings_path = Path(__file__).parent.parent / 'settings_prices.json'
