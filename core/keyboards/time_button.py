@@ -1,4 +1,5 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+import json
 
 from core.sql.function_db_user_vpn.users_vpn import get_promo_status
 
@@ -11,10 +12,25 @@ async def time_keyboard(id_user: int) -> InlineKeyboardMarkup:
 
     :return: InlineKeyboardMarkup - Объект InlineKeyboardMarkup, содержащий клавиатуру.
     """
+    # Загружаем цены
+    try:
+        with open('core/settings_prices.json', 'r', encoding='utf-8') as f:
+            prices = json.load(f)
+    except:
+        prices = {
+            "day": {"amount": 7},
+            "month": {"amount": 150},
+            "year": {"amount": 1500}
+        }
+    
+    day_price = prices.get('day', {}).get('amount', 7)
+    month_price = prices.get('month', {}).get('amount', 150)
+    year_price = prices.get('year', {}).get('amount', 1500)
+    
     first_row = [
-        InlineKeyboardButton(text='🪙 День', callback_data='day'),
-        InlineKeyboardButton(text='💵 Месяц', callback_data='month'),
-        InlineKeyboardButton(text='💰 Год', callback_data='year')
+        InlineKeyboardButton(text=f'🪙 День - {day_price}₽', callback_data='day'),
+        InlineKeyboardButton(text=f'💵 Месяц - {month_price}₽', callback_data='month'),
+        InlineKeyboardButton(text=f'💰 Год - {year_price}₽', callback_data='year')
     ]
     second_row = [
         InlineKeyboardButton(text='🎁 Промо', callback_data='promo'),
