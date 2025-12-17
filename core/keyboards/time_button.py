@@ -25,12 +25,12 @@ async def time_keyboard(id_user: int) -> InlineKeyboardMarkup:
     month_price = prices.get('month', {}).get('amount', 150)
     year_price = prices.get('year', {}).get('amount', 1500)
     
-    # Кнопки в одну строку, текст центрирован с отступами
+    # Кнопки в одну строку, текст компактный без тире
     buttons = [
         [
-            InlineKeyboardButton(text=f'🪙\nДень\n{day_price}₽', callback_data='day'),
-            InlineKeyboardButton(text=f'💵\nМесяц\n{month_price}₽', callback_data='month'),
-            InlineKeyboardButton(text=f'💰\nГод\n{year_price}₽', callback_data='year')
+            InlineKeyboardButton(text=f'🪙 День {day_price}₽', callback_data='day'),
+            InlineKeyboardButton(text=f'💵 Месяц {month_price}₽', callback_data='month'),
+            InlineKeyboardButton(text=f'💰 Год {year_price}₽', callback_data='year')
         ],
         [InlineKeyboardButton(text='🔙 Назад', callback_data='get_key')]
     ]
