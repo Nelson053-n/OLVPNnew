@@ -1,8 +1,6 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import json
 
-from core.sql.function_db_user_vpn.users_vpn import get_promo_status
-
 
 async def time_keyboard(id_user: int) -> InlineKeyboardMarkup:
     """
@@ -27,22 +25,15 @@ async def time_keyboard(id_user: int) -> InlineKeyboardMarkup:
     month_price = prices.get('month', {}).get('amount', 150)
     year_price = prices.get('year', {}).get('amount', 1500)
     
-    first_row = [
-        InlineKeyboardButton(text=f'🪙 День - {day_price}₽', callback_data='day'),
-        InlineKeyboardButton(text=f'💵 Месяц - {month_price}₽', callback_data='month'),
-        InlineKeyboardButton(text=f'💰 Год - {year_price}₽', callback_data='year')
-    ]
-    second_row = [
-        InlineKeyboardButton(text='🎁 Промо', callback_data='promo'),
-        InlineKeyboardButton(text='🔙 Назад', callback_data='get_key')
-    ]
-
-    promo_status = await get_promo_status(account=id_user)
-    if promo_status:
-        second_row.pop(0)
+    # Кнопки в одну строку, текст центрирован с отступами
     buttons = [
-        first_row,
-        second_row
+        [
+            InlineKeyboardButton(text=f'🪙\nДень\n{day_price}₽', callback_data='day'),
+            InlineKeyboardButton(text=f'💵\nМесяц\n{month_price}₽', callback_data='month'),
+            InlineKeyboardButton(text=f'💰\nГод\n{year_price}₽', callback_data='year')
+        ],
+        [InlineKeyboardButton(text='🔙 Назад', callback_data='get_key')]
     ]
+    
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     return keyboard
