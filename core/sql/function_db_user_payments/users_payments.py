@@ -65,3 +65,12 @@ async def get_all_accounts_from_db() -> list:
     with Session() as session:
         all_accounts = session.query(UserPay.account_id).distinct().all()
         return [str(account[0]) for account in all_accounts]
+
+
+async def get_all_user_payments() -> list[UserPay]:
+    """
+    Получить все записи о платежах из таблицы UserPay
+    :return: list[UserPay] - список всех платежей
+    """
+    with Session() as session:
+        return session.query(UserPay).all()
