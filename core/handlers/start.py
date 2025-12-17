@@ -17,6 +17,8 @@ from core.sql.function_db_user_vpn.users_vpn import (
     set_premium_status,
     set_date_to_table_users,
     get_user_keys,
+    get_promo_status,
+    set_promo_status,
 )
 from core.utils.create_view import create_answer_from_html
 from logs.log_main import RotatingFileLogger
@@ -68,25 +70,27 @@ async def command_start(message: Message, state: FSMContext) -> None:
         user_keys = await get_user_keys(account=id_user)
         promo_key = None
         
-        # Проверяем наличие платных ключей и истории промо-ключей
-        has_paid_keys = False
-        had_promo_before = False  # Был ли промо-ключ когда-либо
+        # Проверяем был ли промо-ключ выдан ранее (из таблицы Users)
+        had_promo_before = await get_promo_status(account=id_user)
         
+        # Проверяем наличие платных ключей
+        has_paid_keys = False
         if user_keys:
             for key in user_keys:
                 if not key.promo:  # Если ключ платный
                     has_paid_keys = True
-                if key.promo:  # Если когда-либо был промо
-                    had_promo_before = True
+                    break
         
         # Генерируем промо только если:
         # 1. Нет ключей вообще
         # 2. Нет платных ключей
-        # 3. НИКОГДА не было промо-ключа (выдаем только один раз в истории)
+        # 3. НИКОГДА не было промо-ключа (проверка по флагу в БД, даже если удален)
         if not user_keys and not has_paid_keys and not had_promo_before:
             promo_key = await generate_promo_key(id_user)
-        elif user_keys and not has_paid_keys and had_promo_before:
-            # Если ключи есть и промо был раньше - находим активный промо-ключ для показа
+            # Устанавливаем флаг что промо был выдан
+            await set_promo_status(account=id_user, value_promo=True)
+        elif user_keys and not has_paid_keys:
+            # Если ключи есть - находим активный промо-ключ для показа
             from datetime import datetime
             now = datetime.now()
             for key in user_keys:
