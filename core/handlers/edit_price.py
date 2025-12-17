@@ -33,8 +33,8 @@ def load_prices() -> dict:
         # Значения по умолчанию
         default_prices = {
             "day": {"amount": 7, "days": 1, "word_days": "день"},
-            "week": {"amount": 40, "days": 7, "word_days": "дней"},
-            "month": {"amount": 150, "days": 30, "word_days": "дней"}
+            "month": {"amount": 150, "days": 30, "word_days": "дней"},
+            "year": {"amount": 1500, "days": 365, "word_days": "дней"}
         }
         save_prices(default_prices)
         return default_prices
@@ -68,13 +68,13 @@ async def editprice_handler(message: Message, state: FSMContext) -> None:
         day_price = prices.get('day', {}).get('amount', 7)
         builder.button(text=f'📅 День - {day_price}₽', callback_data='edprc_day')
         
-        # Кнопка для недели
-        week_price = prices.get('week', {}).get('amount', 40)
-        builder.button(text=f'📆 Неделя - {week_price}₽', callback_data='edprc_week')
-        
         # Кнопка для месяца
         month_price = prices.get('month', {}).get('amount', 150)
-        builder.button(text=f'📅 Месяц - {month_price}₽', callback_data='edprc_month')
+        builder.button(text=f'📆 Месяц - {month_price}₽', callback_data='edprc_month')
+        
+        # Кнопка для года
+        year_price = prices.get('year', {}).get('amount', 1500)
+        builder.button(text=f'📅 Год - {year_price}₽', callback_data='edprc_year')
         
         # Кнопка для промо периода (только количество дней)
         promo_days = prices.get('promo', {}).get('days', 7)
@@ -86,8 +86,8 @@ async def editprice_handler(message: Message, state: FSMContext) -> None:
             text=(
                 '💰 <b>Редактирование цен</b>\n\n'
                 f'<b>День (1 день):</b> {day_price}₽\n'
-                f'<b>Неделя (7 дней):</b> {week_price}₽\n'
                 f'<b>Месяц (30 дней):</b> {month_price}₽\n'
+                f'<b>Год (365 дней):</b> {year_price}₽\n'
                 f'<b>Промо период:</b> {promo_days} дней\n\n'
                 'Выберите период для изменения:'
             ),
@@ -110,7 +110,7 @@ async def select_period_to_edit(callback: CallbackQuery, state: FSMContext) -> N
     try:
         await callback.answer()
         
-        # Извлекаем период (day, week, month)
+        # Извлекаем период (day, month, year)
         period = callback.data.replace('edprc_', '')
         
         # Загружаем текущие цены
@@ -120,8 +120,8 @@ async def select_period_to_edit(callback: CallbackQuery, state: FSMContext) -> N
         # Определяем название периода на русском
         period_names = {
             'day': 'День (1 день)',
-            'week': 'Неделя (7 дней)',
             'month': 'Месяц (30 дней)',
+            'year': 'Год (365 дней)',
             'promo': 'Промо период (количество дней)'
         }
         period_name = period_names.get(period, period)
@@ -212,8 +212,8 @@ async def process_new_price(message: Message, state: FSMContext) -> None:
             if period in prices:
                 prices[period]['amount'] = new_price
             else:
-                days_map = {'day': 1, 'week': 7, 'month': 30}
-                word_map = {'day': 'день', 'week': 'дней', 'month': 'дней'}
+                days_map = {'day': 1, 'month': 30, 'year': 365}
+                word_map = {'day': 'день', 'month': 'дней', 'year': 'дней'}
                 prices[period] = {
                     'amount': new_price,
                     'days': days_map.get(period, 1),
@@ -227,8 +227,8 @@ async def process_new_price(message: Message, state: FSMContext) -> None:
         # Определяем название периода
         period_names = {
             'day': 'День',
-            'week': 'Неделя',
             'month': 'Месяц',
+            'year': 'Год',
             'promo': 'Промо период'
         }
         period_name = period_names.get(period, period)
@@ -246,8 +246,8 @@ async def process_new_price(message: Message, state: FSMContext) -> None:
             f'<b>{period_name}:</b> {old_value}{value_type} → {new_price}{value_type}\n\n'
             f'📊 <b>Текущие настройки:</b>\n'
             f'• День (1 день): {prices["day"]["amount"]}₽\n'
-            f'• Неделя (7 дней): {prices["week"]["amount"]}₽\n'
             f'• Месяц (30 дней): {prices["month"]["amount"]}₽\n'
+            f'• Год (365 дней): {prices["year"]["amount"]}₽\n'
             f'• Промо период: {promo_days} дней\n\n'
             f'⚠️ Изменения вступают в силу немедленно.'
         )

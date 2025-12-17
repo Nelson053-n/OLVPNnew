@@ -23,8 +23,8 @@ def load_prices() -> dict:
         # Значения по умолчанию если файл не найден
         return {
             "day": {"amount": 7, "days": 1, "word_days": "день"},
-            "week": {"amount": 40, "days": 7, "word_days": "дней"},
-            "month": {"amount": 150, "days": 30, "word_days": "дней"}
+            "month": {"amount": 150, "days": 30, "word_days": "дней"},
+            "year": {"amount": 1500, "days": 365, "word_days": "дней"}
         }
 
 
@@ -64,27 +64,6 @@ async def day_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboar
     return content, url_pay_keyboard
 
 
-async def week_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboardMarkup):
-    """
-    Обработчик для получения ключа на неделю.
-    Отправка на страницу оплаты
-
-    :param call: CallbackQuery - Объект CallbackQuery.
-    :param state: FSMContext - Объект FSMContext.
-    :return: Текст ответа и клавиатура.
-    """
-    id_user = call.from_user.id
-    prices = load_prices()
-    week_config = prices.get('week', {"amount": 40, "days": 7, "word_days": "дней"})
-    
-    amount = week_config['amount']
-    day_count = week_config['days']
-    word_days = week_config['word_days']
-    
-    content, url_pay_keyboard = await build_pay(state, id_user, amount, day_count, word_days)
-    return content, url_pay_keyboard
-
-
 async def month_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboardMarkup):
     """
     Обработчик для получения ключа на месяц.
@@ -101,6 +80,27 @@ async def month_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeybo
     amount = month_config['amount']
     day_count = month_config['days']
     word_days = month_config['word_days']
+    
+    content, url_pay_keyboard = await build_pay(state, id_user, amount, day_count, word_days)
+    return content, url_pay_keyboard
+
+
+async def year_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboardMarkup):
+    """
+    Обработчик для получения ключа на год.
+    Отправка на страницу оплаты
+
+    :param call: CallbackQuery - Объект CallbackQuery.
+    :param state: FSMContext - Объект FSMContext.
+    :return: Текст ответа и клавиатура.
+    """
+    id_user = call.from_user.id
+    prices = load_prices()
+    year_config = prices.get('year', {"amount": 1500, "days": 365, "word_days": "дней"})
+    
+    amount = year_config['amount']
+    day_count = year_config['days']
+    word_days = year_config['word_days']
     
     content, url_pay_keyboard = await build_pay(state, id_user, amount, day_count, word_days)
     return content, url_pay_keyboard

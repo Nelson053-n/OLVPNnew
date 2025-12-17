@@ -13,8 +13,8 @@ async def time_keyboard(id_user: int) -> InlineKeyboardMarkup:
     """
     first_row = [
         InlineKeyboardButton(text='🪙 День', callback_data='day'),
-        InlineKeyboardButton(text='💵 Неделя', callback_data='week'),
-        InlineKeyboardButton(text='💰 Месяц', callback_data='month')
+        InlineKeyboardButton(text='💵 Месяц', callback_data='month'),
+        InlineKeyboardButton(text='💰 Год', callback_data='year')
     ]
     second_row = [
         InlineKeyboardButton(text='🎁 Промо', callback_data='promo'),
