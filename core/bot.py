@@ -79,11 +79,6 @@ async def setup_bot_commands(bot: Bot):
     admin_commands = [
         BotCommand(command="start", description="🏠 Главное меню"),
         BotCommand(command="stats", description="📊 Статистика бота"),
-        BotCommand(command="migrate", description="🔄 Миграция старых ключей"),
-        BotCommand(command="checkstatus", description="🔍 Статус миграции"),
-        BotCommand(command="fixmigration", description="🛠️ Исправить даты миграции"),
-        BotCommand(command="debugkeys", description="🔬 Диагностика ключей"),
-        BotCommand(command="showoldkeys", description="👁️ Показать старые ключи"),
         BotCommand(command="promo", description="🎁 Выдать промо-ключ"),
         BotCommand(command="testkey", description="🎉 Рассылка тестовых ключей"),
         BotCommand(command="activekeys", description="📋 Активные ключи"),
