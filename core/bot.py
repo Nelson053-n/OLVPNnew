@@ -19,7 +19,8 @@ from core.handlers.server_stats import command_server_stats
 from core.handlers.bot_statistics import command_stats
 from core.handlers.migrate_old_keys import (
     command_migrate,
-    command_check_migration_status
+    command_check_migration_status,
+    command_fix_migration_dates
 )
 from core.handlers.migrate_server import (
     command_migrate_server, 
@@ -78,6 +79,7 @@ async def setup_bot_commands(bot: Bot):
         BotCommand(command="stats", description="📊 Статистика бота"),
         BotCommand(command="migrate", description="🔄 Миграция старых ключей"),
         BotCommand(command="checkstatus", description="🔍 Статус миграции"),
+        BotCommand(command="fixmigration", description="🛠️ Исправить даты миграции"),
         BotCommand(command="promo", description="🎁 Выдать промо-ключ"),
         BotCommand(command="testkey", description="🎉 Рассылка тестовых ключей"),
         BotCommand(command="activekeys", description="📋 Активные ключи"),
@@ -120,6 +122,7 @@ async def start_bot():
     dp.message.register(command_stats, Command('stats'))
     dp.message.register(command_migrate, Command('migrate'))
     dp.message.register(command_check_migration_status, Command('checkstatus'))
+    dp.message.register(command_fix_migration_dates, Command('fixmigration'))
     dp.message.register(command_findpay, Command('findpay'))
     dp.message.register(command_get_log_pay, Command('get_log_pay'))
     dp.message.register(command_get_db, Command('get_db'))
