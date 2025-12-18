@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from aiogram import types
 from aiogram.filters import Command
 
-from core.api_s.outline.outline_api import OutlineManager
+from core.api_s.outline.outline_api import OutlineManager, get_name_all_active_server_ol
 from core.sql.function_db_user_vpn.users_vpn import (
     get_all_records_from_table_users,
     get_user_keys,
@@ -98,54 +98,82 @@ async def command_migrate(message: types.Message):
                     logger.log('info', f"[MIGRATION] Ключ пользователя {user.account} уже мигрирован")
                     continue
 
-                # Определяем регион сервера (из Users.region_server или дефолт)
+                # Получаем список всех активных серверов для поиска
+                all_servers = get_name_all_active_server_ol()
+                
+                # Приоритет поиска: сначала на указанном сервере, потом на остальных
                 region_server = user.region_server if user.region_server else 'nederland'
-
-                # Инициализируем Outline Manager для проверки ключа
-                outline_manager = OutlineManager(region_server=region_server)
-
-                # Попытка найти ключ на Outline сервере
-                # Используем стратегию множественных попыток:
-                try:
-                    outline_key = None
-                    search_strategies = []
-                    
-                    # Стратегия 1: Users.key содержит outline_id напрямую
-                    if user.key.isdigit():
-                        outline_key = outline_manager.get_key_by_id(user.key)
-                        search_strategies.append(f"outline_id={user.key}")
-                    
-                    # Стратегия 2: Users.key содержит access_url, извлекаем из него ключ
-                    if outline_key is None and user.key.startswith('ss://'):
-                        # Парсим access_url для поиска похожего ключа
-                        # Получаем все ключи с сервера и ищем совпадение по access_url
-                        try:
-                            # Используем метод get_key_from_ol который ищет по ID пользователя
+                search_order = [region_server] + [s for s in all_servers if s != region_server]
+                
+                # Попытка найти ключ на серверах
+                outline_key = None
+                found_on_server = None
+                all_search_attempts = []
+                
+                for server in search_order:
+                    try:
+                        # Инициализируем Outline Manager для текущего сервера
+                        outline_manager = OutlineManager(region_server=server)
+                        
+                        # Используем стратегию множественных попыток:
+                        search_strategies = []
+                        
+                        # Стратегия 1: Users.key содержит outline_id напрямую
+                        if user.key.isdigit():
+                            outline_key = outline_manager.get_key_by_id(user.key)
+                            if outline_key:
+                                search_strategies.append(f"outline_id={user.key}")
+                        
+                        # Стратегия 2: Users.key содержит access_url
+                        if outline_key is None and user.key.startswith('ss://'):
+                            try:
+                                outline_key = outline_manager.get_key_from_ol(str(user.account))
+                                if outline_key:
+                                    search_strategies.append(f"by_account={user.account}")
+                            except Exception:
+                                pass
+                        
+                        # Стратегия 3: Поиск по account ID
+                        if outline_key is None:
                             outline_key = outline_manager.get_key_from_ol(str(user.account))
-                            search_strategies.append(f"by_account={user.account}")
-                        except Exception:
-                            pass
+                            if outline_key:
+                                search_strategies.append(f"by_account={user.account}")
+                        
+                        # Стратегия 4: Поиск по UUID
+                        if outline_key is None and user.id:
+                            outline_key = outline_manager.get_key_by_id(user.id)
+                            if outline_key:
+                                search_strategies.append(f"by_uuid={user.id}")
+                        
+                        # Если ключ найден на этом сервере
+                        if outline_key is not None:
+                            found_on_server = server
+                            all_search_attempts.append(f"{server}:✅")
+                            logger.log('info', 
+                                f"[MIGRATION] Ключ пользователя {user.account} найден на сервере '{server}' "
+                                f"(в БД указан '{region_server}'). Стратегии: {' → '.join(search_strategies)}"
+                            )
+                            break
+                        else:
+                            all_search_attempts.append(f"{server}:❌")
                     
-                    # Стратегия 3: Поиск по account ID (стандартный подход новой версии)
-                    if outline_key is None:
-                        outline_key = outline_manager.get_key_from_ol(str(user.account))
-                        search_strategies.append(f"by_account={user.account}")
-                    
-                    # Стратегия 4: Поиск по UUID из Users.id
-                    if outline_key is None and user.id:
-                        outline_key = outline_manager.get_key_by_id(user.id)
-                        search_strategies.append(f"by_uuid={user.id}")
-                    
+                    except Exception as e:
+                        all_search_attempts.append(f"{server}:⚠️")
+                        logger.log('warning', f"[MIGRATION] Ошибка поиска на '{server}' для {user.account}: {e}")
+                        continue
+                
+                # Если ключ не найден ни на одном сервере
+                try:
                     if outline_key is None:
                         stats['key_not_found_on_server'] += 1
-                        strategies_str = " → ".join(search_strategies)
+                        attempts_str = " ".join(all_search_attempts)
                         migration_details.append(
                             f"❌ @{user.account_name} (ID: {user.account}): "
-                            f"ключ не найден на {region_server} (попытки: {strategies_str})"
+                            f"ключ не найден (попытки: {attempts_str})"
                         )
                         logger.log('warning',
-                            f"[MIGRATION] Ключ пользователя {user.account} не найден на {region_server}. "
-                            f"Стратегии поиска: {strategies_str}, старый key={user.key[:50]}"
+                            f"[MIGRATION] Ключ пользователя {user.account} не найден ни на одном сервере. "
+                            f"Попытки: {attempts_str}, старый key={user.key[:50]}"
                         )
                         continue
 
@@ -164,7 +192,33 @@ async def command_migrate(message: types.Message):
                         estimated_created = datetime.now() - timedelta(days=365)
                         stats['estimated_date'] += 1
 
-                    # Создаем новую запись в UserKey
+                    # Создаем новую запись в UserKey с РЕАЛЬНЫМ регионом где найден ключ
+                    new_key_record = UserKey(
+                        id=str(uuid.uuid4()),
+                        account=user.account,
+                        access_url=outline_key.access_url,
+                        outline_id=outline_key.key_id,
+                        region_server=found_on_server,  # Используем сервер где РЕАЛЬНО нашли ключ
+                        premium=user.premium,
+                        date=user.date,
+                        promo=user.promo_key,
+                        created_at=estimated_created,
+                    )
+
+                    session.add(new_key_record)
+                    session.commit()
+
+                    stats['successfully_migrated'] += 1
+                    server_note = f" (переназначен с '{region_server}')" if found_on_server != region_server else ""
+                    migration_details.append(
+                        f"✅ @{user.account_name} (ID: {user.account}): "
+                        f"мигрирован на {found_on_server}{server_note}"
+                    )
+                    logger.log('info',
+                        f"[MIGRATION] Успешно мигрирован ключ пользователя {user.account} "
+                        f"(outline_id: {outline_key.key_id}, РЕАЛЬНЫЙ сервер: {found_on_server}, "
+                        f"БД указан: {region_server}, premium: {user.premium}, date: {user.date})"
+                    )
                     new_key_record = UserKey(
                         id=str(uuid.uuid4()),
                         account=user.account,
