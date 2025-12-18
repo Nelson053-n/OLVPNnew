@@ -48,6 +48,9 @@ async def command_server_stats(message: Message) -> None:
         # Формируем ответ
         lines = ['<b>📊 Статистика серверов Outline</b>\n']
         
+        # Переменная для подсчета общего трафика
+        grand_total_traffic_bytes = 0
+        
         for idx, server in enumerate(all_servers, 1):
             try:
                 olm = OutlineManager(region_server=server)
@@ -64,6 +67,7 @@ async def command_server_stats(message: Message) -> None:
                         total_traffic_bytes += used
                 
                 total_traffic_gb = total_traffic_bytes / (1024**3)
+                grand_total_traffic_bytes += total_traffic_bytes
                 
                 # Ключи в нашей БД для этого сервера
                 db_keys = keys_by_server[server]
@@ -87,8 +91,11 @@ async def command_server_stats(message: Message) -> None:
                     f'   ❌ Ошибка получения статистики: {str(e)}\n'
                 )
         
+        # Итоговая статистика
+        grand_total_traffic_gb = grand_total_traffic_bytes / (1024**3)
         lines.append(f'\n<b>Всего серверов:</b> {len(all_servers)}')
         lines.append(f'<b>Всего ключей в БД:</b> {len(all_keys)}')
+        lines.append(f'<b>Общий трафик:</b> {grand_total_traffic_gb:.2f} ГБ')
         
         await message.answer('\n'.join(lines), parse_mode='HTML')
         

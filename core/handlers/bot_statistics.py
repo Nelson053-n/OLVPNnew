@@ -8,6 +8,7 @@ import traceback
 from core.settings import admin_tlg
 from core.sql.function_db_user_vpn.users_vpn import get_all_records_from_table_users, get_all_user_keys
 from core.sql.function_db_user_payments.users_payments import get_all_user_payments
+from core.api_s.outline.outline_api import get_server_display_name
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
@@ -49,13 +50,15 @@ async def command_stats(message: Message) -> None:
         promo_keys_total = 0
         promo_keys_active = 0
         
-        # Распределение по серверам
+        # Распределение по серверам (только активные ключи)
         server_distribution = {}
         
         if all_keys:
             for key in all_keys:
-                # Активность
-                if key.date and key.date > now:
+                # Проверяем активность
+                is_active = key.date and key.date > now
+                
+                if is_active:
                     active_keys += 1
                 else:
                     expired_keys += 1
@@ -63,14 +66,17 @@ async def command_stats(message: Message) -> None:
                 # Тип ключа
                 if key.promo:
                     promo_keys_total += 1
-                    if key.date and key.date > now:
+                    if is_active:
                         promo_keys_active += 1
                 else:
                     paid_keys += 1
                 
-                # Распределение по серверам
-                server = key.region_server or 'unknown'
-                server_distribution[server] = server_distribution.get(server, 0) + 1
+                # Распределение по серверам - ТОЛЬКО АКТИВНЫЕ КЛЮЧИ
+                if is_active:
+                    server = key.region_server or 'unknown'
+                    # Используем отображаемое имя с флагом
+                    server_display = get_server_display_name(server) if server != 'unknown' else 'unknown'
+                    server_distribution[server_display] = server_distribution.get(server_display, 0) + 1
                 
                 # Новые ключи
                 if key.created_at:
@@ -129,14 +135,16 @@ async def command_stats(message: Message) -> None:
             f"• За месяц: <b>{payments_month}</b>\n\n"
         )
         
-        # Добавляем распределение по серверам
+        # Добавляем распределение по серверам (только активные)
         if server_distribution:
             stats_text += f"🌍 <b>РАСПРЕДЕЛЕНИЕ ПО СЕРВЕРАМ</b>\n"
+            stats_text += f"<i>(только активные ключи)</i>\n"
             # Сортируем по количеству ключей (по убыванию)
             sorted_servers = sorted(server_distribution.items(), key=lambda x: x[1], reverse=True)
-            for server, count in sorted_servers:
-                percentage = (count / total_keys * 100) if total_keys > 0 else 0
-                stats_text += f"• {server}: <b>{count}</b> ({percentage:.1f}%)\n"
+            for server_display, count in sorted_servers:
+                # Процент от активных ключей, а не от всех
+                percentage = (count / active_keys * 100) if active_keys > 0 else 0
+                stats_text += f"• {server_display}: <b>{count}</b> ({percentage:.1f}%)\n"
         
         await message.answer(stats_text, parse_mode='HTML')
         logger.log('info', f'Stats viewed by admin {message.from_user.id}')
