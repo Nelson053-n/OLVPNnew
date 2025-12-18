@@ -80,11 +80,22 @@ async def command_migrate(message: types.Message):
 
                 stats['users_with_old_keys'] += 1
 
-                # Проверяем, есть ли уже ключи в новой системе
-                existing_keys = get_user_keys(user.account)
+                # Проверяем, есть ли УЖЕ ЭТОТ КОНКРЕТНЫЙ ключ в новой системе
+                existing_keys = await get_user_keys(user.account)
+                already_migrated = False
+                
                 if existing_keys:
+                    # Проверяем есть ли среди существующих ключей тот же самый
+                    for existing_key in existing_keys:
+                        # Сравниваем по access_url или по старому формату Users.key
+                        if (existing_key.access_url == user.key or 
+                            user.key.startswith('ss://') and existing_key.access_url == user.key):
+                            already_migrated = True
+                            break
+                
+                if already_migrated:
                     stats['already_migrated'] += 1
-                    logger.log('info', f"[MIGRATION] Пользователь {user.account} уже имеет ключи в новой системе")
+                    logger.log('info', f"[MIGRATION] Ключ пользователя {user.account} уже мигрирован")
                     continue
 
                 # Определяем регион сервера (из Users.region_server или дефолт)
@@ -462,3 +473,69 @@ async def command_debug_keys(message: types.Message):
     except Exception as e:
         await message.answer(f"❌ Ошибка при диагностике: {str(e)}")
         logger.log('error', f"[MIGRATION] Ошибка диагностики: {e}")
+
+
+async def command_show_old_keys(message: types.Message):
+    """
+    Показать старые ключи из таблицы Users (поле key).
+    Помогает понять что осталось не мигрированным.
+    Доступна только администратору.
+    """
+    # Проверка прав администратора
+    if str(message.from_user.id) != admin_tlg:
+        await message.answer("❌ Эта команда доступна только администратору")
+        return
+
+    try:
+        all_users = await get_all_records_from_table_users()
+        
+        users_with_old_keys = []
+        for user in all_users:
+            if user.key:  # Есть старый ключ
+                users_with_old_keys.append({
+                    'account': user.account,
+                    'username': user.account_name or 'unknown',
+                    'key_preview': user.key[:50] + '...' if len(user.key) > 50 else user.key,
+                    'date': user.date.strftime("%d.%m.%Y %H:%M") if user.date else 'нет',
+                    'premium': user.premium,
+                    'region': user.region_server or 'не указан',
+                    'promo': user.promo_key
+                })
+        
+        if not users_with_old_keys:
+            await message.answer("✅ Нет пользователей со старыми ключами в Users.key\n\nВсе уже мигрировано или таблица была пустой.")
+            return
+        
+        report_lines = [
+            f"<b>🔍 Старые ключи в Users.key</b>\n",
+            f"📊 Найдено пользователей: {len(users_with_old_keys)}\n"
+        ]
+        
+        for idx, u in enumerate(users_with_old_keys[:30], 1):  # Первые 30
+            report_lines.append(
+                f"<b>{idx}.</b> <code>{u['account']}</code> @{u['username']}\n"
+                f"   Регион: {u['region']} | Истекает: {u['date']}\n"
+                f"   Premium: {u['premium']} | Promo: {u['promo']}\n"
+                f"   Key: <code>{u['key_preview']}</code>"
+            )
+        
+        if len(users_with_old_keys) > 30:
+            report_lines.append(f"\n... и ещё {len(users_with_old_keys) - 30} пользователей")
+        
+        report_lines.append(f"\n💡 Используйте /migrate для переноса в новую систему")
+        
+        report = "\n".join(report_lines)
+        
+        # Разбиваем если слишком длинное
+        if len(report) > 4000:
+            for i in range(0, len(report_lines), 20):
+                chunk = "\n".join(report_lines[i:i+20])
+                await message.answer(chunk, parse_mode='HTML')
+        else:
+            await message.answer(report, parse_mode='HTML')
+        
+        logger.log('info', f"[MIGRATION] Показаны старые ключи: {len(users_with_old_keys)} пользователей")
+
+    except Exception as e:
+        await message.answer(f"❌ Ошибка при просмотре старых ключей: {str(e)}")
+        logger.log('error', f"[MIGRATION] Ошибка просмотра старых ключей: {e}")
