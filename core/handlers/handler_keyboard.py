@@ -249,6 +249,16 @@ async def switch_menu(case_number: str, call: CallbackQuery, state: FSMContext) 
             response_text, keyboard = await get_key_info_response(user_id)
             return (response_text, keyboard)
         
+        # Обработка замены ключа - выбор сервера
+        if case_number.startswith('replace_choose_'):
+            from core.handlers.handlers_keyboards.get_key_handler import replace_key_choose_server
+            return await replace_key_choose_server(call, state)
+        
+        # Обработка замены ключа - выполнение замены
+        if case_number.startswith('replace_do_'):
+            from core.handlers.handlers_keyboards.get_key_handler import replace_key_execute
+            return await replace_key_execute(call, state)
+        
         switch_dict = {
             'get_key': choise_region,
             'del_key': del_key,
