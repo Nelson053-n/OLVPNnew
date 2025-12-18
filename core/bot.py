@@ -17,6 +17,10 @@ from core.handlers.seed_test_data import command_seed
 from core.handlers.unseed_test_data import command_unseed
 from core.handlers.server_stats import command_server_stats
 from core.handlers.bot_statistics import command_stats
+from core.handlers.migrate_old_keys import (
+    command_migrate,
+    command_check_migration_status
+)
 from core.handlers.migrate_server import (
     command_migrate_server, 
     select_source_server,
@@ -72,6 +76,8 @@ async def setup_bot_commands(bot: Bot):
     admin_commands = [
         BotCommand(command="start", description="🏠 Главное меню"),
         BotCommand(command="stats", description="📊 Статистика бота"),
+        BotCommand(command="migrate", description="🔄 Миграция старых ключей"),
+        BotCommand(command="checkstatus", description="🔍 Статус миграции"),
         BotCommand(command="promo", description="🎁 Выдать промо-ключ"),
         BotCommand(command="testkey", description="🎉 Рассылка тестовых ключей"),
         BotCommand(command="activekeys", description="📋 Активные ключи"),
@@ -112,6 +118,8 @@ async def start_bot():
     # 1. Команды с фильтрами Command регистрируются РАНЬШЕ
     dp.message.register(command_start, Command('start'))
     dp.message.register(command_stats, Command('stats'))
+    dp.message.register(command_migrate, Command('migrate'))
+    dp.message.register(command_check_migration_status, Command('checkstatus'))
     dp.message.register(command_findpay, Command('findpay'))
     dp.message.register(command_get_log_pay, Command('get_log_pay'))
     dp.message.register(command_get_db, Command('get_db'))
