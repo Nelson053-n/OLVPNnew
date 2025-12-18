@@ -1,11 +1,12 @@
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup
 import json
+from datetime import datetime
 
 from core.keyboards.choise_region_button import choise_region_keyboard
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardButton
-from core.sql.function_db_user_vpn.users_vpn import get_user_data_from_table_users, get_region_server, get_user_keys
+from core.sql.function_db_user_vpn.users_vpn import get_user_data_from_table_users, get_region_server, get_user_keys, get_all_user_keys
 from core.utils.build_pay import build_pay
 from core.utils.create_view import create_answer_from_html
 from core.utils.get_region_name import get_region_name_from_json
@@ -172,9 +173,15 @@ async def replace_key_execute(call: CallbackQuery, state: FSMContext) -> (str, I
     
     try:
         # Парсим данные: replace_do_{short_id}_{new_server}
-        parts = call.data.split('_')
-        short_id = parts[2]  # короткий ID ключа
-        new_server = parts[3]  # новый сервер
+        # Формат: replace_do_abcd1234_nederland или replace_do_abcd1234_nederland2
+        callback_data = call.data
+        # Убираем префикс "replace_do_"
+        parts = callback_data.replace('replace_do_', '', 1).split('_', 1)
+        short_id = parts[0]  # короткий ID ключа (8 символов)
+        new_server = parts[1] if len(parts) > 1 else None  # новый сервер (может содержать _)
+        
+        if not new_server:
+            return ("❌ Ошибка: не указан сервер", InlineKeyboardBuilder().as_markup())
         
         # Находим ключ по короткому ID
         all_keys = await get_all_user_keys()
@@ -284,7 +291,6 @@ async def my_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboard
     :param state: FSMContext - Объект FSMContext.
     :return: Текст ответа и клавиатура.
     """
-    from datetime import datetime
     from core.api_s.outline.outline_api import get_server_display_name
     
     id_user = call.from_user.id
