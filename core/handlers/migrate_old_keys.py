@@ -13,13 +13,12 @@ from core.sql.function_db_user_vpn.users_vpn import (
     get_user_keys,
 )
 from core.sql.base import Users, UserKey
-from core.settings import Settings
+from core.settings import admin_tlg
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from logs.log_main import log
 
-# Инициализируем настройки и движок БД
-settings = Settings()
+# Инициализируем движок БД
 engine = create_engine('sqlite:///olvpnbot.db')
 
 
@@ -35,7 +34,7 @@ async def command_migrate(message: types.Message):
     4. НЕ удаляет старые данные (для безопасности)
     """
     # Проверка прав администратора
-    if str(message.from_user.id) != settings.admin_tlg:
+    if str(message.from_user.id) != admin_tlg:
         await message.answer("❌ Эта команда доступна только администратору")
         return
 
@@ -202,7 +201,7 @@ async def command_check_migration_status(message: types.Message):
     Доступна только администратору.
     """
     # Проверка прав администратора
-    if str(message.from_user.id) != settings.admin_tlg:
+    if str(message.from_user.id) != admin_tlg:
         await message.answer("❌ Эта команда доступна только администратору")
         return
 
