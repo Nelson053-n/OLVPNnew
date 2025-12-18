@@ -3,7 +3,7 @@
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from aiogram import types
 from aiogram.filters import Command
 
@@ -11,6 +11,7 @@ from core.api_s.outline.outline_api import OutlineManager
 from core.sql.function_db_user_vpn.users_vpn import (
     get_all_records_from_table_users,
     get_user_keys,
+    get_all_user_keys,
 )
 from core.sql.base import Users, UserKey
 from core.settings import admin_tlg
@@ -127,6 +128,16 @@ async def command_migrate(message: types.Message):
                         )
                         continue
 
+                    # Определяем дату создания ключа
+                    # Если есть дата истечения и она в будущем/прошлом, вычисляем примерную дату создания
+                    if user.date:
+                        # Предполагаем что ключ был создан за 30 дней до истечения (средний период)
+                        # Но если дата истечения уже прошла, используем её минус 30 дней
+                        estimated_created = user.date - timedelta(days=30)
+                    else:
+                        # Если даты нет, ставим старую дату чтобы не попадало в статистику "новых"
+                        estimated_created = datetime.now() - timedelta(days=365)
+
                     # Создаем новую запись в UserKey
                     new_key_record = UserKey(
                         id=str(uuid.uuid4()),
@@ -137,7 +148,7 @@ async def command_migrate(message: types.Message):
                         premium=user.premium,
                         date=user.date,
                         promo=user.promo_key,  # Если был промо, сохраняем флаг
-                        created_at=datetime.now(),  # Не знаем реальную дату, ставим текущую
+                        created_at=estimated_created,  # Используем вычисленную дату
                     )
 
                     session.add(new_key_record)
@@ -241,3 +252,66 @@ async def command_check_migration_status(message: types.Message):
     except Exception as e:
         await message.answer(f"❌ Ошибка при проверке статуса: {str(e)}")
         logger.log('error', f"[MIGRATION] Ошибка проверки статуса: {e}")
+
+
+async def command_fix_migration_dates(message: types.Message):
+    """
+    Исправление дат created_at для уже мигрированных ключей.
+    Используется если миграция прошла, но даты установились неправильно.
+    Доступна только администратору.
+    """
+    # Проверка прав администратора
+    if str(message.from_user.id) != admin_tlg:
+        await message.answer("❌ Эта команда доступна только администратору")
+        return
+
+    await message.answer("🔄 Начинаю исправление дат мигрированных ключей...")
+
+    try:
+        all_users = await get_all_records_from_table_users()
+        all_keys = await get_all_user_keys()
+        
+        updated_count = 0
+        skipped_count = 0
+        
+        now = datetime.now()
+        recent_threshold = now - timedelta(hours=1)  # Ключи созданные за последний час
+        
+        with Session(engine) as session:
+            for key in all_keys:
+                # Пропускаем ключи с корректной датой создания (не недавние)
+                if key.created_at and key.created_at < recent_threshold:
+                    skipped_count += 1
+                    continue
+                
+                # Вычисляем правильную дату created_at
+                if key.date:
+                    # Предполагаем что ключ был создан за 30 дней до истечения
+                    estimated_created = key.date - timedelta(days=30)
+                else:
+                    # Без даты - ставим год назад
+                    estimated_created = now - timedelta(days=365)
+                
+                # Обновляем запись
+                session.query(UserKey).filter(UserKey.id == key.id).update({
+                    'created_at': estimated_created
+                })
+                updated_count += 1
+            
+            session.commit()
+        
+        report = f"""
+📊 <b>Отчет об исправлении дат</b>
+
+✅ Обновлено ключей: {updated_count}
+⏭️ Пропущено (корректные даты): {skipped_count}
+📅 Всего ключей в БД: {len(all_keys)}
+
+💡 Теперь команды /activekeys и /stats должны работать корректно.
+"""
+        await message.answer(report, parse_mode='HTML')
+        logger.log('info', f"[MIGRATION] Исправление дат завершено. Обновлено: {updated_count}")
+
+    except Exception as e:
+        await message.answer(f"❌ Ошибка при исправлении дат: {str(e)}")
+        logger.log('error', f"[MIGRATION] Ошибка исправления дат: {e}")
