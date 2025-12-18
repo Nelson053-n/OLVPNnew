@@ -106,6 +106,175 @@ async def year_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboa
     return content, url_pay_keyboard
 
 
+async def replace_key_choose_server(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboardMarkup):
+    """
+    Показать выбор сервера для замены ключа
+    
+    :param call: CallbackQuery - Объект CallbackQuery.
+    :param state: FSMContext - Объект FSMContext.
+    :return: Текст ответа и клавиатура.
+    """
+    from core.api_s.outline.outline_api import get_name_all_active_server_ol, get_server_display_name
+    
+    # Извлекаем короткий ID ключа из callback_data
+    short_id = call.data.replace('replace_choose_', '')
+    
+    # Находим ключ по короткому ID
+    all_keys = await get_all_user_keys()
+    target_key = None
+    for k in all_keys:
+        if str(k.id)[-8:] == short_id:
+            target_key = k
+            break
+    
+    if not target_key:
+        return ("❌ Ключ не найден", InlineKeyboardBuilder().as_markup())
+    
+    # Получаем список всех активных серверов
+    all_servers = get_name_all_active_server_ol()
+    current_server = target_key.region_server
+    
+    # Строим клавиатуру с доступными серверами (кроме текущего)
+    kb = InlineKeyboardBuilder()
+    text_lines = [
+        f"🔄 <b>Замена ключа</b>\n",
+        f"<b>Текущий сервер:</b> {get_server_display_name(current_server)}\n",
+        f"Выберите новый сервер:"
+    ]
+    
+    for server in all_servers:
+        if server != current_server:
+            server_display = get_server_display_name(server)
+            kb.row(InlineKeyboardButton(
+                text=server_display,
+                callback_data=f'replace_do_{short_id}_{server}'
+            ))
+    
+    kb.row(InlineKeyboardButton(text='❌ Отмена', callback_data='my_key'))
+    
+    return ("\n".join(text_lines), kb.as_markup())
+
+
+async def replace_key_execute(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboardMarkup):
+    """
+    Выполнить замену ключа на выбранном сервере
+    
+    :param call: CallbackQuery - Объект CallbackQuery.
+    :param state: FSMContext - Объект FSMContext.
+    :return: Текст ответа и клавиатура.
+    """
+    import uuid
+    from core.api_s.outline.outline_api import OutlineManager, get_server_display_name
+    from core.sql.function_db_user_vpn.users_vpn import delete_user_key_record, add_user_key
+    from logs.log_main import RotatingFileLogger
+    
+    logger = RotatingFileLogger()
+    
+    try:
+        # Парсим данные: replace_do_{short_id}_{new_server}
+        parts = call.data.split('_')
+        short_id = parts[2]  # короткий ID ключа
+        new_server = parts[3]  # новый сервер
+        
+        # Находим ключ по короткому ID
+        all_keys = await get_all_user_keys()
+        target_key = None
+        for k in all_keys:
+            if str(k.id)[-8:] == short_id:
+                target_key = k
+                break
+        
+        if not target_key:
+            return ("❌ Ключ не найден", InlineKeyboardBuilder().as_markup())
+        
+        user_id = target_key.account
+        old_server = target_key.region_server
+        old_outline_id = target_key.outline_id
+        old_date = target_key.date  # Сохраняем дату истечения
+        
+        # Создаем новый ключ на новом сервере
+        olm_new = OutlineManager(new_server)
+        unique_name = f"{user_id}-replaced-{uuid.uuid4().hex[:8]}"
+        new_key = olm_new._client.create_key(name=unique_name)
+        
+        if not new_key:
+            return ("❌ Не удалось создать новый ключ", InlineKeyboardBuilder().as_markup())
+        
+        # Получаем данные нового ключа
+        new_outline_id = str(getattr(new_key, 'key_id', None))
+        new_access_url = getattr(new_key, 'access_url', None)
+        
+        if not new_outline_id or not new_access_url:
+            return ("❌ Ошибка при получении данных нового ключа", InlineKeyboardBuilder().as_markup())
+        
+        # Используем старую дату истечения
+        date_str = old_date.strftime('%d.%m.%Y - %H:%M') if old_date else None
+        
+        # Сохраняем новый ключ в БД
+        success = await add_user_key(
+            account=user_id,
+            outline_id=new_outline_id,
+            access_url=new_access_url,
+            region_server=new_server,
+            date_str=date_str,
+            promo=target_key.promo
+        )
+        
+        if not success:
+            return ("❌ Не удалось сохранить новый ключ в БД", InlineKeyboardBuilder().as_markup())
+        
+        # Удаляем старый ключ из Outline
+        try:
+            olm_old = OutlineManager(old_server)
+            olm_old.delete_key_by_id(old_outline_id)
+            logger.log('info', f'Deleted old key {old_outline_id} from server {old_server}')
+        except Exception as e:
+            logger.log('warning', f'Failed to delete old key from Outline: {e}')
+        
+        # Удаляем старый ключ из БД
+        await delete_user_key_record(target_key.id)
+        
+        # Формируем ответ
+        old_display = get_server_display_name(old_server)
+        new_display = get_server_display_name(new_server)
+        
+        days_left = ""
+        if old_date:
+            delta = old_date - datetime.now()
+            days = delta.days
+            hours = delta.seconds // 3600
+            if days > 0:
+                days_left = f" ({days} дн.)"
+            elif days == 0 and hours >= 0:
+                days_left = f" ({hours} ч.)"
+            else:
+                days_left = " (истёк)"
+        
+        date_display = old_date.strftime('%d.%m.%Y - %H:%M') if old_date else '—'
+        
+        text = (
+            f"✅ <b>Ключ успешно заменен!</b>\n\n"
+            f"<b>Старый сервер:</b> {old_display}\n"
+            f"<b>Новый сервер:</b> {new_display}\n\n"
+            f"<b>Новый ключ:</b>\n"
+            f"<code>{new_access_url}</code>\n\n"
+            f"<b>Действителен до:</b> {date_display}{days_left}"
+        )
+        
+        kb = InlineKeyboardBuilder()
+        kb.row(InlineKeyboardButton(text='🔙 К моим ключам', callback_data='my_key'))
+        
+        logger.log('info', f'Replaced key for user {user_id}: {old_server} -> {new_server}')
+        
+        return (text, kb.as_markup())
+        
+    except Exception as e:
+        logger.log('error', f'Error replacing key: {e}')
+        import traceback
+        traceback.print_exc()
+        return (f"❌ Ошибка при замене ключа: {str(e)}", InlineKeyboardBuilder().as_markup())
+
+
 async def my_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboardMarkup):
     """
     Обработчик для кнопки "Мой ключ".
@@ -150,11 +319,14 @@ async def my_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboard
             lines.append(f"<b>Действителен до:</b> {date_str}{days_left}")
             lines.append(f"<a href=\"{k.access_url}\"><code>{k.access_url}</code></a>\n")
             
-            # Кнопки по каждому ключу: копировать / удалить (используем короткие ID)
+            # Кнопки по каждому ключу: копировать / удалить / заменить (используем короткие ID)
             short_id = str(k.id)[-8:]  # Последние 8 символов UUID
             kb.row(
                 InlineKeyboardButton(text=f'📋 Копировать {idx}', callback_data=f'cpy_k_{short_id}'),
                 InlineKeyboardButton(text=f'🗑️ Удалить {idx}', callback_data=f'ask_del_{short_id}')
+            )
+            kb.row(
+                InlineKeyboardButton(text=f'🔄 Заменить {idx}', callback_data=f'replace_choose_{short_id}')
             )
         # Добавляем кнопку назад
         kb.row(InlineKeyboardButton(text='🔙 Назад', callback_data='back'))
