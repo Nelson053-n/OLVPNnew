@@ -16,10 +16,11 @@ from core.sql.base import Users, UserKey
 from core.settings import admin_tlg
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
-from logs.log_main import log
+from logs.log_main import RotatingFileLogger
 
-# Инициализируем движок БД
+# Инициализируем движок БД и логгер
 engine = create_engine('sqlite:///olvpnbot.db')
+logger = RotatingFileLogger()
 
 
 async def command_migrate(message: types.Message):
@@ -55,7 +56,7 @@ async def command_migrate(message: types.Message):
         all_users = await get_all_records_from_table_users()
         stats['total_users'] = len(all_users)
 
-        log.info(f"[MIGRATION] Начало миграции. Всего пользователей: {stats['total_users']}")
+        logger.log('info', f"[MIGRATION] Начало миграции. Всего пользователей: {stats['total_users']}")
 
         # Список для детального отчета
         migration_details = []
@@ -72,7 +73,7 @@ async def command_migrate(message: types.Message):
                 existing_keys = get_user_keys(user.account)
                 if existing_keys:
                     stats['already_migrated'] += 1
-                    log.info(f"[MIGRATION] Пользователь {user.account} уже имеет ключи в новой системе")
+                    logger.log('info', f"[MIGRATION] Пользователь {user.account} уже имеет ключи в новой системе")
                     continue
 
                 # Определяем регион сервера (из Users.region_server или дефолт)
@@ -120,7 +121,7 @@ async def command_migrate(message: types.Message):
                             f"❌ @{user.account_name} (ID: {user.account}): "
                             f"ключ не найден на {region_server} (попытки: {strategies_str})"
                         )
-                        log.warning(
+                        logger.log('warning',
                             f"[MIGRATION] Ключ пользователя {user.account} не найден на {region_server}. "
                             f"Стратегии поиска: {strategies_str}, старый key={user.key[:50]}"
                         )
@@ -147,7 +148,7 @@ async def command_migrate(message: types.Message):
                         f"✅ @{user.account_name} (ID: {user.account}): "
                         f"мигрирован на {region_server} (outline_id: {outline_key.key_id})"
                     )
-                    log.info(
+                    logger.log('info',
                         f"[MIGRATION] Успешно мигрирован ключ пользователя {user.account} "
                         f"(outline_id: {outline_key.key_id}, region: {region_server}, "
                         f"premium: {user.premium}, date: {user.date})"
@@ -158,9 +159,8 @@ async def command_migrate(message: types.Message):
                     migration_details.append(
                         f"❌ @{user.account_name} (ID: {user.account}): ошибка - {str(e)[:50]}"
                     )
-                    log.error(
-                        f"[MIGRATION] Ошибка миграции ключа пользователя {user.account}: {e}",
-                        exc_info=True
+                    logger.log('error',
+                        f"[MIGRATION] Ошибка миграции ключа пользователя {user.account}: {e}"
                     )
                     session.rollback()
 
@@ -187,12 +187,12 @@ async def command_migrate(message: types.Message):
                 report += f"\n... и ещё {len(migration_details) - 20} записей"
 
         await message.answer(report, parse_mode='HTML')
-        log.info(f"[MIGRATION] Миграция завершена. Статистика: {stats}")
+        logger.log('info', f"[MIGRATION] Миграция завершена. Статистика: {stats}")
 
     except Exception as e:
         error_msg = f"❌ Критическая ошибка при миграции: {str(e)}"
         await message.answer(error_msg)
-        log.error(f"[MIGRATION] Критическая ошибка: {e}", exc_info=True)
+        logger.log('error', f"[MIGRATION] Критическая ошибка: {e}")
 
 
 async def command_check_migration_status(message: types.Message):
@@ -240,4 +240,4 @@ async def command_check_migration_status(message: types.Message):
 
     except Exception as e:
         await message.answer(f"❌ Ошибка при проверке статуса: {str(e)}")
-        log.error(f"[MIGRATION] Ошибка проверки статуса: {e}", exc_info=True)
+        logger.log('error', f"[MIGRATION] Ошибка проверки статуса: {e}")
