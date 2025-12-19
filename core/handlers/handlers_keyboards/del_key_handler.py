@@ -29,9 +29,9 @@ async def ask_del_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKey
     key_user = olm.get_key_from_ol(id_user=str(id_user))
     name_temp = call.data
     if key_user and key_user_db:
-        result, return_keyboard = 'Подтверждаете удаление ключа?', accept_del_keyboard()
+        result, return_keyboard = 'Подтверждаете удаление доступа?', accept_del_keyboard()
     else:
-        result, return_keyboard = 'Возможно произошла ошибка, либо ключа у вас не существует.', start_keyboard()
+        result, return_keyboard = 'Возможно произошла ошибка, либо доступа у вас не существует.', start_keyboard()
     content = await create_answer_from_html(name_temp=name_temp, result=result)
     return content, return_keyboard
 

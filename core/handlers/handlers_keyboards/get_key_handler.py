@@ -129,7 +129,7 @@ async def replace_key_choose_server(call: CallbackQuery, state: FSMContext) -> (
             break
     
     if not target_key:
-        return ("❌ Ключ не найден", InlineKeyboardBuilder().as_markup())
+        return ("❌ Доступ не найден", InlineKeyboardBuilder().as_markup())
     
     # Получаем список всех активных серверов
     all_servers = get_name_all_active_server_ol()
@@ -138,7 +138,7 @@ async def replace_key_choose_server(call: CallbackQuery, state: FSMContext) -> (
     # Строим клавиатуру с доступными серверами (кроме текущего)
     kb = InlineKeyboardBuilder()
     text_lines = [
-        f"🔄 <b>Замена ключа</b>\n",
+        f"🔄 <b>Замена доступа</b>\n",
         f"<b>Текущий сервер:</b> {get_server_display_name(current_server)}\n",
         f"Выберите новый сервер:"
     ]
@@ -192,7 +192,7 @@ async def replace_key_execute(call: CallbackQuery, state: FSMContext) -> (str, I
                 break
         
         if not target_key:
-            return ("❌ Ключ не найден", InlineKeyboardBuilder().as_markup())
+            return ("❌ Доступ не найден", InlineKeyboardBuilder().as_markup())
         
         user_id = target_key.account
         old_server = target_key.region_server
@@ -205,14 +205,14 @@ async def replace_key_execute(call: CallbackQuery, state: FSMContext) -> (str, I
         new_key = olm_new._client.create_key(name=unique_name)
         
         if not new_key:
-            return ("❌ Не удалось создать новый ключ", InlineKeyboardBuilder().as_markup())
+            return ("❌ Не удалось создать новый доступ", InlineKeyboardBuilder().as_markup())
         
         # Получаем данные нового ключа
         new_outline_id = str(getattr(new_key, 'key_id', None))
         new_access_url = getattr(new_key, 'access_url', None)
         
         if not new_outline_id or not new_access_url:
-            return ("❌ Ошибка при получении данных нового ключа", InlineKeyboardBuilder().as_markup())
+            return ("❌ Ошибка при получении данных нового доступа", InlineKeyboardBuilder().as_markup())
         
         # Используем старую дату истечения
         date_str = old_date.strftime('%d.%m.%Y - %H:%M') if old_date else None
@@ -228,7 +228,7 @@ async def replace_key_execute(call: CallbackQuery, state: FSMContext) -> (str, I
         )
         
         if not success:
-            return ("❌ Не удалось сохранить новый ключ в БД", InlineKeyboardBuilder().as_markup())
+            return ("❌ Не удалось сохранить новый доступ в БД", InlineKeyboardBuilder().as_markup())
         
         # Удаляем старый ключ из Outline
         try:
@@ -260,16 +260,16 @@ async def replace_key_execute(call: CallbackQuery, state: FSMContext) -> (str, I
         date_display = old_date.strftime('%d.%m.%Y - %H:%M') if old_date else '—'
         
         text = (
-            f"✅ <b>Ключ успешно заменен!</b>\n\n"
+            f"✅ <b>Доступ успешно заменен!</b>\n\n"
             f"<b>Старый сервер:</b> {old_display}\n"
             f"<b>Новый сервер:</b> {new_display}\n\n"
-            f"<b>Новый ключ:</b>\n"
+            f"<b>Новый доступ:</b>\n"
             f"<code>{new_access_url}</code>\n\n"
             f"<b>Действителен до:</b> {date_display}{days_left}"
         )
         
         kb = InlineKeyboardBuilder()
-        kb.row(InlineKeyboardButton(text='🔙 К моим ключам', callback_data='my_key'))
+        kb.row(InlineKeyboardButton(text='🔙 К моим доступам', callback_data='my_key'))
         
         logger.log('info', f'Replaced key for user {user_id}: {old_server} -> {new_server}')
         
@@ -279,7 +279,7 @@ async def replace_key_execute(call: CallbackQuery, state: FSMContext) -> (str, I
         logger.log('error', f'Error replacing key: {e}')
         import traceback
         traceback.print_exc()
-        return (f"❌ Ошибка при замене ключа: {str(e)}", InlineKeyboardBuilder().as_markup())
+        return (f"❌ Ошибка при замене доступа: {str(e)}", InlineKeyboardBuilder().as_markup())
 
 
 async def my_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboardMarkup):
@@ -358,5 +358,5 @@ async def my_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboard
         return content, kb.as_markup()
 
     # Fallback для пользователей без ключей — предлагаем выбрать регион и купить
-    content = 'У вас нет ключа, но вы можете его купить\nВыберите регион'
+    content = 'У вас нет доступа, но вы можете его приобрести\nВыберите регион'
     return content, choise_region_keyboard()
