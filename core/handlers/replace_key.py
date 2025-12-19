@@ -191,7 +191,7 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
         try:
             from core.bot import bot
             user_message = (
-                f'🔄 <b>Ваш ключ был заменен!</b>\n\n'
+                f'🔄 <b>Ваш доступ был заменен!</b>\n\n'
                 f'<b>Новый сервер:</b> {new_display}\n'
                 f'<b>Новый ключ доступа:</b>\n'
                 f'<code>{new_access_url}</code>\n\n'
