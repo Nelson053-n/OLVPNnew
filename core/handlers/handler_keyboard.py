@@ -42,6 +42,16 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 await call.answer("Ошибка при выдаче промо", show_alert=True)
             return
         
+        # Handle docs callback
+        if data == 'docs':
+            try:
+                from core.handlers.docs import docs_handler
+                await docs_handler(call)
+            except Exception as e:
+                logger.log('error', f'docs callback error: {e}')
+                await call.answer("Ошибка при загрузке документации", show_alert=True)
+            return
+        
         # Handle special callbacks that perform side-effects (copy key, confirmations)
         if data.startswith('confirm_block_key_'):
             try:
@@ -267,9 +277,11 @@ async def switch_menu(case_number: str, call: CallbackQuery, state: FSMContext) 
             'month': month_key,
             'year': year_key,
             'back': back_key,
+            'back_start': back_key,  # Добавлена кнопка "Назад в меню"
             'pay_check': pay_check_key,
             'my_key': my_key,
             'promo': get_promo,
+            'docs': None,  # Обработается отдельно
         }
         region_handler_switch = create_region_handler_from_json()
         if region_handler_switch:

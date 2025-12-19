@@ -17,6 +17,8 @@ from core.handlers.seed_test_data import command_seed
 from core.handlers.unseed_test_data import command_unseed
 from core.handlers.server_stats import command_server_stats
 from core.handlers.bot_statistics import command_stats
+from core.handlers.pin_disclaimer import pin_disclaimer_handler
+from core.handlers.docs import command_docs
 from core.handlers.migrate_old_keys import (
     command_migrate,
     command_check_migration_status,
@@ -79,6 +81,7 @@ async def setup_bot_commands(bot: Bot):
     admin_commands = [
         BotCommand(command="start", description="🏠 Главное меню"),
         BotCommand(command="stats", description="📊 Статистика бота"),
+        BotCommand(command="pindisclaimer", description="📌 Закрепить дисклеймер"),
         BotCommand(command="promo", description="🎁 Выдать промо-ключ"),
         BotCommand(command="testkey", description="🎉 Рассылка тестовых ключей"),
         BotCommand(command="activekeys", description="📋 Активные ключи"),
@@ -119,6 +122,8 @@ async def start_bot():
     # 1. Команды с фильтрами Command регистрируются РАНЬШЕ
     dp.message.register(command_start, Command('start'))
     dp.message.register(command_stats, Command('stats'))
+    dp.message.register(command_docs, Command('docs'))
+    dp.message.register(lambda m: pin_disclaimer_handler(m, bot), Command('pindisclaimer'))
     dp.message.register(command_migrate, Command('migrate'))
     dp.message.register(command_check_migration_status, Command('checkstatus'))
     dp.message.register(command_fix_migration_dates, Command('fixmigration'))
