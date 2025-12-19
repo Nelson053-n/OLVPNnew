@@ -48,32 +48,74 @@ python support_bot.py
 
 #### Через systemd (production)
 
-Создайте файл сервиса `/etc/systemd/system/olvpn-support-bot.service`:
+**Шаг 1: Создайте файл сервиса**
+
+```bash
+sudo nano /etc/systemd/system/olvpn-support-bot.service
+```
+
+Вставьте следующее содержимое (замените пути на ваши):
 
 ```ini
 [Unit]
-Description=OLVPN Support Bot
+Description=OLVPN Support Bot - Telegram Support Service
 After=network.target
 
 [Service]
 Type=simple
-User=your_user
-WorkingDirectory=/path/to/OLVPNnew
-ExecStart=/path/to/venv/bin/python /path/to/OLVPNnew/support_bot.py
+User=root
+Group=root
+WorkingDirectory=/root/OLVPNnew
+Environment="PATH=/root/OLVPNnew/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/root/OLVPNnew/venv/bin/python3 /root/OLVPNnew/support_bot.py
 Restart=always
 RestartSec=10
+
+# Логирование
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=olvpn-support-bot
+
+# Безопасность
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-Запустите сервис:
+**Важно:** Замените `/root/OLVPNnew` на ваш реальный путь к проекту.
+
+**Шаг 2: Перезагрузите systemd и запустите сервис**
 
 ```bash
+# Перезагрузить конфигурацию systemd
 sudo systemctl daemon-reload
+
+# Включить автозапуск при старте системы
 sudo systemctl enable olvpn-support-bot
+
+# Запустить сервис
 sudo systemctl start olvpn-support-bot
+
+# Проверить статус
 sudo systemctl status olvpn-support-bot
+```
+
+**Шаг 3: Проверьте работу**
+
+```bash
+# Просмотр логов в реальном времени
+sudo journalctl -u olvpn-support-bot -f
+
+# Последние 50 строк логов
+sudo journalctl -u olvpn-support-bot -n 50
+
+# Перезапуск сервиса
+sudo systemctl restart olvpn-support-bot
+
+# Остановка сервиса
+sudo systemctl stop olvpn-support-bot
 ```
 
 ## Использование

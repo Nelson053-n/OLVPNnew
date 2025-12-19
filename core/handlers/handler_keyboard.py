@@ -61,7 +61,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 kb.button(text='✍️ Заблокировать с причиной', callback_data=f'block_with_reason_{user_id}')
                 kb.button(text='❌ Отмена', callback_data=f'cancel_block_{user_id}')
                 kb.adjust(1)
-                await call.message.answer(text=f'Вы уверены, что хотите заблокировать ключ пользователя {user_id}?', reply_markup=kb.as_markup())
+                await call.message.answer(text=f'Вы уверены, что хотите заблокировать доступ пользователя {user_id}?', reply_markup=kb.as_markup())
             except Exception:
                 pass
             return
@@ -74,7 +74,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 kb.button(text='✍️ С причиной', callback_data=f'blk_rsn_{short_id}')
                 kb.button(text='❌ Отмена', callback_data=f'cnl_blk_{short_id}')
                 kb.adjust(1)
-                await call.message.answer(text=f'Заблокировать выбранный ключ?', reply_markup=kb.as_markup())
+                await call.message.answer(text=f'Заблокировать выбранный доступ?', reply_markup=kb.as_markup())
             except Exception:
                 pass
             return
@@ -93,7 +93,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
             try:
                 short_id = data.split('_')[-1]
                 await state.update_data(pending_block_key_short_id=short_id)
-                await call.message.answer(text='Введите причину блокировки для выбранного ключа.', parse_mode=None)
+                await call.message.answer(text='Введите причину блокировки для выбранного доступа.', parse_mode=None)
             except Exception:
                 pass
             return
@@ -113,9 +113,9 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 from core.sql.function_db_user_vpn.users_vpn import get_key_from_table_users
                 key = await get_key_from_table_users(account=user_id)
                 if key:
-                    await call.message.answer(text=f"🔑 Ключ для копирования:\n{key}", parse_mode=None)
+                    await call.message.answer(text=f"🔑 Доступ для копирования:\n{key}", parse_mode=None)
                 else:
-                    await call.message.answer(text="Ключ не найден.", parse_mode=None)
+                    await call.message.answer(text="Доступ не найден.", parse_mode=None)
             except Exception:
                 pass
             # do not edit the menu message
@@ -128,9 +128,9 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 all_keys = await get_all_user_keys()
                 k = next((uk for uk in all_keys if str(uk.id).endswith(short_id)), None)
                 if k and k.access_url:
-                    await call.message.answer(text=f"🔑 Ключ для копирования:\n{k.access_url}", parse_mode=None)
+                    await call.message.answer(text=f"🔑 Доступ для копирования:\n{k.access_url}", parse_mode=None)
                 else:
-                    await call.message.answer(text="Ключ не найден.", parse_mode=None)
+                    await call.message.answer(text="Доступ не найден.", parse_mode=None)
             except Exception:
                 pass
             return
@@ -140,7 +140,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 short_id = data.split('_')[-1]
                 from core.keyboards.accept_del_button import accept_del_userkey_keyboard
                 from core.utils.create_view import create_answer_from_html
-                content = await create_answer_from_html(name_temp='ask_del_key', result='Подтверждаете удаление ключа?')
+                content = await create_answer_from_html(name_temp='ask_del_key', result='Подтверждаете удаление доступа?')
                 await call.message.edit_text(text=content, reply_markup=accept_del_userkey_keyboard(short_id), parse_mode='HTML')
             except Exception:
                 # fallback notify
@@ -169,7 +169,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 all_keys = await get_all_user_keys()
                 k = next((uk for uk in all_keys if str(uk.id).endswith(short_id)), None)
                 if not k:
-                    await call.message.answer(text='Ключ не найден.', parse_mode=None)
+                    await call.message.answer(text='Доступ не найден.', parse_mode=None)
                     return
 
                 # Удаляем на сервере Outline по outline_id
@@ -211,7 +211,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 tb = traceback.format_exc()
                 logger.log('error', f'del_k error for user {call.from_user.id}, data={call.data}: {tb}')
                 try:
-                    await call.message.answer(text='Ошибка при удалении ключа.', parse_mode=None)
+                    await call.message.answer(text='Ошибка при удалении доступа.', parse_mode=None)
                 except Exception:
                     pass
             return
@@ -249,7 +249,7 @@ async def switch_menu(case_number: str, call: CallbackQuery, state: FSMContext) 
             if k:
                 text, keyboard = await perform_block_userkey(key_id=str(k.id), admin_id=call.from_user.id)
                 return (text, keyboard)
-            return ("Ключ не найден", InlineKeyboardBuilder().as_markup())
+            return ("Доступ не найден", InlineKeyboardBuilder().as_markup())
         
         # Обработка callback для проверки ключа пользователя (из activekeys)
         if case_number.startswith('chk_usr_'):
