@@ -299,7 +299,7 @@ async def my_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboard
     keys = await get_user_keys(account=id_user)
     if keys:
         # Собираем HTML-ответ со списком ключей
-        lines = ["<b>🔑 Ваши ключи:</b>\n"]
+        lines = ["<b>🔑 Ваши доступы:</b>\n"]
         kb = InlineKeyboardBuilder()
         for idx, k in enumerate(keys, 1):
             # Получаем отображаемое имя с флагом
