@@ -284,7 +284,7 @@ async def replace_key_execute(call: CallbackQuery, state: FSMContext) -> (str, I
 
 async def my_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboardMarkup):
     """
-    Обработчик для кнопки "Мой ключ".
+    Обработчик для кнопки "Мои доступы".
     Получение ключа, если он есть
 
     :param call: CallbackQuery - Объект CallbackQuery.
@@ -334,7 +334,25 @@ async def my_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboard
             kb.row(
                 InlineKeyboardButton(text=f'🔄 Заменить {idx}', callback_data=f'replace_choose_{short_id}')
             )
-        # Добавляем кнопку назад
+        
+        # Импортируем настройки для получения username чата поддержки
+        from core.settings import support_chat_username
+        from urllib.parse import quote
+        
+        # Текст-дисклеймер для предзаполнения
+        disclaimer_text = (
+            "Здравствуйте. Мы не предоставляем потребительские VPN-услуги. "
+            "Outline Solutions — это B2B-платформа для организации частных сетей. "
+            "Если вы хотите использовать нашу инфраструктуру для законных бизнес-задач "
+            "(удаленный доступ к вашему серверу, защита разработки), мы готовы обсудить."
+        )
+        
+        # Кодируем текст для URL
+        encoded_text = quote(disclaimer_text)
+        support_url = f"https://t.me/{support_chat_username}?text={encoded_text}"
+        
+        # Добавляем кнопки поддержки и назад
+        kb.row(InlineKeyboardButton(text='💬 Техподдержка', url=support_url))
         kb.row(InlineKeyboardButton(text='🔙 Назад', callback_data='back'))
         content = "\n".join(lines)
         return content, kb.as_markup()
