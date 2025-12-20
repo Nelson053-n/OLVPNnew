@@ -5,7 +5,11 @@
 """
 import asyncio
 import logging
-from datetime import datetime
+import json
+import uuid
+import traceback
+from datetime import datetime, timedelta
+from pathlib import Path
 from aiogram import Bot, Dispatcher, Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
@@ -25,9 +29,24 @@ if not os.getenv("SUPPORT_BOT_TOKEN"):
         load_dotenv(temp_env_path)
 
 from core.settings import admin_tlg
+from core.api_s.outline.outline_api import OutlineManager, get_name_all_active_server_ol, get_server_display_name
+from core.sql.function_db_user_vpn.users_vpn import (
+    get_user_data_from_table_users,
+    get_region_server,
+    get_user_keys,
+    add_user_key,
+    set_premium_status,
+    set_date_to_table_users,
+    set_region_server,
+    set_key_to_table_users,
+    set_promo_status,
+    delete_user_key_record,
+    get_all_user_keys
+)
 
-# Получаем токен бота техподдержки из переменных окружения
+# Получаем токен бота техподдержки и username основного бота
 SUPPORT_BOT_TOKEN = os.getenv("SUPPORT_BOT_TOKEN")
+MAIN_BOT_USERNAME = os.getenv("MAIN_BOT_USERNAME", "OutlineVPNBot")  # Fallback на дефолтное имя
 
 if not SUPPORT_BOT_TOKEN:
     raise RuntimeError(
@@ -108,6 +127,16 @@ def create_admin_keyboard(user_id: int) -> InlineKeyboardMarkup:
             InlineKeyboardButton(
                 text="📜 История",
                 callback_data=f"history_{user_id}"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="🎁 Выдать промо",
+                callback_data=f"support_promo_{user_id}"
+            ),
+            InlineKeyboardButton(
+                text="🔄 Заменить ключ",
+                callback_data=f"support_replace_{user_id}"
             )
         ]
     ]
@@ -316,6 +345,282 @@ async def callback_reply(callback: CallbackQuery):
         f"Или используйте Reply на исходное сообщение",
         parse_mode=ParseMode.HTML
     )
+
+
+@router.callback_query(F.data.startswith("support_promo_"))
+async def callback_give_promo(callback: CallbackQuery):
+    """Обработка выдачи промо-ключа пользователю через бот поддержки"""
+    try:
+        user_id = int(callback.data.split("_")[-1])
+        
+        # Проверка прав администратора
+        if callback.from_user.id != ADMIN_ID:
+            await callback.answer("❌ У вас нет доступа к этой функции", show_alert=True)
+            return
+        
+        await callback.answer("⏳ Создаю промо-ключ...")
+        
+        # Проверяем существование пользователя
+        user = await get_user_data_from_table_users(account=user_id)
+        if not user:
+            await callback.message.answer(
+                f"❌ Пользователь {user_id} не найден в базе данных",
+                parse_mode=None
+            )
+            return
+        
+        # Определяем регион (текущий или дефолтный)
+        region = await get_region_server(account=user_id) or 'nederland'
+        
+        # Загружаем настройки промо из JSON
+        settings_path = Path(__file__).parent / 'core' / 'settings_prices.json'
+        with open(settings_path, 'r', encoding='utf-8') as f:
+            prices = json.load(f)
+        promo_days = prices.get('promo', {}).get('days', 7)
+        
+        # Дата истечения
+        expiry_date = datetime.now() + timedelta(days=promo_days)
+        
+        # Создаем ключ на Outline сервере
+        unique_name = f"{user_id}-promo-{uuid.uuid4().hex[:8]}"
+        olm = OutlineManager(region_server=region)
+        
+        try:
+            key_data = olm._client.create_key(name=unique_name)
+        except Exception as e:
+            logger.error(f'Promo create_key error for {user_id}: {e}')
+            await callback.message.answer(
+                f"❌ Ошибка создания промо-ключа на сервере: {e}",
+                parse_mode=None
+            )
+            return
+        
+        if not key_data or not getattr(key_data, 'access_url', None):
+            await callback.message.answer(
+                "❌ Ошибка создания промо-ключа на сервере",
+                parse_mode=None
+            )
+            return
+        
+        outline_id = str(key_data.key_id)
+        date_str = expiry_date.strftime('%d.%m.%Y - %H:%M')
+        
+        # Сохраняем в БД
+        await add_user_key(
+            account=user_id,
+            access_url=key_data.access_url,
+            outline_id=outline_id,
+            region_server=region,
+            date_str=date_str,
+            promo=True,
+        )
+        await set_premium_status(account=user_id, value_premium=True)
+        await set_date_to_table_users(account=user_id, value_date=date_str)
+        await set_region_server(account=user_id, value_region=region)
+        await set_key_to_table_users(account=user_id, value_key=key_data.access_url)
+        await set_promo_status(account=user_id, value_promo=True)
+        
+        # Отправляем уведомление пользователю
+        try:
+            server_display = get_server_display_name(region)
+            main_bot_link = f"https://t.me/{MAIN_BOT_USERNAME}"
+            notification_text = (
+                f"🎁 <b>Вам выдан тестовый доступ к демо-среде!</b>\n\n"
+                f"📍 <b>Регион сервера:</b> {server_display}\n"
+                f"⏰ <b>Действует до:</b> {date_str}\n\n"
+                f"Перейдите в <a href='{main_bot_link}'>основной бот</a> и используйте команду /start чтобы получить ключ доступа.\n\n"
+                f"💬 Если у вас возникнут вопросы, обращайтесь в поддержку!"
+            )
+            await bot.send_message(chat_id=user_id, text=notification_text, parse_mode='HTML')
+        except Exception as notify_error:
+            logger.warning(f'Failed to send promo notification to {user_id}: {notify_error}')
+        
+        # Уведомляем администратора
+        user_info = user_mapping.get(user_id, {})
+        username = user_info.get('username', 'неизвестно')
+        full_name = user_info.get('full_name', 'Неизвестный пользователь')
+        
+        await callback.message.answer(
+            f"✅ <b>Промо-доступ успешно выдан!</b>\n\n"
+            f"👤 <b>Пользователь:</b> {full_name} (@{username})\n"
+            f"🆔 <b>ID:</b> <code>{user_id}</code>\n"
+            f"📍 <b>Регион:</b> {server_display}\n"
+            f"⏰ <b>Срок:</b> {promo_days} дней\n\n"
+            f"<i>Пользователю отправлено уведомление</i>",
+            parse_mode='HTML'
+        )
+        
+        logger.info(f'Admin {callback.from_user.id} gave promo to user {user_id}')
+        
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.error(f'callback_give_promo error: {e}\n{tb}')
+        try:
+            await callback.message.answer(f"❌ Ошибка при выдаче промо: {str(e)}", parse_mode=None)
+        except:
+            pass
+
+
+@router.callback_query(F.data.startswith("support_replace_"))
+async def callback_replace_key(callback: CallbackQuery):
+    """Обработка замены ключа пользователя через бот поддержки"""
+    try:
+        user_id = int(callback.data.split("_")[-1])
+        
+        # Проверка прав администратора
+        if callback.from_user.id != ADMIN_ID:
+            await callback.answer("❌ У вас нет доступа к этой функции", show_alert=True)
+            return
+        
+        await callback.answer("⏳ Начинаю замену ключа...")
+        
+        # Проверяем существование пользователя
+        user = await get_user_data_from_table_users(account=user_id)
+        if not user:
+            await callback.message.answer(
+                f"❌ Пользователь {user_id} не найден в базе данных",
+                parse_mode=None
+            )
+            return
+        
+        # Получаем активные ключи пользователя
+        user_keys = await get_user_keys(account=user_id)
+        now = datetime.now()
+        active_keys = [key for key in user_keys if key.date and key.date > now and key.premium]
+        
+        if not active_keys:
+            await callback.message.answer(
+                f"❌ У пользователя {user_id} нет активных ключей для замены",
+                parse_mode=None
+            )
+            return
+        
+        # Берем первый активный ключ для замены
+        target_key = active_keys[0]
+        old_server = target_key.region_server
+        old_outline_id = target_key.outline_id
+        
+        # Получаем список доступных серверов (кроме текущего)
+        all_servers = get_name_all_active_server_ol()
+        available_servers = [s for s in all_servers if s != old_server]
+        
+        if not available_servers:
+            await callback.message.answer(
+                "❌ Нет доступных серверов для замены ключа",
+                parse_mode=None
+            )
+            return
+        
+        # Выбираем первый доступный сервер
+        new_server = available_servers[0]
+        
+        # Создаем новый ключ
+        try:
+            olm_new = OutlineManager(new_server)
+            unique_name = f"{user_id}-replaced-{uuid.uuid4().hex[:8]}"
+            new_key = olm_new._client.create_key(name=unique_name)
+            
+            if not new_key:
+                raise Exception("Failed to create new key")
+            
+            new_outline_id = str(getattr(new_key, 'key_id', None))
+            new_access_url = getattr(new_key, 'access_url', None)
+            
+            if not new_outline_id or not new_access_url:
+                raise Exception("New key missing required attributes")
+            
+            # Вычисляем дату истечения
+            if target_key.date and target_key.date > now:
+                expiry_date = target_key.date
+            else:
+                expiry_date = now + timedelta(days=30)
+            
+            date_str = expiry_date.strftime('%d.%m.%Y - %H:%M')
+            
+            # Сохраняем новый ключ в БД
+            await add_user_key(
+                account=user_id,
+                outline_id=new_outline_id,
+                access_url=new_access_url,
+                region_server=new_server,
+                date_str=date_str,
+                promo=False
+            )
+            
+            await set_premium_status(account=user_id, value_premium=True)
+            await set_date_to_table_users(account=user_id, value_date=date_str)
+            await set_region_server(account=user_id, value_region=new_server)
+            await set_key_to_table_users(account=user_id, value_key=new_access_url)
+            
+            logger.info(f'Created new key for user {user_id} on server {new_server}')
+            
+        except Exception as e:
+            logger.error(f'Failed to create new key: {e}')
+            await callback.message.answer(
+                f"❌ Ошибка при создании нового ключа: {str(e)}",
+                parse_mode=None
+            )
+            return
+        
+        # Удаляем старый ключ из Outline
+        try:
+            olm_old = OutlineManager(old_server)
+            olm_old.delete_key_by_id(old_outline_id)
+            logger.info(f'Deleted old key {old_outline_id} from server {old_server}')
+        except Exception as e:
+            logger.warning(f'Failed to delete old key from Outline: {e}')
+        
+        # Удаляем старый ключ из БД
+        try:
+            await delete_user_key_record(target_key.id)
+            logger.info(f'Deleted old key record from DB: {target_key.id}')
+        except Exception as e:
+            logger.error(f'Failed to delete old key from DB: {e}')
+        
+        # Отправляем уведомление пользователю
+        try:
+            old_display = get_server_display_name(old_server)
+            new_display = get_server_display_name(new_server)
+            main_bot_link = f"https://t.me/{MAIN_BOT_USERNAME}"
+            
+            user_message = (
+                f"🔄 <b>Ваш доступ был заменен!</b>\n\n"
+                f"<b>Старый сервер:</b> {old_display}\n"
+                f"<b>Новый сервер:</b> {new_display}\n\n"
+                f"Перейдите в <a href='{main_bot_link}'>основной бот</a> и используйте команду /start чтобы получить новый ключ доступа.\n\n"
+                f"⚠️ Старый ключ больше не действителен.\n"
+                f"<b>Срок действия:</b> {date_str}\n\n"
+                f"💬 Если у вас возникнут вопросы, обращайтесь в поддержку!"
+            )
+            await bot.send_message(chat_id=user_id, text=user_message, parse_mode='HTML')
+            logger.info(f'Sent replacement notification to user {user_id}')
+        except Exception as e:
+            logger.warning(f'Failed to send notification to user {user_id}: {e}')
+        
+        # Уведомляем администратора
+        user_info = user_mapping.get(user_id, {})
+        username = user_info.get('username', 'неизвестно')
+        full_name = user_info.get('full_name', 'Неизвестный пользователь')
+        
+        await callback.message.answer(
+            f"✅ <b>Доступ успешно заменен!</b>\n\n"
+            f"👤 <b>Пользователь:</b> {full_name} (@{username})\n"
+            f"🆔 <b>ID:</b> <code>{user_id}</code>\n"
+            f"<b>Старый сервер:</b> {old_display}\n"
+            f"<b>Новый сервер:</b> {new_display}\n\n"
+            f"<i>Пользователю отправлено уведомление</i>",
+            parse_mode='HTML'
+        )
+        
+        logger.info(f'Admin {callback.from_user.id} replaced key for user {user_id}')
+        
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.error(f'callback_replace_key error: {e}\n{tb}')
+        try:
+            await callback.message.answer(f"❌ Ошибка при замене ключа: {str(e)}", parse_mode=None)
+        except:
+            pass
 
 
 @router.callback_query(F.data.startswith("history_"))
