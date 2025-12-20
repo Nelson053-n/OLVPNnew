@@ -30,7 +30,7 @@
 SUPPORT_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
 
 # Username бота для кнопки в основном боте (без символа @)
-SUPPORT_CHAT_USERNAME=your_support_bot
+SUPPORT_CHAT_USERNAME=helpvpb_bot
 ```
 
 **Важно:** 

@@ -28,7 +28,7 @@
 
 ```env
 # Username бота техподдержки (для кнопки)
-SUPPORT_CHAT_USERNAME=your_support_bot
+SUPPORT_CHAT_USERNAME=helpvpb_bot
 
 # Токен бота техподдержки (для запуска)
 SUPPORT_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz

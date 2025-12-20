@@ -20,7 +20,7 @@
 
 ```env
 # Username бота техподдержки (для кнопки в основном боте)
-SUPPORT_CHAT_USERNAME=your_support_bot
+SUPPORT_CHAT_USERNAME=helpvpb_bot
 
 # Токен бота техподдержки (для запуска отдельного бота)
 SUPPORT_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
@@ -93,7 +93,7 @@ https://t.me/{username}?text={encoded_disclaimer}
 
 ### Fallback значение
 
-Если переменная `SUPPORT_CHAT_USERNAME` не установлена, используется значение по умолчанию: `your_support_bot`.
+Если переменная `SUPPORT_CHAT_USERNAME` не установлена, используется значение по умолчанию: `helpvpb_bot`.
 
 ⚠️ **Важно:** Обязательно установите правильное значение в production, иначе кнопка будет вести на несуществующего бота.
 
