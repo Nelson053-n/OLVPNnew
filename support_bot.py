@@ -5,8 +5,9 @@
 """
 import asyncio
 import logging
+from datetime import datetime
 from aiogram import Bot, Dispatcher, Router, F
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 from aiogram.enums import ParseMode
 from dotenv import load_dotenv
@@ -57,11 +58,14 @@ dp = Dispatcher()
 router = Router()
 
 # Словарь для хранения сопоставления пользователей и их последних сообщений
-# Структура: {user_id: {'username': ..., 'full_name': ..., 'last_message_id': ...}}
+# Структура: {user_id: {'username': ..., 'full_name': ..., 'last_message_id': ..., 'messages': [...]}}
 user_mapping = {}
 # Словарь для связи сообщений администратора с пользователями
 # Структура: {admin_message_id: user_id}
 admin_messages = {}
+# История сообщений для каждого пользователя
+# Структура: {user_id: [{'text': ..., 'timestamp': ..., 'from': 'user'/'admin'}, ...]}
+user_history = {}
 
 
 async def send_notification_to_admin(text: str):
@@ -75,6 +79,39 @@ async def send_notification_to_admin(text: str):
         logger.info(f"Уведомление отправлено администратору: {text[:50]}...")
     except Exception as e:
         logger.error(f"Ошибка при отправке уведомления администратору: {e}")
+
+
+def add_to_history(user_id: int, text: str, from_who: str):
+    """Добавление сообщения в историю"""
+    if user_id not in user_history:
+        user_history[user_id] = []
+    
+    user_history[user_id].append({
+        'text': text,
+        'timestamp': datetime.now(),
+        'from': from_who  # 'user' или 'admin'
+    })
+    
+    # Ограничиваем историю последними 50 сообщениями
+    if len(user_history[user_id]) > 50:
+        user_history[user_id] = user_history[user_id][-50:]
+
+
+def create_admin_keyboard(user_id: int) -> InlineKeyboardMarkup:
+    """Создание клавиатуры с кнопками для администратора"""
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                text="↩️ Ответить",
+                callback_data=f"reply_{user_id}"
+            ),
+            InlineKeyboardButton(
+                text="📜 История",
+                callback_data=f"history_{user_id}"
+            )
+        ]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
 @router.message(Command("start"))
@@ -101,6 +138,9 @@ async def forward_to_admin(message: Message):
         # Проверяем, является ли это ответом на сообщение пользователя
         if message.reply_to_message and message.reply_to_message.message_id in admin_messages:
             user_id = admin_messages[message.reply_to_message.message_id]
+            
+            # Добавляем ответ в историю
+            add_to_history(user_id, message.text, 'admin')
             
             # Отправляем ответ пользователю
             try:
@@ -149,22 +189,27 @@ async def forward_to_admin(message: Message):
         'full_name': full_name
     }
     
+    # Добавляем сообщение в историю
+    add_to_history(user_id, message.text, 'user')
+    
     # Формируем сообщение для администратора
     admin_message_text = (
         f"📩 <b>Новое сообщение в техподдержку</b>\n\n"
         f"👤 <b>От:</b> {full_name}\n"
         f"🆔 <b>User ID:</b> <code>{user_id}</code>\n"
         f"📧 <b>Username:</b> @{username}\n\n"
-        f"💬 <b>Сообщение:</b>\n{message.text}\n\n"
-        f"<i>Чтобы ответить, используйте Reply на это сообщение\n"
-        f"или команду:</i> <code>/reply {user_id} ваш_ответ</code>"
+        f"💬 <b>Сообщение:</b>\n{message.text}"
     )
     
     try:
-        # Отправляем сообщение администратору
+        # Создаём клавиатуру с кнопками
+        keyboard = create_admin_keyboard(user_id)
+        
+        # Отправляем сообщение администратору с кнопками
         sent_message = await bot.send_message(
             chat_id=ADMIN_ID,
             text=admin_message_text,
+            reply_markup=keyboard,
             parse_mode=ParseMode.HTML
         )
         
@@ -211,6 +256,9 @@ async def reply_to_user(message: Message):
         user_id = int(parts[1])
         reply_text = parts[2]
         
+        # Добавляем ответ в историю
+        add_to_history(user_id, reply_text, 'admin')
+        
         # Отправляем ответ пользователю
         await bot.send_message(
             chat_id=user_id,
@@ -245,6 +293,74 @@ async def handle_media(message: Message):
     await message.answer(
         "⚠️ В настоящее время поддерживаются только текстовые сообщения. "
         "Пожалуйста, опишите ваш вопрос текстом.",
+        parse_mode=ParseMode.HTML
+    )
+
+
+@router.callback_query(F.data.startswith("reply_"))
+async def callback_reply(callback: CallbackQuery):
+    """Обработка нажатия кнопки 'Ответить'"""
+    user_id = int(callback.data.split("_")[1])
+    
+    user_info = user_mapping.get(user_id, {})
+    username = user_info.get('username', 'неизвестно')
+    full_name = user_info.get('full_name', 'Неизвестный пользователь')
+    
+    await callback.answer()
+    await callback.message.answer(
+        f"✍️ <b>Ответ пользователю:</b>\n"
+        f"👤 {full_name} (@{username})\n"
+        f"🆔 ID: <code>{user_id}</code>\n\n"
+        f"Используйте команду:\n"
+        f"<code>/reply {user_id} ваш_текст</code>\n\n"
+        f"Или используйте Reply на исходное сообщение",
+        parse_mode=ParseMode.HTML
+    )
+
+
+@router.callback_query(F.data.startswith("history_"))
+async def callback_history(callback: CallbackQuery):
+    """Обработка нажатия кнопки 'История'"""
+    user_id = int(callback.data.split("_")[1])
+    
+    user_info = user_mapping.get(user_id, {})
+    username = user_info.get('username', 'неизвестно')
+    full_name = user_info.get('full_name', 'Неизвестный пользователь')
+    
+    history = user_history.get(user_id, [])
+    
+    if not history:
+        await callback.answer("История сообщений пуста", show_alert=True)
+        return
+    
+    # Формируем текст истории
+    history_text = f"📜 <b>История диалога</b>\n\n"
+    history_text += f"👤 <b>Пользователь:</b> {full_name} (@{username})\n"
+    history_text += f"🆔 <b>ID:</b> <code>{user_id}</code>\n"
+    history_text += f"📊 <b>Всего сообщений:</b> {len(history)}\n\n"
+    history_text += "─" * 30 + "\n\n"
+    
+    # Берём последние 10 сообщений
+    recent_history = history[-10:]
+    
+    for idx, msg in enumerate(recent_history, 1):
+        timestamp = msg['timestamp'].strftime("%d.%m.%Y %H:%M")
+        from_who = "👤 Пользователь" if msg['from'] == 'user' else "👨‍💼 Поддержка"
+        text = msg['text']
+        
+        # Обрезаем длинные сообщения
+        if len(text) > 100:
+            text = text[:97] + "..."
+        
+        history_text += f"<b>{idx}. {from_who}</b> ({timestamp})\n"
+        history_text += f"{text}\n\n"
+    
+    if len(history) > 10:
+        history_text += f"<i>Показаны последние 10 из {len(history)} сообщений</i>"
+    
+    await callback.answer()
+    await callback.message.answer(
+        history_text,
         parse_mode=ParseMode.HTML
     )
 
