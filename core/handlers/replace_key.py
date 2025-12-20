@@ -172,7 +172,7 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
         # Отправляем уведомление администратору
         new_display = get_server_display_name(new_server)
         result_message = (
-            f'✅ <b>Ключ успешно заменен!</b>\n\n'
+            f'✅ <b>Доступ успешно заменен!</b>\n\n'
             f'<b>Пользователь:</b> {user_id}\n'
             f'<b>Старый сервер:</b> {old_display}\n'
             f'<b>Новый сервер:</b> {new_display}\n\n'
