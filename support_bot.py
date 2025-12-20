@@ -46,7 +46,7 @@ from core.sql.function_db_user_vpn.users_vpn import (
 
 # Получаем токен бота техподдержки и username основного бота
 SUPPORT_BOT_TOKEN = os.getenv("SUPPORT_BOT_TOKEN")
-MAIN_BOT_USERNAME = os.getenv("MAIN_BOT_USERNAME", "OutlineVPNBot")  # Fallback на дефолтное имя
+MAIN_BOT_USERNAME = os.getenv("MAIN_BOT_USERNAME", "OneYearVpb_bot")  # Fallback на дефолтное имя
 
 if not SUPPORT_BOT_TOKEN:
     raise RuntimeError(
@@ -70,6 +70,60 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+async def get_least_busy_server_for_user(user_id: int) -> str:
+    """
+    Получить самый свободный сервер для пользователя.
+    Исключает серверы, на которых у пользователя уже есть ключи.
+    Возвращает сервер с минимальным количеством ключей.
+    """
+    try:
+        # Получаем все ключи пользователя
+        user_keys = await get_user_keys(account=user_id)
+        user_servers = set(key.region_server for key in user_keys if key.region_server)
+        
+        logger.info(f'User {user_id} has keys on servers: {user_servers}')
+        
+        # Получаем список всех активных серверов
+        all_servers = get_name_all_active_server_ol()
+        
+        # Исключаем серверы где у пользователя уже есть ключи
+        available_servers = [s for s in all_servers if s not in user_servers]
+        
+        logger.info(f'Available servers for user {user_id}: {available_servers}')
+        
+        if not available_servers:
+            # Если на всех серверах уже есть ключи, используем все серверы
+            logger.warning(f'User {user_id} has keys on all servers, using all servers')
+            available_servers = all_servers
+        
+        if not available_servers:
+            # На всякий случай - если нет активных серверов вообще
+            return 'nederland'
+        
+        # Подсчитываем количество ключей на каждом доступном сервере
+        all_user_keys = await get_all_user_keys()
+        server_load = {}
+        
+        for server in available_servers:
+            # Считаем ключи на этом сервере
+            count = sum(1 for key in all_user_keys if key.region_server == server and key.premium)
+            server_load[server] = count
+            logger.info(f'Server {server} has {count} active keys')
+        
+        # Выбираем сервер с минимальной нагрузкой
+        least_busy = min(server_load.items(), key=lambda x: x[1])[0]
+        logger.info(f'Selected least busy server for user {user_id}: {least_busy} (load: {server_load[least_busy]})')
+        
+        return least_busy
+        
+    except Exception as e:
+        logger.error(f'Error in get_least_busy_server_for_user: {e}')
+        traceback.print_exc()
+        # В случае ошибки возвращаем дефолтный сервер
+        return 'nederland'
+
 
 # Инициализация бота и диспетчера
 bot = Bot(token=SUPPORT_BOT_TOKEN)
@@ -369,8 +423,9 @@ async def callback_give_promo(callback: CallbackQuery):
             )
             return
         
-        # Определяем регион (текущий или дефолтный)
-        region = await get_region_server(account=user_id) or 'nederland'
+        # Определяем регион - выбираем самый свободный сервер
+        # с учетом серверов где у пользователя уже есть ключи
+        region = await get_least_busy_server_for_user(user_id)
         
         # Загружаем настройки промо из JSON
         settings_path = Path(__file__).parent / 'core' / 'settings_prices.json'
@@ -511,8 +566,18 @@ async def callback_replace_key(callback: CallbackQuery):
             )
             return
         
-        # Выбираем первый доступный сервер
-        new_server = available_servers[0]
+        # Подсчитываем нагрузку на каждый доступный сервер
+        all_user_keys = await get_all_user_keys()
+        server_load = {}
+        
+        for server in available_servers:
+            count = sum(1 for key in all_user_keys if key.region_server == server and key.premium)
+            server_load[server] = count
+            logger.info(f'Server {server} has {count} active keys for replacement')
+        
+        # Выбираем сервер с минимальной нагрузкой
+        new_server = min(server_load.items(), key=lambda x: x[1])[0]
+        logger.info(f'Selected server {new_server} for replacement (load: {server_load[new_server]})')
         
         # Создаем новый ключ
         try:
