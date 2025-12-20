@@ -33,7 +33,7 @@ async def command_testkey(message: Message, state: FSMContext) -> None:
     """
     -- Админ-команда --
     /testkey
-    Создает тестовые ключи на 3 дня на выбранном сервере и рассылает всем пользователям.
+    Создает тестовые ключи на 14 дней на выбранном сервере и рассылает всем пользователям.
     Используется для промо-акций при добавлении нового сервера.
     """
     try:
@@ -70,7 +70,7 @@ async def command_testkey(message: Message, state: FSMContext) -> None:
         await message.answer(
             text=(
                 '🎁 <b>Создание тестовых ключей для рассылки</b>\n\n'
-                'Выберите сервер для создания тестовых ключей на 3 дня:\n\n'
+                'Выберите сервер для создания тестовых ключей на 14 дней:\n\n'
                 '⚠️ Ключи будут разосланы <b>ВСЕМ</b> пользователям в базе!'
             ),
             reply_markup=kb.as_markup(),
@@ -114,8 +114,8 @@ async def process_testkey_server_choice(callback: CallbackQuery, state: FSMConte
             await state.clear()
             return
 
-        # Дата истечения - через 3 дня
-        expiry_date = datetime.now() + timedelta(days=3)
+        # Дата истечения - через 14 дней
+        expiry_date = datetime.now() + timedelta(days=14)
         
         # Создаем менеджер Outline для выбранного сервера
         olm = OutlineManager(region_server=server_key)
@@ -162,12 +162,12 @@ async def process_testkey_server_choice(callback: CallbackQuery, state: FSMConte
                 # Отправляем уведомление пользователю
                 try:
                     notification_text = (
-                        f"🎉 <b>Друзья, добавили новый сервер!</b>\n\n"
-                        f"Ваш тестовый ключ на 3 дня:\n\n"
+                        f"🎉 <b>Добавили новый сервер выделенной сетевой среды.</b>\n\n"
+                        f"Вам выдан тестовый доступ на 14 дней:\n\n"
                         f"<code>{access_url}</code>\n\n"
-                        f"📍 Сервер: <b>{server_key}</b>\n"
+                        f"📍 Регион сервера: <b>{server_key}</b>\n"
                         f"⏰ Действует до: <b>{fmt(expiry_date)}</b>\n\n"
-                        f"Используйте команду /start для управления ключами."
+                        f"Используйте команду /start для управления доступами."
                     )
                     await bot.send_message(chat_id=user_id, text=notification_text, parse_mode='HTML')
                     success_count += 1
@@ -183,12 +183,12 @@ async def process_testkey_server_choice(callback: CallbackQuery, state: FSMConte
 
         # Отчет администратору
         await callback.message.edit_text(
-            f"✅ <b>Рассылка тестовых ключей завершена!</b>\n\n"
+            f"✅ <b>Рассылка тестовых доступов завершена!</b>\n\n"
             f"📊 <b>Статистика:</b>\n"
             f"✅ Успешно: {success_count}\n"
             f"❌ Ошибок: {error_count}\n"
             f"📍 Сервер: {server_key}\n"
-            f"⏰ Срок действия: 3 дня (до {fmt(expiry_date)})",
+            f"⏰ Срок действия: 14 дней (до {fmt(expiry_date)})",
             parse_mode='HTML'
         )
         
@@ -199,7 +199,7 @@ async def process_testkey_server_choice(callback: CallbackQuery, state: FSMConte
         tb = traceback.format_exc()
         logger.log('error', f'process_testkey_server_choice error: {e}\n{tb}')
         try:
-            await callback.message.edit_text(f'❌ Ошибка при создании ключей: {str(e)}')
+            await callback.message.edit_text(f'❌ Ошибка при создании доступов: {str(e)}')
         except:
             pass
         await state.clear()
