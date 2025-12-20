@@ -6,13 +6,13 @@
 
 ```bash
 # Username основного бота (без символа @)
-MAIN_BOT_USERNAME=YourMainBotUsername
+MAIN_BOT_USERNAME=OneYearVpb_bot
 ```
 
 **Где взять username основного бота?**
 - Откройте Telegram и найдите вашего основного бота
-- Username отображается в профиле бота (например: @OutlineVPNBot)
-- Используйте только имя без @: `OutlineVPNBot`
+- Username отображается в профиле бота (например: @OneYearVpb_bot)
+- Используйте только имя без @: `OneYearVpb_bot`
 
 ## Шаг 2: Перезапуск бота
 

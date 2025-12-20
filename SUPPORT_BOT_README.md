@@ -149,7 +149,7 @@ ADMIN_TLG=123456789
 
 ```env
 # Username основного бота (без @) для ссылок в уведомлениях
-MAIN_BOT_USERNAME=YourMainBotUsername
+MAIN_BOT_USERNAME=OneYearVpb_bot
 ```
 
 #### Где получить
@@ -165,8 +165,8 @@ MAIN_BOT_USERNAME=YourMainBotUsername
 
 3. **MAIN_BOT_USERNAME:**
    - Найдите username вашего основного бота в профиле
-   - Используйте без символа @ (например: `OutlineVPNBot`)
-   - Если не указан, используется значение по умолчанию `OutlineVPNBot`
+   - Используйте без символа @ (например: `OneYearVpb_bot`)
+   - Если не указан, используется значение по умолчанию `OneYearVpb_bot`
 
 ### Файлы конфигурации
 
