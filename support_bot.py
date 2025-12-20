@@ -1,6 +1,7 @@
 """
 Бот техподдержки для Outline VPN
 Пересылает все сообщения от пользователей администратору
+Администратор может отвечать на сообщения пользователей
 """
 import asyncio
 import logging
@@ -8,11 +9,19 @@ from aiogram import Bot, Dispatcher, Router, F
 from aiogram.types import Message
 from aiogram.filters import Command
 from aiogram.enums import ParseMode
+from dotenv import load_dotenv
 
 # Импортируем настройки из основного бота
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Загружаем переменные окружения
+load_dotenv()
+if not os.getenv("SUPPORT_BOT_TOKEN"):
+    temp_env_path = os.path.join(os.path.dirname(__file__), "core", "TEMP.env")
+    if os.path.exists(temp_env_path):
+        load_dotenv(temp_env_path)
 
 from core.settings import admin_tlg
 
@@ -47,8 +56,25 @@ bot = Bot(token=SUPPORT_BOT_TOKEN)
 dp = Dispatcher()
 router = Router()
 
-# Словарь для хранения сопоставления пользователей (для ответов администратора)
+# Словарь для хранения сопоставления пользователей и их последних сообщений
+# Структура: {user_id: {'username': ..., 'full_name': ..., 'last_message_id': ...}}
 user_mapping = {}
+# Словарь для связи сообщений администратора с пользователями
+# Структура: {admin_message_id: user_id}
+admin_messages = {}
+
+
+async def send_notification_to_admin(text: str):
+    """Отправка уведомления администратору"""
+    try:
+        await bot.send_message(
+            chat_id=ADMIN_ID,
+            text=text,
+            parse_mode=ParseMode.HTML
+        )
+        logger.info(f"Уведомление отправлено администратору: {text[:50]}...")
+    except Exception as e:
+        logger.error(f"Ошибка при отправке уведомления администратору: {e}")
 
 
 @router.message(Command("start"))
@@ -70,6 +96,49 @@ async def cmd_start(message: Message):
 @router.message(F.text)
 async def forward_to_admin(message: Message):
     """Пересылка сообщений от пользователей администратору"""
+    # Игнорируем сообщения от администратора (они обрабатываются отдельно)
+    if message.from_user.id == ADMIN_ID:
+        # Проверяем, является ли это ответом на сообщение пользователя
+        if message.reply_to_message and message.reply_to_message.message_id in admin_messages:
+            user_id = admin_messages[message.reply_to_message.message_id]
+            
+            # Отправляем ответ пользователю
+            try:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=f"📬 <b>Ответ от службы поддержки:</b>\n\n{message.text}",
+                    parse_mode=ParseMode.HTML
+                )
+                
+                # Подтверждение администратору
+                user_info = user_mapping.get(user_id, {})
+                username = user_info.get('username', 'неизвестно')
+                full_name = user_info.get('full_name', 'Неизвестный пользователь')
+                
+                await message.answer(
+                    f"✅ Ответ отправлен пользователю:\n"
+                    f"👤 {full_name} (@{username})\n"
+                    f"🆔 ID: <code>{user_id}</code>",
+                    parse_mode=ParseMode.HTML
+                )
+                
+                logger.info(f"Администратор ответил пользователю {user_id}")
+                
+            except Exception as e:
+                logger.error(f"Ошибка при отправке ответа пользователю: {e}")
+                await message.answer(
+                    f"❌ Ошибка при отправке ответа: {str(e)}",
+                    parse_mode=ParseMode.HTML
+                )
+        else:
+            # Обычное сообщение от администратора (не ответ)
+            await message.answer(
+                "ℹ️ Чтобы ответить пользователю, используйте Reply на его сообщение\n"
+                "или команду /reply USER_ID текст",
+                parse_mode=ParseMode.HTML
+            )
+        return
+    
     user_id = message.from_user.id
     username = message.from_user.username or "нет username"
     full_name = message.from_user.full_name or "Неизвестный пользователь"
@@ -81,23 +150,27 @@ async def forward_to_admin(message: Message):
     }
     
     # Формируем сообщение для администратора
-    admin_message = (
+    admin_message_text = (
         f"📩 <b>Новое сообщение в техподдержку</b>\n\n"
         f"👤 <b>От:</b> {full_name}\n"
         f"🆔 <b>User ID:</b> <code>{user_id}</code>\n"
         f"📧 <b>Username:</b> @{username}\n\n"
         f"💬 <b>Сообщение:</b>\n{message.text}\n\n"
-        f"<i>Чтобы ответить, используйте команду:</i>\n"
-        f"<code>/reply {user_id} ваш_ответ</code>"
+        f"<i>Чтобы ответить, используйте Reply на это сообщение\n"
+        f"или команду:</i> <code>/reply {user_id} ваш_ответ</code>"
     )
     
     try:
         # Отправляем сообщение администратору
-        await bot.send_message(
+        sent_message = await bot.send_message(
             chat_id=ADMIN_ID,
-            text=admin_message,
+            text=admin_message_text,
             parse_mode=ParseMode.HTML
         )
+        
+        # Сохраняем связь между сообщением администратора и пользователем
+        admin_messages[sent_message.message_id] = user_id
+        user_mapping[user_id]['last_message_id'] = sent_message.message_id
         
         # Подтверждение пользователю
         await message.answer(
@@ -183,17 +256,71 @@ async def main():
     
     logger.info("Бот техподдержки запущен")
     
+    # Отправляем уведомление администратору о запуске
+    try:
+        bot_info = await bot.get_me()
+        startup_message = (
+            f"🟢 <b>Бот техподдержки запущен</b>\n\n"
+            f"🤖 <b>Бот:</b> @{bot_info.username}\n"
+            f"🆔 <b>Bot ID:</b> <code>{bot_info.id}</code>\n"
+            f"✅ <b>Статус:</b> Токен получен успешно\n"
+            f"🔄 <b>Состояние:</b> Готов к приёму сообщений\n\n"
+            f"<i>Все сообщения от пользователей будут пересылаться вам.\n"
+            f"Отвечайте с помощью Reply на сообщения.</i>"
+        )
+        await send_notification_to_admin(startup_message)
+    except Exception as e:
+        error_message = (
+            f"🔴 <b>Ошибка при запуске бота техподдержки</b>\n\n"
+            f"❌ <b>Ошибка:</b> {str(e)}\n"
+            f"⚠️ <b>Возможные причины:</b>\n"
+            f"• Неверный токен SUPPORT_BOT_TOKEN\n"
+            f"• Проблемы с подключением к Telegram API\n"
+            f"• Токен заблокирован или отозван\n\n"
+            f"<i>Проверьте настройки в .env файле</i>"
+        )
+        logger.error(f"Ошибка при получении информации о боте: {e}")
+        # Попробуем отправить уведомление об ошибке
+        try:
+            await send_notification_to_admin(error_message)
+        except:
+            pass
+        raise
+    
     # Запускаем polling
     try:
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
+        # Отправляем уведомление об остановке бота
+        try:
+            shutdown_message = (
+                f"🔴 <b>Бот техподдержки остановлен</b>\n\n"
+                f"⏹️ <b>Статус:</b> Бот прекратил работу\n"
+                f"🕐 <b>Время остановки:</b> {asyncio.get_event_loop().time()}\n\n"
+                f"<i>Сообщения от пользователей не будут приниматься</i>"
+            )
+            await send_notification_to_admin(shutdown_message)
+        except Exception as e:
+            logger.error(f"Ошибка при отправке уведомления об остановке: {e}")
+        
         await bot.session.close()
+        logger.info("Бот техподдержки остановлен")
 
 
 if __name__ == "__main__":
     try:
+        logger.info("=" * 50)
+        logger.info("Запуск бота техподдержки...")
+        logger.info(f"Токен бота: {'✓ Установлен' if SUPPORT_BOT_TOKEN else '✗ Отсутствует'}")
+        logger.info(f"ID администратора: {ADMIN_ID}")
+        logger.info("=" * 50)
+        
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("Бот остановлен пользователем")
+        logger.info("Бот остановлен пользователем (Ctrl+C)")
+    except RuntimeError as e:
+        logger.error(f"Ошибка конфигурации: {e}")
+        print(f"\n❌ ОШИБКА КОНФИГУРАЦИИ:\n{e}\n")
     except Exception as e:
-        logger.error(f"Критическая ошибка: {e}")
+        logger.error(f"Критическая ошибка: {e}", exc_info=True)
+        print(f"\n❌ КРИТИЧЕСКАЯ ОШИБКА:\n{e}\n")
