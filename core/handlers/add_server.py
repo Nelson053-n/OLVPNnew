@@ -1,170 +1,280 @@
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+import json
+import traceback
 
 from core.settings import admin_tlg
-from core.utils.server_config import get_country_flag, add_server_to_config
+from logs.log_main import RotatingFileLogger
+
+logger = RotatingFileLogger()
+
+# Словарь флагов стран (настоящие emoji символы)
+COUNTRY_FLAGS = {
+    'nederland': '🇳🇱',
+    'netherlands': '🇳🇱',
+    'germany': '🇩🇪',
+    'france': '🇫🇷',
+    'spain': '🇪🇸',
+    'italy': '🇮🇹',
+    'poland': '🇵🇱',
+    'uk': '🇬🇧',
+    'usa': '🇺🇸',
+    'canada': '🇨🇦',
+    'japan': '🇯🇵',
+    'singapore': '🇸🇬',
+    'australia': '🇦🇺',
+    'brazil': '🇧🇷',
+    'india': '🇮🇳',
+    'turkey': '🇹🇷',
+    'uae': '🇦🇪',
+    'sweden': '🇸🇪',
+    'norway': '🇳🇴',
+    'finland': '🇫🇮',
+    'switzerland': '🇨🇭',
+    'austria': '🇦🇹',
+    'belgium': '🇧🇪',
+    'czech': '🇨🇿',
+    'denmark': '🇩🇰',
+    'ireland': '🇮🇪',
+    'portugal': '🇵🇹',
+    'romania': '🇷🇴',
+    'ukraine': '🇺🇦',
+    'russia': '🇷🇺',
+    'kazakhstan': '🇰🇿',
+}
 
 
 class AddServerStates(StatesGroup):
-    """Состояния для диалога добавления нового сервера"""
-    waiting_for_country_name = State()
+    waiting_for_country_ru = State()
     waiting_for_api_url = State()
-    waiting_for_cert_sha256 = State()
-    waiting_for_max_keys = State()
-    confirming_server = State()
+    waiting_for_cert = State()
 
 
-async def command_add_server(message: Message, state: FSMContext) -> None:
+async def command_addserver(message: Message, state: FSMContext) -> None:
     """
     -- Админ-команда --
-    Обработчик команды /addserver.
-    Запускает диалоговый режим добавления нового VPN сервера.
-
-    Этапы:
-    1. Запрашиваем название страны (флаг выбирается автоматически)
-    2. Запрашиваем API URL сервера
-    3. Запрашиваем SHA256 сертификата
-    4. Показываем превью и подтверждаем добавление
-
-    :param message: Message - объект сообщения
-    :param state: FSMContext - контекст состояния
+    /addserver
+    Запускает процесс добавления нового Outline сервера.
+    Пошагово запрашивает: страну (через кнопки), русское название, API URL, сертификат.
     """
-    if message.from_user.id != int(admin_tlg):
-        await message.answer("❌ У вас нет доступа к этой команде")
-        return
-
-    await message.answer(
-        "🌍 <b>Добавление нового VPN сервера</b>\n\n"
-        "Введите <b>название страны</b> (например: Нидерланды, США, Германия)"
-    )
-    await state.set_state(AddServerStates.waiting_for_country_name)
-
-
-async def process_country_name(message: Message, state: FSMContext) -> None:
-    """Обработчик ввода названия страны"""
-    country_name = message.text.strip()
-
-    if not country_name or len(country_name) < 2:
-        await message.answer("❌ Название страны должно содержать минимум 2 символа")
-        return
-
-    # Получаем флаг
-    flag = get_country_flag(country_name)
-
-    await state.update_data(country_name=country_name, flag=flag)
-    await message.answer(
-        f"{flag} <b>{country_name.title()}</b>\n\n"
-        "Теперь введите <b>API URL</b> сервера Outline\n"
-        "(пример: https://ip:port или https://example.com:port)"
-    )
-    await state.set_state(AddServerStates.waiting_for_api_url)
-
-
-async def process_api_url(message: Message, state: FSMContext) -> None:
-    """Обработчик ввода API URL"""
-    api_url = message.text.strip()
-
-    if not api_url.startswith("https://"):
-        await message.answer("❌ API URL должен начинаться с https://")
-        return
-
-    await state.update_data(api_url=api_url)
-    await message.answer(
-        "Теперь введите <b>SHA256 сертификата</b> сервера\n"
-        "(строка вида: aabbccdd...)"
-    )
-    await state.set_state(AddServerStates.waiting_for_cert_sha256)
-
-
-async def process_cert_sha256(message: Message, state: FSMContext) -> None:
-    """Обработчик ввода сертификата"""
-    cert_sha256 = message.text.strip()
-
-    if not cert_sha256 or len(cert_sha256) < 10:
-        await message.answer("❌ SHA256 сертификата должен быть корректным (минимум 10 символов)")
-        return
-
-    await state.update_data(cert_sha256=cert_sha256)
-    await message.answer(
-        "Введите <b>максимальное количество ключей</b> для этого сервера\n"
-        "(пример: 100 или 500)"
-    )
-    await state.set_state(AddServerStates.waiting_for_max_keys)
-
-
-async def process_max_keys(message: Message, state: FSMContext) -> None:
-    """Обработчик ввода максимального количества ключей"""
-    max_keys_str = message.text.strip()
-
     try:
-        max_keys = int(max_keys_str)
-        if max_keys < 1:
-            await message.answer("❌ Количество ключей должно быть больше 0")
+        if not admin_tlg or str(message.from_user.id) != str(admin_tlg):
+            await message.answer('❌ У вас нет доступа к этой команде', parse_mode=None)
             return
-    except ValueError:
-        await message.answer("❌ Пожалуйста, введите число")
-        return
 
-    data = await state.get_data()
-    country_name = data.get("country_name")
-    flag = data.get("flag")
-    api_url = data.get("api_url")
-    cert_sha256 = data.get("cert_sha256")
-
-    await state.update_data(max_keys=max_keys)
-
-    # Показываем превью
-    preview = (
-        f"<b>✅ Проверьте данные сервера:</b>\n\n"
-        f"{flag} <b>Страна:</b> {country_name.title()}\n"
-        f"<b>API URL:</b> <code>{api_url}</code>\n"
-        f"<b>SHA256:</b> <code>{cert_sha256[:20]}...</code>\n"
-        f"<b>Макс. ключей:</b> {max_keys}\n\n"
-        f"Добавить сервер? (Введите <b>да</b> для подтверждения или <b>нет</b> для отмены)"
-    )
-    await message.answer(preview)
-    await state.set_state(AddServerStates.confirming_server)
-
-
-async def process_confirmation(message: Message, state: FSMContext) -> None:
-    """Обработчик подтверждения добавления сервера"""
-    response = message.text.strip().lower()
-
-    if response in ("да", "yes", "y", "д"):
-        data = await state.get_data()
-        country_name = data.get("country_name")
-        api_url = data.get("api_url")
-        cert_sha256 = data.get("cert_sha256")
-        max_keys = data.get("max_keys", 100)
-        flag = data.get("flag")
-
-        # Добавляем сервер в конфиг
-        result = await add_server_to_config(
-            country_name=country_name,
-            api_url=api_url,
-            cert_sha256=cert_sha256,
-            max_keys=max_keys,
-            is_active=True
+        # Создаем кнопки со странами
+        builder = InlineKeyboardBuilder()
+        
+        # Сортируем страны по алфавиту для удобства
+        sorted_countries = sorted(COUNTRY_FLAGS.items())
+        
+        for country_key, flag in sorted_countries:
+            # Название кнопки: флаг + название страны
+            button_text = f"{flag} {country_key.title()}"
+            builder.button(
+                text=button_text,
+                callback_data=f"addsvr_{country_key}"
+            )
+        
+        # Располагаем по 2 кнопки в ряд
+        builder.adjust(2)
+        
+        await message.answer(
+            text=(
+                '🌍 <b>Добавление нового Outline сервера</b>\n\n'
+                'Шаг 1/4: Выберите страну из списка\n\n'
+                'Или отправьте /cancel для отмены'
+            ),
+            reply_markup=builder.as_markup(),
+            parse_mode='HTML'
         )
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.log('error', f'command_addserver error: {e}\n{tb}')
+        await message.answer('❌ Ошибка при запуске команды', parse_mode=None)
 
-        if result:
+
+async def process_country_choice(callback: CallbackQuery, state: FSMContext) -> None:
+    """Обработка выбора страны через кнопку"""
+    try:
+        await callback.answer()
+        
+        # Извлекаем название страны из callback_data
+        country_name = callback.data.replace('addsvr_', '')
+        
+        # Определяем флаг
+        flag = COUNTRY_FLAGS.get(country_name, '🌐')
+        
+        # Сохраняем данные в состоянии
+        await state.update_data(country_name=country_name, flag=flag)
+        await state.set_state(AddServerStates.waiting_for_country_ru)
+        
+        await callback.message.edit_text(
+            text=(
+                f'✅ Страна (EN): {country_name}\n'
+                f'✅ Флаг: {flag}\n\n'
+                'Шаг 2/4: Введите название страны на РУССКОМ языке\n'
+                '(например: Германия, Франция, США, Казахстан)\n\n'
+                'Или /cancel для отмены'
+            ),
+            parse_mode=None
+        )
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.log('error', f'process_country_choice error: {e}\n{tb}')
+        await callback.message.answer('❌ Ошибка при обработке выбора страны', parse_mode=None)
+
+
+async def process_country_ru_input(message: Message, state: FSMContext) -> None:
+    """Обработка ввода названия страны на русском"""
+    try:
+        if message.text == '/cancel':
+            await state.clear()
+            await message.answer('❌ Добавление сервера отменено', parse_mode=None)
+            return
+
+        country_name_ru = message.text.strip()
+        
+        # Сохраняем русское название
+        await state.update_data(country_name_ru=country_name_ru)
+        await state.set_state(AddServerStates.waiting_for_api_url)
+        
+        data = await state.get_data()
+        country_name = data.get('country_name', '')
+        flag = data.get('flag', '🌐')
+        
+        await message.answer(
+            text=(
+                f'✅ Страна (EN): {country_name}\n'
+                f'✅ Страна (RU): {country_name_ru}\n'
+                f'✅ Флаг: {flag}\n\n'
+                'Шаг 3/4: Введите API URL сервера Outline\n'
+                '(например: https://123.456.789.012:12345/aBcDeFgH)\n\n'
+                'Или /cancel для отмены'
+            ),
+            parse_mode=None
+        )
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.log('error', f'process_country_ru_input error: {e}\n{tb}')
+        await message.answer('❌ Ошибка при обработке названия страны', parse_mode=None)
+
+
+async def process_api_url_input(message: Message, state: FSMContext) -> None:
+    """Обработка ввода API URL"""
+    try:
+        if message.text == '/cancel':
+            await state.clear()
+            await message.answer('❌ Добавление сервера отменено', parse_mode=None)
+            return
+
+        api_url = message.text.strip()
+        
+        # Простая валидация URL
+        if not api_url.startswith('https://'):
             await message.answer(
-                f"✅ <b>Сервер успешно добавлен!</b>\n\n"
-                f"{flag} {country_name.title()}\n"
-                f"<b>Макс. ключей:</b> {max_keys}\n\n"
-                f"Сервер будет доступен пользователям при выборе региона."
+                '⚠️ API URL должен начинаться с https://\n'
+                'Попробуйте еще раз или отправьте /cancel',
+                parse_mode=None
             )
-        else:
+            return
+
+        # Сохраняем API URL
+        await state.update_data(api_url=api_url)
+        await state.set_state(AddServerStates.waiting_for_cert)
+        
+        data = await state.get_data()
+        country_name = data.get('country_name', '')
+        country_name_ru = data.get('country_name_ru', '')
+        flag = data.get('flag', '🌐')
+        
+        await message.answer(
+            text=(
+                f'✅ Страна (EN): {country_name}\n'
+                f'✅ Страна (RU): {country_name_ru}\n'
+                f'✅ Флаг: {flag}\n'
+                f'✅ API URL: {api_url}\n\n'
+                'Шаг 4/4: Введите SHA256 сертификат\n'
+                '(64-символьная строка шестнадцатеричных символов)\n\n'
+                'Или /cancel для отмены'
+            ),
+            parse_mode=None
+        )
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.log('error', f'process_api_url_input error: {e}\n{tb}')
+        await message.answer('❌ Ошибка при обработке API URL', parse_mode=None)
+
+
+async def process_cert_input(message: Message, state: FSMContext) -> None:
+    """Обработка ввода сертификата и сохранение конфигурации"""
+    try:
+        if message.text == '/cancel':
+            await state.clear()
+            await message.answer('❌ Добавление сервера отменено', parse_mode=None)
+            return
+
+        cert_sha256 = message.text.strip()
+        
+        # Простая валидация сертификата (должен быть 64 символа)
+        if len(cert_sha256) != 64:
             await message.answer(
-                f"❌ <b>Ошибка при добавлении сервера</b>\n\n"
-                f"Возможно, сервер с таким названием уже существует."
+                '⚠️ SHA256 сертификат должен содержать ровно 64 символа\n'
+                f'Получено: {len(cert_sha256)} символов\n\n'
+                'Попробуйте еще раз или отправьте /cancel',
+                parse_mode=None
             )
+            return
 
-    elif response in ("нет", "no", "n", "н"):
-        await message.answer("❌ Добавление отменено")
-    else:
-        await message.answer("❓ Пожалуйста, введите <b>да</b> или <b>нет</b>")
-        return
+        # Получаем все сохраненные данные
+        data = await state.get_data()
+        country_name = data.get('country_name', '')
+        country_name_ru = data.get('country_name_ru', '')
+        flag = data.get('flag', '🌐')
+        api_url = data.get('api_url', '')
+        
+        # Читаем текущую конфигурацию
+        config_file = 'core/api_s/outline/settings_api_outline.json'
+        try:
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+        except FileNotFoundError:
+            config = {}
 
-    await state.clear()
+        # Добавляем новый сервер
+        config[country_name] = {
+            "name_en": country_name,
+            "name_ru": f"{flag} {country_name_ru}",
+            "api_url": api_url,
+            "cert_sha256": cert_sha256,
+            "is_active": True
+        }
+
+        # Сохраняем конфигурацию
+        with open(config_file, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=4, ensure_ascii=False)
+
+        await state.clear()
+        
+        await message.answer(
+            text=(
+                '✅ <b>Сервер успешно добавлен!</b>\n\n'
+                f'<b>Страна (EN):</b> {country_name}\n'
+                f'<b>Страна (RU):</b> {flag} {country_name_ru}\n'
+                f'<b>API URL:</b> {api_url}\n'
+                f'<b>Сертификат:</b> {cert_sha256[:16]}...\n'
+                f'<b>Статус:</b> Активен\n\n'
+                'Сервер будет доступен пользователям после перезапуска бота.'
+            ),
+            parse_mode='HTML'
+        )
+        
+        logger.log('info', f'Admin {message.from_user.id} added new server: {country_name}')
+        
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.log('error', f'process_cert_input error: {e}\n{tb}')
+        await message.answer('❌ Ошибка при сохранении конфигурации сервера', parse_mode=None)
+        await state.clear()

@@ -1,0 +1,21 @@
+{
+  "day": {
+    "amount": 7,
+    "days": 1,
+    "word_days": "день"
+  },
+  "month": {
+    "amount": 150,
+    "days": 30,
+    "word_days": "дней"
+  },
+  "year": {
+    "amount": 1500,
+    "days": 365,
+    "word_days": "дней"
+  },
+  "promo": {
+    "days": 7,
+    "word_days": "дней"
+  }
+}

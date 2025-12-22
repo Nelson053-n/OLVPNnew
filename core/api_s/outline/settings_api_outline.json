@@ -2,28 +2,25 @@
     "nederland":
     {
         "name_en": "nederland",
-        "name_ru": "🇳🇱 Нидерланды",
+        "name_ru": "\uD83C\uDDF3\uD83C\uDDF1 Нидерланды",
         "api_url": "https://ip:port",
         "cert_sha256": "code",
-        "max_keys": 100,
         "is_active": true
     },
     "germany":
     {
         "name_en": "germany",
-        "name_ru": "🇩🇪 Германия",
+        "name_ru": "\uD83C\uDDE9\uD83C\uDDEA Германия",
         "api_url": "https://ip:port",
         "cert_sha256": "code",
-        "max_keys": 100,
         "is_active": false
     },
     "france":
     {
         "name_en": "france",
-        "name_ru": "🇫🇷 Франция",
+        "name_ru": "\uD83C\uDDEB\uD83C\uDDF7 Франция",
         "api_url": "https://ip:port",
         "cert_sha256": "code",
-        "max_keys": 100,
         "is_active": true
     }
 }
