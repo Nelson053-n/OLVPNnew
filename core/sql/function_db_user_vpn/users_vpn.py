@@ -1,11 +1,12 @@
 from datetime import datetime
+from typing import Union
 from sqlalchemy import create_engine
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
 import uuid
 
 from core.api_s.outline.outline_api import OutlineManager
-from core.sql.base import Base, Users
+from core.sql.base import Base, Users, UserKey
 
 DATABASE_URL = 'sqlite:///olvpnbot.db'
 engine = create_engine(DATABASE_URL, echo=True)
@@ -166,45 +167,7 @@ async def set_promo_status(account: int, value_promo: bool) -> bool:
             user_record = session.query(Users).filter_by(account=account).one()
             if value_promo != user_record.promo_key:
                 user_record.promo_key = value_promo
-                # set or clear last issued date when changing promo status
-                if value_promo:
-                    user_record.promo_issued_at = datetime.now()
-                else:
-                    user_record.promo_issued_at = None
                 session.commit()
-            return True
-        except NoResultFound:
-            return False
-
-
-async def get_promo_issued_date(account: int) -> datetime | None:
-    """
-    Возвращает дату последнего выдачи промо-ключа для пользователя
-
-    :param account: int - id пользователя
-    :return: datetime или None
-    """
-    with Session(engine) as session:
-        try:
-            user_record = session.query(Users).filter_by(account=account).one()
-            return user_record.promo_issued_at
-        except NoResultFound:
-            return None
-
-
-async def set_promo_issued_date(account: int, issued_date: datetime) -> bool:
-    """
-    Устанавливает дату выдачи промо-ключа вручную
-
-    :param account: int - id пользователя
-    :param issued_date: datetime - дата выдачи
-    :return: bool
-    """
-    with Session(engine) as session:
-        try:
-            user_record = session.query(Users).filter_by(account=account).one()
-            user_record.promo_issued_at = issued_date
-            session.commit()
             return True
         except NoResultFound:
             return False
@@ -256,4 +219,125 @@ async def get_region_server(account: int) -> str:
             return user_record.region_server
         except NoResultFound:
             return None
+
+
+# --- Multiple keys support ---
+
+async def add_user_key(account: int, access_url: str, outline_id: str, region_server: str, date_str: Union[str, datetime], promo: bool) -> bool:
+    """
+    Добавить новый ключ пользователя в таблицу user_keys
+    
+    :param account: ID пользователя Telegram
+    :param access_url: URL доступа к VPN ключу
+    :param outline_id: ID ключа в Outline
+    :param region_server: Регион сервера
+    :param date_str: Дата истечения в формате '%d.%m.%Y - %H:%M' (str) или объект datetime
+    :param promo: Флаг промо-ключа
+    :return: True в случае успеха, False при ошибке
+    """
+    with Session(engine) as session:
+        try:
+            record_id = f"{account}_key_{uuid.uuid4()}"
+            # Парсим дату
+            if date_str:
+                # Проверяем, не является ли date_str уже объектом datetime
+                if isinstance(date_str, datetime):
+                    date = date_str
+                elif isinstance(date_str, str):
+                    date = datetime.strptime(date_str, '%d.%m.%Y - %H:%M')
+                else:
+                    raise ValueError(f"date_str must be str or datetime, got {type(date_str)}")
+            else:
+                date = None
+            
+            new_key = UserKey(
+                id=record_id,
+                account=account,
+                access_url=access_url,
+                outline_id=outline_id,
+                region_server=region_server,
+                premium=True,
+                date=date,
+                promo=promo,
+            )
+            session.add(new_key)
+            session.commit()
+            return True
+        except ValueError as e:
+            # Ошибка парсинга даты
+            print(f"ERROR add_user_key: Invalid date format '{date_str}' (type: {type(date_str)}): {e}")
+            return False
+        except Exception as e:
+            # Другие ошибки БД
+            print(f"ERROR add_user_key: Database error for user {account}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+
+async def get_user_keys(account: int) -> list[UserKey]:
+    session = Session(engine)
+    try:
+        return session.query(UserKey).filter_by(account=account).all()
+    finally:
+        session.close()
+
+
+async def get_all_user_keys() -> list[UserKey]:
+    session = Session(engine)
+    try:
+        return session.query(UserKey).all()
+    finally:
+        session.close()
+
+
+async def get_user_key_by_id(key_id: str) -> UserKey | None:
+    session = Session(engine)
+    try:
+        return session.query(UserKey).filter_by(id=key_id).one()
+    except NoResultFound:
+        return None
+    finally:
+        session.close()
+
+
+async def delete_user_key_record(key_id: str) -> bool:
+    with Session(engine) as session:
+        try:
+            k: UserKey = session.query(UserKey).filter_by(id=key_id).one()
+            session.delete(k)
+            session.commit()
+            return True
+        except NoResultFound:
+            return False
+
+
+
+async def add_block_record(account: int, admin_id: int, reason: str, key: str) -> bool:
+    """
+    Добавляет запись о блокировке ключа в таблицу block_history
+
+    :param account: int - id пользователя
+    :param admin_id: int - id администратора
+    :param reason: str - причина блокировки
+    :param key: str - сам ключ или access_url
+    :return: bool
+    """
+    with Session(engine) as session:
+        try:
+            record_id = f"{account}_block_{uuid.uuid4()}"
+            from core.sql.base import BlockHistory
+
+            new_record = BlockHistory(
+                id=record_id,
+                account=account,
+                admin_id=admin_id,
+                reason=reason,
+                key=key,
+            )
+            session.add(new_record)
+            session.commit()
+            return True
+        except Exception:
+            return False
 

@@ -31,7 +31,6 @@ class Users(Base):
     account = Column(Integer, unique=True)
     account_name = Column(String)
     promo_key = Column(Boolean, default=False)
-    promo_issued_at = Column(DateTime, nullable=True)
     premium = Column(Boolean, default=False)
     date = Column(DateTime, nullable=True)
     key = Column(String, nullable=True)
@@ -59,3 +58,32 @@ class UserPay(Base):
     last_updated = Column(DateTime, onupdate=datetime.now)
 
     user = relationship('Users', back_populates='user_payments')
+
+
+class UserKey(Base):
+    """
+    Таблица с несколькими ключами пользователя
+    """
+    __tablename__ = 'user_keys'
+    id = Column(String, primary_key=True)
+    account = Column(Integer, ForeignKey('users_vpn.account'))
+    access_url = Column(String, nullable=False)
+    outline_id = Column(String, nullable=False)  # id ключа в Outline
+    region_server = Column(String, nullable=True)
+    premium = Column(Boolean, default=True)
+    date = Column(DateTime, nullable=True)
+    promo = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.now)
+
+
+class BlockHistory(Base):
+    """
+    История блокировок ключей
+    """
+    __tablename__ = 'block_history'
+    id = Column(String, primary_key=True)
+    account = Column(Integer, ForeignKey('users_vpn.account'))
+    admin_id = Column(Integer)
+    reason = Column(String, nullable=True)
+    key = Column(String, nullable=True)
+    blocked_at = Column(DateTime, default=datetime.now)

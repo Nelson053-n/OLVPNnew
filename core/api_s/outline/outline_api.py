@@ -17,8 +17,24 @@ def get_name_all_active_server_ol() -> list:
     for value in config.values():
         if value['is_active']:
             active_servers.append(value['name_en'])
-        return active_servers
+    return active_servers
 
+def get_server_display_name(region_server: str) -> str:
+    """
+    Получить отображаемое имя сервера с флагом страны
+    
+    :param region_server: название региона (name_en)
+    :return: отображаемое имя с флагом (name_ru)
+    """
+    config_file = 'core/api_s/outline/settings_api_outline.json'
+    try:
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+        if region_server in config:
+            return config[region_server].get('name_ru', region_server)
+        return region_server
+    except Exception:
+        return region_server
 
 class OutlineManager:
     """
@@ -96,6 +112,45 @@ class OutlineManager:
         if key is None:
             return False
         return self._client.delete_key(key.key_id)
+
+    # --- Multiple keys support ---
+    def get_key_by_id(self, outline_id: str) -> str or None:
+        """
+        Получить ключ по его уникальному идентификатору outline_id.
+
+        Args:
+        - outline_id: str - Уникальный идентификатор ключа в Outline.
+        Returns:
+        - Key or None
+        """
+        try:
+            key = self._client.get_key(outline_id)
+        except OutlineServerErrorException:
+            key = None
+        return key
+
+    def delete_key_by_id(self, outline_id: str) -> bool:
+        """
+        Удалить ключ по его уникальному идентификатору outline_id.
+
+        Args:
+        - outline_id: str - Уникальный идентификатор ключа в Outline.
+
+        Returns:
+        - bool: True, если удаление прошло успешно, иначе False.
+        """
+        try:
+            # Попытка прямого удаления; большинство API допускают удаление по key_id
+            return self._client.delete_key(outline_id)
+        except OutlineServerErrorException:
+            # Пытаемся проверить существование ключа; если его нет — считаем удалённым
+            try:
+                key = self._client.get_key(outline_id)
+                if not key:
+                    return True
+            except OutlineServerErrorException:
+                return True
+            return False
 
 
 if __name__ == "__main__":

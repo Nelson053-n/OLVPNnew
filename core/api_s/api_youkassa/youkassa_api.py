@@ -28,7 +28,7 @@ async def create_payment(amount_value: int, count_day: int,
             },
             "confirmation": {
                 "type": "redirect",
-                "return_url": "https://t.me/olvpnbot"
+                "return_url": "https://t.me/OneYearVpb_bot"
             },
             "capture": True,
             "description": f"Ключ для аккаунта {id_user}\nна {count_day} {word_day}",

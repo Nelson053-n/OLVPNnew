@@ -8,7 +8,10 @@ from core.sql.function_db_user_payments.users_payments import add_payment_to_db
 from core.utils.create_view import create_answer_from_html
 from core.utils.get_key_utils import get_future_date, get_ol_key_func
 from core.utils.get_region_name import get_region_name_from_json
-from main import logger_payments
+from logs.log_main import RotatingFileLogger
+
+# Use a dedicated payments logger here to avoid circular imports with main
+logger_payments = RotatingFileLogger(config_file='logs/log_settings_payments.json')
 
 
 async def after_pay(call: CallbackQuery, state: FSMContext) -> str:
@@ -31,7 +34,7 @@ async def after_pay(call: CallbackQuery, state: FSMContext) -> str:
     content = await create_answer_from_html(name_temp=name_temp, key_user=key_user.access_url,
                                             day_count=add_day, word_days=word_days,
                                             untill_date=untill_date, region_name=region_name)
-    logger_payments.log('info', f'\tрегион: {region_server}\n\tКлюч: {key_user}')
+    logger_payments.log('info', f'\tRegion: {region_server}\n\tKey: {key_user}')
     await state.update_data(pay=(None, None))
     return content
 
@@ -56,11 +59,11 @@ async def pay_check_key(call: CallbackQuery, state: FSMContext) -> tuple:
         if result_pay:
             content = await after_pay(call, state)
             await add_payment_to_db(account=id_user, payment_key=payment.id, payment_date=payment.created_at)
-            logger_payments.log('info', f'{id_user} - Успешный платеж\n\tплатежный id {payment.id}\n\tдата и время: {payment.created_at}')
+            logger_payments.log('info', f'{id_user} - Successful payment\n\tPayment ID: {payment.id}\n\tDate & Time: {payment.created_at}')
             return content, start_keyboard()
         else:
             name_temp = 'error_pay'
             content = await create_answer_from_html(name_temp=name_temp)
             url_pay_keyboard = url_pay_keyboard_build(url_payment=payment_url, back_button=region_server)
-            logger_payments.log('info', f'{id_user} - Платеж не прошел\n\tплатежный url {payment_url}\n\tплатежный id: {(payment.id if payment else None)}')
+            logger_payments.log('info', f'{id_user} - Payment failed\n\tPayment URL: {payment_url}\n\tPayment ID: {(payment.id if payment else None)}')
             return content, url_pay_keyboard
