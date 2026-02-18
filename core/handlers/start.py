@@ -106,23 +106,24 @@ async def command_start(message: Message, state: FSMContext) -> None:
                     has_paid_keys = True
                     break
         
-        # Генерируем промо только если:
-        # 1. Нет ключей вообще
-        # 2. Нет платных ключей
-        # 3. НИКОГДА не было промо-ключа (проверка по флагу в БД, даже если удален)
-        if not user_keys and not has_paid_keys and not had_promo_before:
+        # Генерируем промо если:
+        # 1. Пришёл реферальный параметр И нет платных ключей (бонус за реферал)
+        # 2. ИЛИ нет ключей, нет платных ключей и НИКОГДА не было промо-ключа
+        if (referrer_id and not has_paid_keys) or (not user_keys and not has_paid_keys and not had_promo_before):
             promo_key = await generate_promo_key(id_user)
             # Устанавливаем флаг что промо был выдан
             await set_promo_status(account=id_user, value_promo=True)
-        elif user_keys and not has_paid_keys:
-            # Если ключи есть - находим активный промо-ключ для показа
+            if referrer_id:
+                logger.log('info', f'Generated promo key for user {id_user} (referee bonus from {referrer_id})')
+        elif user_keys and not has_paid_keys and not referrer_id:
+            # Если ключи есть и нет реферального параметра - находим активный промо-ключ для показа
             from datetime import datetime
             now = datetime.now()
             for key in user_keys:
                 if key.promo and key.date and key.date > now:  # Промо активен
                     promo_key = key.access_url
                     break
-        # Если есть платные ключи ИЛИ промо уже был выдан - promo_key остается None
+        # Если есть платные ключи - promo_key остается None
         
         # Формируем ответ
         content = await create_answer_from_html(
