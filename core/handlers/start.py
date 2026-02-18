@@ -38,6 +38,7 @@ async def command_start(message: Message, state: FSMContext) -> None:
     Обработчик команды /start.
     Проверяет наличие пользователя в БД и в Outline менеджере.
     Автоматически генерирует промо-ключ при первом входе.
+    Обрабатывает реферальные параметры (ref_USER_ID).
 
     :param state: FSMContext - Объект FSMContext.
     :param message: Message - Объект Message, полученный при вызове команды.
@@ -60,12 +61,35 @@ async def command_start(message: Message, state: FSMContext) -> None:
         
         check_user = await get_user_data_from_table_users(account=id_user)
         
+        # Обрабатываем реферальный параметр
+        referrer_id = None
+        if message.text and message.text.startswith('/start'):
+            # Параметр передаётся как /start ref_123456789
+            parts = message.text.split()
+            if len(parts) > 1:
+                param = parts[1]
+                if param.startswith('ref_'):
+                    try:
+                        referrer_id = int(param.split('_')[1])
+                        logger.log('info', f'Referral parameter detected: user {id_user} referred by {referrer_id}')
+                    except (ValueError, IndexError):
+                        pass
+        
         # Создаем пользователя если его нет
         if check_user is None:
             name_user = f"{message.from_user.first_name}_{message.from_user.last_name}"
             await add_user_to_db(account=message.from_user.id, account_name=name_user)
             if check_key is not None:
                 await set_key_to_table_users(account=id_user, value_key=check_key.access_url)
+            
+            # Если пришёл реферальный параметр, добавляем связь в БД
+            if referrer_id:
+                try:
+                    from core.sql.function_db_user_vpn.referrals import add_referral
+                    await add_referral(referrer_id=referrer_id, referred_id=id_user)
+                    logger.log('info', f'Added referral: {id_user} → {referrer_id}')
+                except Exception as e:
+                    logger.log('warning', f'Failed to add referral: {e}')
         
         # Проверяем, есть ли у пользователя ключи
         user_keys = await get_user_keys(account=id_user)
@@ -82,23 +106,24 @@ async def command_start(message: Message, state: FSMContext) -> None:
                     has_paid_keys = True
                     break
         
-        # Генерируем промо только если:
-        # 1. Нет ключей вообще
-        # 2. Нет платных ключей
-        # 3. НИКОГДА не было промо-ключа (проверка по флагу в БД, даже если удален)
-        if not user_keys and not has_paid_keys and not had_promo_before:
+        # Генерируем промо если:
+        # 1. Пришёл реферальный параметр И нет платных ключей (бонус за реферал)
+        # 2. ИЛИ нет ключей, нет платных ключей и НИКОГДА не было промо-ключа
+        if (referrer_id and not has_paid_keys) or (not user_keys and not has_paid_keys and not had_promo_before):
             promo_key = await generate_promo_key(id_user)
             # Устанавливаем флаг что промо был выдан
             await set_promo_status(account=id_user, value_promo=True)
-        elif user_keys and not has_paid_keys:
-            # Если ключи есть - находим активный промо-ключ для показа
+            if referrer_id:
+                logger.log('info', f'Generated promo key for user {id_user} (referee bonus from {referrer_id})')
+        elif user_keys and not has_paid_keys and not referrer_id:
+            # Если ключи есть и нет реферального параметра - находим активный промо-ключ для показа
             from datetime import datetime
             now = datetime.now()
             for key in user_keys:
                 if key.promo and key.date and key.date > now:  # Промо активен
                     promo_key = key.access_url
                     break
-        # Если есть платные ключи ИЛИ промо уже был выдан - promo_key остается None
+        # Если есть платные ключи - promo_key остается None
         
         # Формируем ответ
         content = await create_answer_from_html(

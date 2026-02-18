@@ -87,3 +87,62 @@ class BlockHistory(Base):
     reason = Column(String, nullable=True)
     key = Column(String, nullable=True)
     blocked_at = Column(DateTime, default=datetime.now)
+
+class Referral(Base):
+    """
+    Реферальная программа
+    """
+    __tablename__ = 'referrals'
+    id = Column(String, primary_key=True)
+    referrer_id = Column(Integer, ForeignKey('users_vpn.account'))  # ID пригласившего
+    referred_id = Column(Integer, ForeignKey('users_vpn.account'), unique=True)  # ID приглашённого
+    bonus_days = Column(Integer, default=7)  # Бонус в днях
+    bonus_given = Column(Boolean, default=False)  # Выдан ли бонус
+    referral_date = Column(DateTime, default=datetime.now)
+    bonus_date = Column(DateTime, nullable=True)  # Когда выдан бонус
+
+
+class SupportTicket(Base):
+    """
+    票 поддержки (тикеты)
+    """
+    __tablename__ = 'support_tickets'
+    id = Column(String, primary_key=True)
+    account = Column(Integer, ForeignKey('users_vpn.account'))
+    title = Column(String, nullable=False)
+    description = Column(String, nullable=False)
+    category = Column(String)  # bug, feature, payment, access, etc.
+    priority = Column(String, default='normal')  # critical, high, normal, low
+    status = Column(String, default='open')  # open, in_progress, resolved, closed
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    resolved_at = Column(DateTime, nullable=True)
+    admin_response = Column(String, nullable=True)
+
+
+class KeyConnection(Base):
+    """
+    Отслеживание одновременных подключений к ключу
+    """
+    __tablename__ = 'key_connections'
+    id = Column(String, primary_key=True)
+    key_id = Column(String, ForeignKey('user_keys.id'))
+    ip_address = Column(String, nullable=False)
+    user_agent = Column(String, nullable=True)
+    connected_at = Column(DateTime, default=datetime.now)
+    last_activity = Column(DateTime, default=datetime.now)
+    status = Column(String, default='active')  # active, disconnected, blocked
+
+
+class RenewalReminder(Base):
+    """
+    Напоминания о продлении подписки
+    """
+    __tablename__ = 'renewal_reminders'
+    id = Column(String, primary_key=True)
+    account = Column(Integer, ForeignKey('users_vpn.account'))
+    key_id = Column(String, ForeignKey('user_keys.id'))
+    days_until_expiry = Column(Integer)  # 7, 3, 1 день
+    reminded_at = Column(DateTime, default=datetime.now)
+    sent = Column(Boolean, default=False)
+    sent_at = Column(DateTime, nullable=True)
