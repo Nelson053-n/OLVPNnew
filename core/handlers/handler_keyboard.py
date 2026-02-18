@@ -42,6 +42,49 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 await call.answer("Ошибка при выдаче промо", show_alert=True)
             return
         
+        # Handle mass promo select server
+        if data == 'mass_promo_select_server':
+            try:
+                from core.handlers.give_promo import mass_promo_select_server
+                await mass_promo_select_server(call)
+            except Exception as e:
+                logger.log('error', f'mass_promo_select_server callback error: {e}')
+                await call.answer("Ошибка при выборе сервера", show_alert=True)
+            return
+        
+        # Handle mass promo execute
+        if data.startswith('mass_promo_exec_'):
+            try:
+                region_server = data.split('_')[-1]
+                from core.handlers.give_promo import mass_promo_execute
+                await mass_promo_execute(call, region_server)
+            except Exception as e:
+                logger.log('error', f'mass_promo_execute callback error: {e}')
+                await call.answer("Ошибка при выдаче промо", show_alert=True)
+            return
+        
+        # Handle referral callback
+        if data == 'referral':
+            try:
+                from core.handlers.referral_handler import show_referral_info
+                await show_referral_info(call)
+            except Exception as e:
+                logger.log('error', f'referral callback error: {e}')
+                await call.answer("Ошибка при загрузке реферальной программы", show_alert=True)
+            return
+        
+        # Handle copy referral link callback
+        if data.startswith('copy_ref_'):
+            try:
+                from core.settings import main_bot_username
+                user_id = int(data.split('_')[-1])
+                referral_link = f"https://t.me/{main_bot_username}?start=ref_{user_id}"
+                await call.answer(f"Ссылка скопирована в буфер обмена: {referral_link}", show_alert=False)
+            except Exception as e:
+                logger.log('error', f'copy_ref callback error: {e}')
+                await call.answer("Ошибка при копировании ссылки", show_alert=True)
+            return
+        
         # Handle docs callback
         if data == 'docs':
             try:

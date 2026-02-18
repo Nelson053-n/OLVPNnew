@@ -32,8 +32,9 @@ async def command_promo(message: Message) -> None:
     """
     -- Админ-команда --
     Обработчик команды /promo.
-    Показывает список всех пользователей БЕЗ платного активного ключа.
+    Показывает список всех пользователей БЕЗ платного активного ключа И БЕЗ промо ключа.
     Для каждого пользователя показывает кнопку "Промо" для выдачи промо-ключа на 7 дней.
+    Добавлена кнопка для массовой выдачи со выбором сервера.
     
     :param message: Message - Объект Message, полученный при вызове команды.
     """
@@ -48,46 +49,56 @@ async def command_promo(message: Message) -> None:
             await message.answer("❌ Нет пользователей в базе данных", parse_mode=None)
             return
 
-        # Фильтруем пользователей, у которых нет платных активных ключей
+        # Фильтруем пользователей: без платных активных ключей И без активных промо ключей
         now = datetime.now()
         users_without_paid_keys = []
         
         for user in all_users:
             user_keys = await get_user_keys(account=user.account)
             
-            # Проверяем, есть ли у пользователя хотя бы один активный платный ключ
+            # Проверяем наличие активных ключей (платных и промо)
             has_paid_active_key = False
-            for key in user_keys:
-                # Ключ активен если дата в будущем
-                if key.date and key.date > now:
-                    # Ключ платный если promo = False
-                    if not key.promo:
-                        has_paid_active_key = True
-                        break
+            has_promo_active_key = False
             
-            # Если нет платных активных ключей - добавляем в список
-            if not has_paid_active_key:
+            for key in user_keys:
+                # Проверяем что ключ активен (дата в будущем)
+                if key.date and key.date > now:
+                    if key.promo:  # Активный промо ключ
+                        has_promo_active_key = True
+                    else:  # Активный платный ключ
+                        has_paid_active_key = True
+            
+            # Включаем в список только если нет активных платных И активных промо ключей
+            if not has_paid_active_key and not has_promo_active_key:
                 users_without_paid_keys.append(user)
         
         if not users_without_paid_keys:
-            await message.answer("✅ Все пользователи уже имеют платные активные ключи", parse_mode=None)
+            await message.answer("✅ Все пользователи уже имеют активные ключи (платные или промо)", parse_mode=None)
             return
 
         # Формируем список с кнопками
-        lines = ["<b>📋 Пользователи без платных ключей</b>\n"]
+        lines = [
+            f"<b>📋 Пользователи доступные для промо</b>",
+            f"(без активных платных и без активных промо ключей)\n"
+        ]
         kb = InlineKeyboardBuilder()
         
         for idx, user in enumerate(users_without_paid_keys, 1):
             uname = user.account_name or '—'
             lines.append(f"<b>{idx}.</b> <code>{user.account}</code> | <b>{uname}</b>")
             # Добавляем кнопку промо для каждого пользователя
-            kb.button(text=f"🎁 Промо {user.account}", callback_data=f"give_promo_{user.account}")
+            kb.button(text=f"🎁 {user.account}", callback_data=f"give_promo_{user.account}")
         
         lines.append(f"\n<b>Всего пользователей:</b> {len(users_without_paid_keys)}")
+        lines.append("<b>Действие на 7 дней</b>\n")
         response_text = "\n".join(lines)
         
-        # Настраиваем расположение кнопок (по 2 в ряд)
-        kb.adjust(2)
+        # Добавляем кнопку для массовой раздачи
+        kb.row()  # Новая строка
+        kb.button(text="📢 Выдать ВСЕ", callback_data="mass_promo_select_server")
+        
+        # Настраиваем расположение обычных кнопок (по 3 в ряд)
+        kb.adjust(3)
         
         # Отправляем сообщение с кнопками
         if len(response_text) > 4096:
@@ -95,15 +106,22 @@ async def command_promo(message: Message) -> None:
             chunk_size = 20
             for i in range(0, len(users_without_paid_keys), chunk_size):
                 chunk = users_without_paid_keys[i:i+chunk_size]
-                chunk_lines = [f"<b>📋 Пользователи без платных ключей ({i+1}-{min(i+chunk_size, len(users_without_paid_keys))} из {len(users_without_paid_keys)})</b>\n"]
+                chunk_lines = [
+                    f"<b>📋 Пользователи без платных ключей</b>",
+                    f"({i+1}-{min(i+chunk_size, len(users_without_paid_keys))} из {len(users_without_paid_keys)})\n"
+                ]
                 chunk_kb = InlineKeyboardBuilder()
                 
                 for idx, user in enumerate(chunk, i+1):
                     uname = user.account_name or '—'
                     chunk_lines.append(f"<b>{idx}.</b> <code>{user.account}</code> | <b>{uname}</b>")
-                    chunk_kb.button(text=f"🎁 Промо {user.account}", callback_data=f"give_promo_{user.account}")
+                    chunk_kb.button(text=f"🎁 {user.account}", callback_data=f"give_promo_{user.account}")
                 
-                chunk_kb.adjust(2)
+                chunk_kb.adjust(3)
+                if i + chunk_size >= len(users_without_paid_keys):  # Последний chunk
+                    chunk_kb.row()
+                    chunk_kb.button(text="📢 Выдать ВСЕ", callback_data="mass_promo_select_server")
+                
                 await message.answer("\n".join(chunk_lines), reply_markup=chunk_kb.as_markup())
         else:
             await message.answer(response_text, reply_markup=kb.as_markup())
@@ -214,6 +232,190 @@ async def give_promo_to_user(callback: CallbackQuery, target_user_id: int) -> No
             await callback.answer(f"Ошибка при выдаче промо: {str(e)}", show_alert=True)
         except:
             pass
+
+
+async def mass_promo_select_server(callback: CallbackQuery) -> None:
+    """
+    Показывает список серверов для выбора при массовой раздаче промо.
+    
+    :param callback: CallbackQuery - объект callback запроса
+    """
+    try:
+        from core.api_s.outline.outline_api import get_name_all_active_server_ol, get_server_display_name
+        
+        active_servers = get_name_all_active_server_ol()
+        if not active_servers:
+            await callback.answer("❌ Нет активных серверов", show_alert=True)
+            return
+        
+        kb = InlineKeyboardBuilder()
+        for server in active_servers:
+            display_name = get_server_display_name(server)
+            kb.button(text=display_name, callback_data=f"mass_promo_exec_{server}")
+        
+        kb.adjust(2)
+        
+        await callback.message.edit_text(
+            "🌍 <b>Выберите сервер для массовой раздачи промо (7 дней):</b>",
+            reply_markup=kb.as_markup()
+        )
+        
+    except Exception as e:
+        logger.log('error', f'mass_promo_select_server error: {e}')
+        await callback.answer(f"Ошибка: {str(e)}", show_alert=True)
+
+
+async def mass_promo_execute(callback: CallbackQuery, region_server: str) -> None:
+    """
+    Массовая выдача промо всем пользователям без платных активных ключей.
+    
+    :param callback: CallbackQuery - объект callback запроса
+    :param region_server: str - выбранный регион сервера
+    """
+    try:
+        from core.bot import bot
+        import json
+        from pathlib import Path
+        
+        # Получаем пользователей без платных активных ключей И без активных промо ключей
+        all_users = await get_all_records_from_table_users()
+        now = datetime.now()
+        users_to_promo = []
+        
+        for user in all_users:
+            user_keys = await get_user_keys(account=user.account)
+            
+            has_paid_active_key = False
+            has_promo_active_key = False
+            
+            for key in user_keys:
+                if key.date and key.date > now:
+                    if key.promo:  # Активный промо ключ
+                        has_promo_active_key = True
+                    else:  # Активный платный ключ
+                        has_paid_active_key = True
+            
+            # Включаем в список только если нет активных платных И активных промо ключей
+            if not has_paid_active_key and not has_promo_active_key:
+                users_to_promo.append(user)
+        
+        if not users_to_promo:
+            await callback.answer("✅ Нет пользователей для выдачи промо", show_alert=True)
+            return
+        
+        # Загружаем настройки промо
+        settings_path = Path(__file__).parent.parent / 'settings_prices.json'
+        with open(settings_path, 'r', encoding='utf-8') as f:
+            prices = json.load(f)
+        promo_days = prices.get('promo', {}).get('days', 7)
+        
+        # Expiry date для всех ключей
+        expiry_date = datetime.now() + timedelta(days=promo_days)
+        
+        # Инициализируем Outline Manager для выбранного сервера
+        olm = OutlineManager(region_server=region_server)
+        
+        # Статистика выполнения
+        success_count = 0
+        error_count = 0
+        errors_list = []
+        
+        # Отправляем статус
+        status_msg = await callback.message.edit_text(
+            f"⏳ <b>Выдача промо на {promo_days} дней...</b>\n"
+            f"Всего пользователей: {len(users_to_promo)}\n"
+            f"Сервер: <b>{region_server}</b>\n\n"
+            f"Обработано: 0/{len(users_to_promo)}"
+        )
+        
+        # Выдаём промо каждому пользователю
+        for idx, user in enumerate(users_to_promo, 1):
+            try:
+                # Create key on Outline server
+                unique_name = f"{user.account}-promo-{uuid.uuid4().hex[:8]}"
+                
+                key_data = olm._client.create_key(name=unique_name)
+                
+                if not key_data or not getattr(key_data, 'access_url', None):
+                    error_count += 1
+                    errors_list.append(f"User {user.account}: create_key returned None")
+                    continue
+                
+                outline_id = str(key_data.key_id)
+                
+                # Update DB
+                await add_user_key(
+                    account=user.account,
+                    access_url=key_data.access_url,
+                    outline_id=outline_id,
+                    region_server=region_server,
+                    date_str=fmt(expiry_date),
+                    promo=True,
+                )
+                await set_premium_status(account=user.account, value_premium=True)
+                await set_date_to_table_users(account=user.account, value_date=fmt(expiry_date))
+                await set_region_server(account=user.account, value_region=region_server)
+                await set_key_to_table_users(account=user.account, value_key=key_data.access_url)
+                await set_promo_status(account=user.account, value_promo=True)
+                
+                success_count += 1
+                
+                # Отправляем уведомление пользователю
+                try:
+                    notification_text = (
+                        f"🎁 <b>Тестовый доступ:</b>\n\n"
+                        f"Вам выдан тестовый доступ на <b>{promo_days} дней</b>.\n"
+                        f"Регион: <b>{region_server}</b>\n"
+                        f"Действует до: <b>{fmt(expiry_date)}</b>\n\n"
+                        f"Используйте /start чтобы получить ключ доступа."
+                    )
+                    await bot.send_message(chat_id=user.account, text=notification_text)
+                except Exception as notify_error:
+                    logger.log('warning', f'Failed to send mass promo notification to {user.account}: {notify_error}')
+                
+            except Exception as e:
+                error_count += 1
+                errors_list.append(f"User {user.account}: {str(e)}")
+                logger.log('error', f'Mass promo error for user {user.account}: {e}')
+            
+            # Обновляем статус каждые 5 пользователей
+            if idx % 5 == 0 or idx == len(users_to_promo):
+                try:
+                    await status_msg.edit_text(
+                        f"⏳ <b>Выдача промо на {promo_days} дней...</b>\n"
+                        f"Сервер: <b>{region_server}</b>\n\n"
+                        f"Обработано: {idx}/{len(users_to_promo)}\n"
+                        f"✅ Успешно: {success_count}\n"
+                        f"❌ Ошибок: {error_count}"
+                    )
+                except:
+                    pass
+        
+        # Финальный отчёт
+        report_text = (
+            f"<b>✅ Массовая раздача промо завершена</b>\n\n"
+            f"🎁 Количество дней: <b>{promo_days}</b>\n"
+            f"🌍 Сервер: <b>{region_server}</b>\n"
+            f"✅ Успешно выдано: <b>{success_count}/{len(users_to_promo)}</b>\n"
+        )
+        
+        if error_count > 0:
+            report_text += f"❌ Ошибок: <b>{error_count}</b>\n"
+            if errors_list:
+                report_text += f"\n<b>Детали ошибок:</b>\n"
+                for err in errors_list[:10]:  # Показываем первые 10 ошибок
+                    report_text += f"• {err}\n"
+                if len(errors_list) > 10:
+                    report_text += f"... и ещё {len(errors_list) - 10} ошибок"
+        
+        await status_msg.edit_text(report_text)
+        logger.log('info', f'Mass promo executed: {success_count} success, {error_count} errors on server {region_server}')
+        
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.log('error', f'mass_promo_execute error: {e}\n{tb}')
+        await callback.answer(f"Ошибка при массовой раздаче: {str(e)}", show_alert=True)
+
 
 
 

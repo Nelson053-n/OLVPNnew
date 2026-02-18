@@ -17,8 +17,36 @@ from core.handlers.seed_test_data import command_seed
 from core.handlers.unseed_test_data import command_unseed
 from core.handlers.server_stats import command_server_stats
 from core.handlers.bot_statistics import command_stats
+from core.handlers.bot_stats import command_stats as command_stats_new
 from core.handlers.pin_disclaimer import pin_disclaimer_handler
 from core.handlers.docs import command_docs
+from core.handlers.referral_handler import (
+    command_referral,
+    command_referrals_admin,
+)
+from core.handlers.support_handler import (
+    command_support,
+    support_title_handler,
+    support_category_handler,
+    support_description_handler,
+    command_support_my_tickets,
+    admin_support_queue,
+    admin_support_stats,
+    SupportStates,
+)
+from core.handlers.vpn_status_handler import (
+    command_vpn_status,
+    admin_vpn_detailed_check,
+)
+from core.handlers.connection_limiter import (
+    command_my_connections,
+    admin_connection_stats,
+)
+from core.handlers.renewal_handler import (
+    command_renewal_stats,
+    admin_renewal_stats,
+    admin_trigger_renewal_reminders,
+)
 from core.handlers.migrate_old_keys import (
     command_migrate,
     command_check_migration_status,
@@ -89,6 +117,12 @@ async def setup_bot_commands(bot: Bot):
         BotCommand(command="massblock", description="🔒 Блокировка просроченных"),
         BotCommand(command="serverstats", description="📊 Статистика серверов"),
         BotCommand(command="migrateserver", description="🔄 Перенос между серверами"),
+        BotCommand(command="vpnstatus", description="🌐 Статус VPN серверов"),
+        BotCommand(command="supportqueue", description="📞 Очередь поддержки"),
+        BotCommand(command="supportstats", description="📊 Статистика поддержки"),
+        BotCommand(command="renewalstats", description="📋 Статистика продлений"),
+        BotCommand(command="connectstats", description="🔌 Статистика подключений"),
+        BotCommand(command="referrals", description="👥 Статистика рефералов"),
         BotCommand(command="findpay", description="💳 Поиск платежей"),
         BotCommand(command="editprice", description="💰 Редактировать цены"),
         BotCommand(command="addserver", description="➕ Добавить сервер"),
@@ -145,6 +179,21 @@ async def start_bot():
     dp.message.register(editprice_handler, Command('editprice'))
     dp.message.register(command_testkey, Command('testkey'))
     
+    # Новые команды для функций платформы:
+    dp.message.register(command_referral, Command('ref'))  # Информация о рефералах для пользователей
+    dp.message.register(command_referrals_admin, Command('referrals'))  # Статистика рефералов для админа
+    dp.message.register(command_support, Command('support'))  # Создание тикета поддержки
+    dp.message.register(command_support_my_tickets, Command('mytickets'))  # Мои тикеты
+    dp.message.register(admin_support_queue, Command('supportqueue'))  # Очередь поддержки (админ)
+    dp.message.register(admin_support_stats, Command('supportstats'))  # Статистика поддержки (админ)
+    dp.message.register(command_vpn_status, Command('vpnstatus'))  # Статус VPN серверов
+    dp.message.register(admin_vpn_detailed_check, Command('vpndetail'))  # Детальная проверка (админ)
+    dp.message.register(command_my_connections, Command('myconnections'))  # Мои подключения
+    dp.message.register(admin_connection_stats, Command('connectstats'))  # Статистика подключений (админ)
+    dp.message.register(command_renewal_stats, Command('renewalstats'))  # Мои напоминания о продлении
+    dp.message.register(admin_renewal_stats, Command('renewalstats_admin'))  # Статистика продлений (админ)
+    dp.message.register(admin_trigger_renewal_reminders, Command('trigger_reminders'))  # Ручная отправка напоминаний (админ)
+    
     # 2. Обработчики состояний (FSM) для добавления сервера
     dp.callback_query.register(
         process_country_choice,
@@ -160,6 +209,11 @@ async def start_bot():
         lambda c: c.data.startswith('edprc_')
     )
     dp.message.register(process_new_price, EditPriceStates.waiting_for_new_price)
+    
+    # 2b. Обработчики состояний (FSM) для поддержки
+    dp.message.register(support_title_handler, SupportStates.waiting_for_title)
+    dp.callback_query.register(support_category_handler, SupportStates.waiting_for_category)
+    dp.message.register(support_description_handler, SupportStates.waiting_for_description)
     
     # 3. Обработчики для тестовых ключей (callback для выбора сервера)
     dp.callback_query.register(
