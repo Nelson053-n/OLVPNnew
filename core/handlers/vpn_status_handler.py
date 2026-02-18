@@ -4,49 +4,55 @@
 from aiogram.types import Message
 import traceback
 import asyncio
-import aiohttp
 from datetime import datetime
 from pathlib import Path
 import json
 
 from core.settings import admin_tlg
+from core.api_s.outline.outline_api import OutlineManager
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
 
 
-async def ping_outline_server(api_url: str, cert_sha256: str) -> tuple[bool, str]:
+def ping_outline_server(region_name: str) -> tuple[bool, str]:
     """
-    Пингуем Outline API сервер чтобы проверить доступность
-    Возвращает (is_alive, response_time_ms)
+    Проверяем доступность Outline API сервера через OutlineManager
+    Возвращает (is_alive, response_time_ms или сообщение об ошибке)
     """
     try:
-        # Извлекаем хост из URL
-        if '://' in api_url:
-            host = api_url.split('://')[1].split(':')[0]
-        else:
-            host = api_url.split(':')[0]
-        
-        # Пытаемся подключиться на порт 443
         start = datetime.now()
+        
+        # Используем OutlineManager для проверки - это тот же способ что и при работе с ключами
         try:
-            async with asyncio.timeout(5):
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(api_url, ssl=False, timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                        elapsed = (datetime.now() - start).total_seconds() * 1000
-                        if resp.status in [200, 401, 403]:  # 401/403 нормально - требуют auth
-                            return True, f"{int(elapsed)}ms"
-                        return False, f"Status {resp.status}"
-        except asyncio.TimeoutError:
-            return False, "Timeout (5s)"
-        except aiohttp.ClientSSLError:
-            # SSL ошибка - но сервер живой
-            return True, "SSL OK"
+            olm = OutlineManager(region_server=region_name)
+            # Получаем информацию о сервере - самый простой тест доступности
+            server_info = olm._client.get_server_information()
+            
+            elapsed = (datetime.now() - start).total_seconds() * 1000
+            
+            if server_info:
+                return True, f"{int(elapsed)}ms"
+            else:
+                return False, "No server info"
+                
         except Exception as e:
-            return False, str(e)[:30]
+            error_str = str(e).lower()
+            
+            # Определяем тип ошибки
+            if 'timeout' in error_str or 'timed out' in error_str:
+                return False, "Timeout (5s)"
+            elif 'connection' in error_str or 'refused' in error_str:
+                return False, "Connection refused"
+            elif 'ssl' in error_str or 'certificate' in error_str:
+                # SSL ошибка - но сервер может быть живой, пробуем ещё раз
+                return True, "SSL warning"
+            else:
+                logger.log('debug', f'ping_outline_server {region_name}: {error_str}')
+                return False, str(e)[:40]
     
     except Exception as e:
-        logger.log('error', f'ping_outline_server error: {e}')
+        logger.log('error', f'ping_outline_server error: {e}\n{traceback.format_exc()}')
         return False, "Error"
 
 
@@ -72,13 +78,10 @@ async def command_vpn_status(message: Message) -> None:
         # Отправляем статус "выполняю проверку"
         msg = await message.answer("🔍 Проверяю доступность серверов...", parse_mode=None)
         
-        # Проверяем все серверы параллельно
+        # Проверяем все серверы
         results = {}
-        tasks = []
         
         for server_name, config in servers.items():
-            api_url = config.get('api_url', '')
-            cert = config.get('cert_sha256', '')
             is_active = config.get('is_active', True)
             
             if not is_active:
@@ -88,30 +91,20 @@ async def command_vpn_status(message: Message) -> None:
                     'response_time': '-'
                 }
             else:
-                tasks.append((server_name, ping_outline_server(api_url, cert)))
-        
-        # Ждём все пинги
-        if tasks:
-            for server_name, task_coro in tasks:
-                try:
-                    is_alive, response_time = await task_coro
-                    if is_alive:
-                        results[server_name] = {
-                            'active': True,
-                            'status': '🟢 Живой',
-                            'response_time': response_time
-                        }
-                    else:
-                        results[server_name] = {
-                            'active': True,
-                            'status': '🔴 Недоступен',
-                            'response_time': response_time
-                        }
-                except Exception as e:
+                # Синхронно пингуем сервер
+                is_alive, response_time = ping_outline_server(server_name)
+                
+                if is_alive:
                     results[server_name] = {
                         'active': True,
-                        'status': '🔴 Ошибка',
-                        'response_time': str(e)[:20]
+                        'status': '🟢 Живой',
+                        'response_time': response_time
+                    }
+                else:
+                    results[server_name] = {
+                        'active': True,
+                        'status': '🔴 Недоступен',
+                        'response_time': response_time
                     }
         
         # Собираем результаты
