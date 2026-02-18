@@ -1,9 +1,11 @@
 import asyncio
+import traceback
 from datetime import datetime
 from aiogram import Bot
 
 from core.api_s.outline.outline_api import OutlineManager
 from core.sql.function_db_user_vpn.users_vpn import get_premium_status
+from logs.log_main import RotatingFileLogger
 
 
 def check_time_subscribe(date: datetime) -> bool:
@@ -61,21 +63,29 @@ async def finish_set_date_and_premium() -> int:
         delete_user_key_record,
     )
     from core.bot import bot
+    
+    logger = RotatingFileLogger()
     deleted_count = 0
+    
     # Сначала обрабатываем истекшие ключи на уровне UserKey
     all_keys = await get_all_user_keys()
     for uk in all_keys:
         if check_time_subscribe(uk.date):
             # удалить конкретный ключ на Outline и из БД
             try:
-                olm = OutlineManager(region_server=uk.region_server or 'nederland')
-                try:
-                    olm.delete_key_by_id(uk.outline_id)
-                except Exception:
-                    pass
-            finally:
+                region = uk.region_server or 'nederland'
+                olm = OutlineManager(region_server=region)
+                olm.delete_key_by_id(uk.outline_id)
+            except Exception as e:
+                logger.log('error', f'Failed to delete key {uk.id} from Outline: {e}\n{traceback.format_exc()}')
+            
+            # Всегда удаляем из БД
+            try:
                 await delete_user_key_record(uk.id)
                 deleted_count += 1
+            except Exception as e:
+                logger.log('error', f'Failed to delete key record {uk.id} from DB: {e}\n{traceback.format_exc()}')
+            
             # если после удаления у пользователя не осталось ключей — сбросить статусы и уведомить
             remaining = await get_user_keys(account=uk.account)
             if not remaining:
@@ -97,11 +107,14 @@ async def finish_set_date_and_premium() -> int:
                 await set_key_to_table_users(account=record.account, value_key=None)
                 await set_premium_status(account=record.account, value_premium=False)
                 await set_date_to_table_users(account=record.account, value_date=None)
-                olm = OutlineManager(region_server=record.region_server)
+                
                 try:
+                    region = record.region_server or 'nederland'
+                    olm = OutlineManager(region_server=region)
                     olm.delete_key_from_ol(id_user=str(record.account))
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.log('error', f'Failed to delete legacy key for user {record.account}: {e}\n{traceback.format_exc()}')
+                
                 await send_notification_to_user(bot=bot, id_user=record.account)
     return deleted_count
 
@@ -111,8 +124,13 @@ async def main_check_subscribe() -> None:
     Запуск цикла проверки БД на активную подписку
     :return: None
     """
+    logger = RotatingFileLogger()
     while True:
-        await finish_set_date_and_premium()
+        try:
+            await finish_set_date_and_premium()
+        except Exception as e:
+            logger.log('error', f'main_check_subscribe error: {e}\n{traceback.format_exc()}')
+            print(f'[check_subscribe] Error: {e}')
         await asyncio.sleep(5*60)  # Проверка раз в 5 минут
 
 
