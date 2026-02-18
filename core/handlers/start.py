@@ -107,9 +107,9 @@ async def command_start(message: Message, state: FSMContext) -> None:
                     break
         
         # Генерируем промо если:
-        # 1. Пришёл реферальный параметр И нет платных ключей (бонус за реферал)
+        # 1. Пришёл реферальный параметр И это НОВЫЙ пользователь И нет платных ключей (бонус за реферал)
         # 2. ИЛИ нет ключей, нет платных ключей и НИКОГДА не было промо-ключа
-        if (referrer_id and not has_paid_keys) or (not user_keys and not has_paid_keys and not had_promo_before):
+        if (referrer_id and check_user is None and not has_paid_keys) or (not user_keys and not has_paid_keys and not had_promo_before):
             promo_key = await generate_promo_key(id_user)
             # Устанавливаем флаг что промо был выдан
             await set_promo_status(account=id_user, value_promo=True)
