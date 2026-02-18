@@ -91,25 +91,31 @@ async def show_referral_info(callback: CallbackQuery) -> None:
             prices = json.load(f)
         referral_bonus_days = prices.get('promo', {}).get('days', 7)
         
+        # Генерируем реферальную ссылку
+        # Используем параметр deep link: /start?ref=USER_ID
+        referral_link = f"https://t.me/OLVPNnew_bot?start=ref_{account}"
+        
         text = (
-            f"<b>👥 Реферальная программа</b>\n\n"
-            f"Приглашайте друзей и получайте <b>{referral_bonus_days} дней бесплатного доступа</b>!\n\n"
+            f"<b>🎁 Реферальная программа</b>\n\n"
+            f"Пригласите друзей и получайте <b>{referral_bonus_days} дней бесплатного доступа</b>!\n\n"
             f"<b>Ваша статистика:</b>\n"
             f"📊 Всего приглашено: <b>{referral_count}</b>\n"
             f"✅ Бонусов выдано: <b>{bonus_given_count}</b>\n\n"
             f"<b>Как это работает:</b>\n"
-            f"1️⃣ Друг использует ваш ID как реферера при регистрации\n"
-            f"2️⃣ При первой покупке система определит вас как реферера\n"
-            f"3️⃣ Вы получаете <b>{referral_bonus_days} дней</b> бесплатного доступа\n"
-            f"4️⃣ Можно приглашать много друзей и получать много бонусов! 🎉\n\n"
-            f"<b>Ваш реф-ID:</b>\n"
-            f"<code>{account}</code>\n\n"
-            f"<b>Поделитесь этим ID с друзьями</b> - и они смогут активировать вашу реферальность при первой покупке!"
+            f"1️⃣ Друг переходит по вашей ссылке\n"
+            f"2️⃣ При первой покупке вы автоматически становитесь его рефером\n"
+            f"3️⃣ Вы получаете <b>{referral_bonus_days} дней</b> бесплатного доступа!\n"
+            f"4️⃣ Повторяйте и получайте много бонусов! 🎉\n\n"
+            f"<b>Ваша реферальная ссылка:</b>\n"
+            f"<code>{referral_link}</code>\n\n"
+            f"<i>Нажмите на ссылку выше, скопируйте её и отправьте друзьям!</i>"
         )
         
-        # Создаём клавиатуру с кнопкой возврата
+        # Создаём клавиатуру с кнопками
         kb = InlineKeyboardBuilder()
+        kb.button(text='📋 Скопировать ссылку', callback_data=f'copy_ref_{account}')
         kb.button(text='🔙 Назад в меню', callback_data='back_start')
+        kb.adjust(1)
         
         await callback.message.edit_text(text, reply_markup=kb.as_markup())
         await callback.answer()

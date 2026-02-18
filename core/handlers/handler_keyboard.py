@@ -73,6 +73,17 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 await call.answer("Ошибка при загрузке реферальной программы", show_alert=True)
             return
         
+        # Handle copy referral link callback
+        if data.startswith('copy_ref_'):
+            try:
+                user_id = int(data.split('_')[-1])
+                referral_link = f"https://t.me/OLVPNnew_bot?start=ref_{user_id}"
+                await call.answer(f"Ссылка скопирована в буфер обмена: {referral_link}", show_alert=False)
+            except Exception as e:
+                logger.log('error', f'copy_ref callback error: {e}')
+                await call.answer("Ошибка при копировании ссылки", show_alert=True)
+            return
+        
         # Handle docs callback
         if data == 'docs':
             try:

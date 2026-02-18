@@ -38,6 +38,7 @@ async def command_start(message: Message, state: FSMContext) -> None:
     Обработчик команды /start.
     Проверяет наличие пользователя в БД и в Outline менеджере.
     Автоматически генерирует промо-ключ при первом входе.
+    Обрабатывает реферальные параметры (ref_USER_ID).
 
     :param state: FSMContext - Объект FSMContext.
     :param message: Message - Объект Message, полученный при вызове команды.
@@ -60,12 +61,35 @@ async def command_start(message: Message, state: FSMContext) -> None:
         
         check_user = await get_user_data_from_table_users(account=id_user)
         
+        # Обрабатываем реферальный параметр
+        referrer_id = None
+        if message.text and message.text.startswith('/start'):
+            # Параметр передаётся как /start ref_123456789
+            parts = message.text.split()
+            if len(parts) > 1:
+                param = parts[1]
+                if param.startswith('ref_'):
+                    try:
+                        referrer_id = int(param.split('_')[1])
+                        logger.log('info', f'Referral parameter detected: user {id_user} referred by {referrer_id}')
+                    except (ValueError, IndexError):
+                        pass
+        
         # Создаем пользователя если его нет
         if check_user is None:
             name_user = f"{message.from_user.first_name}_{message.from_user.last_name}"
             await add_user_to_db(account=message.from_user.id, account_name=name_user)
             if check_key is not None:
                 await set_key_to_table_users(account=id_user, value_key=check_key.access_url)
+            
+            # Если пришёл реферальный параметр, добавляем связь в БД
+            if referrer_id:
+                try:
+                    from core.sql.function_db_user_vpn.referrals import add_referral
+                    await add_referral(referrer_id=referrer_id, referred_id=id_user)
+                    logger.log('info', f'Added referral: {id_user} → {referrer_id}')
+                except Exception as e:
+                    logger.log('warning', f'Failed to add referral: {e}')
         
         # Проверяем, есть ли у пользователя ключи
         user_keys = await get_user_keys(account=id_user)
