@@ -93,7 +93,8 @@ async def show_referral_info(callback: CallbackQuery) -> None:
         
         # Генерируем реферальную ссылку
         # Используем параметр deep link: /start?ref=USER_ID
-        referral_link = f"https://t.me/OLVPNnew_bot?start=ref_{account}"
+        from core.settings import main_bot_username
+        referral_link = f"https://t.me/{main_bot_username}?start=ref_{account}"
         
         text = (
             f"<b>🎁 Реферальная программа</b>\n\n"

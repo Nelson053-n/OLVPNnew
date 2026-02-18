@@ -76,8 +76,9 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
         # Handle copy referral link callback
         if data.startswith('copy_ref_'):
             try:
+                from core.settings import main_bot_username
                 user_id = int(data.split('_')[-1])
-                referral_link = f"https://t.me/OLVPNnew_bot?start=ref_{user_id}"
+                referral_link = f"https://t.me/{main_bot_username}?start=ref_{user_id}"
                 await call.answer(f"Ссылка скопирована в буфер обмена: {referral_link}", show_alert=False)
             except Exception as e:
                 logger.log('error', f'copy_ref callback error: {e}')
