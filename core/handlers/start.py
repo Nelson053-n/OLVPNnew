@@ -86,8 +86,11 @@ async def command_start(message: Message, state: FSMContext) -> None:
             if referrer_id:
                 try:
                     from core.sql.function_db_user_vpn.referrals import add_referral
-                    await add_referral(referrer_id=referrer_id, referred_id=id_user)
-                    logger.log('info', f'Added referral: {id_user} → {referrer_id}')
+                    referral_added = await add_referral(referrer_id=referrer_id, referred_id=id_user)
+                    if referral_added:
+                        logger.log('info', f'Added referral: {id_user} → {referrer_id}')
+                    else:
+                        logger.log('warning', f'Referral already exists: {id_user} → {referrer_id}')
                 except Exception as e:
                     logger.log('warning', f'Failed to add referral: {e}')
         

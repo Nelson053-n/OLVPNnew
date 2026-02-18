@@ -17,6 +17,7 @@ Base.metadata.create_all(engine)
 async def add_referral(referrer_id: int, referred_id: int, bonus_days: int = 7) -> bool:
     """
     Добавить запись о реферале
+    Проверяет, что запись не добавляется дважды для одной пары (referrer_id, referred_id)
     
     :param referrer_id: ID пригласившего
     :param referred_id: ID приглашённого
@@ -25,6 +26,16 @@ async def add_referral(referrer_id: int, referred_id: int, bonus_days: int = 7) 
     """
     with Session(engine) as session:
         try:
+            # Проверяем, есть ли уже такая запись
+            existing = session.query(Referral).filter(
+                Referral.referrer_id == referrer_id,
+                Referral.referred_id == referred_id
+            ).first()
+            
+            if existing:
+                # Запись уже существует, не добавляем дубликат
+                return False
+            
             referral = Referral(
                 id=f"{referrer_id}_{referred_id}_{uuid.uuid4()}",
                 referrer_id=referrer_id,
