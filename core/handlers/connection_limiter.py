@@ -148,11 +148,16 @@ async def admin_connection_stats(message: Message) -> None:
             await message.answer("❌ У вас нет доступа к этой команде", parse_mode=None)
             return
         
-        from core.sql.base import KeyConnection, session
-        from sqlalchemy import func
+        from core.sql.base import KeyConnection
+        from sqlalchemy import func, create_engine
+        from sqlalchemy.orm import Session
+        
+        # Инициализируем БД
+        DATABASE_URL = 'sqlite:///olvpnbot.db'
+        engine = create_engine(DATABASE_URL)
         
         # Получаем статистику
-        with session() as s:
+        with Session(engine) as s:
             total_connections = s.query(func.count(KeyConnection.id)).scalar() or 0
             
             # Активные подключения (за последние 30 минут)
