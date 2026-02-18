@@ -42,6 +42,27 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 await call.answer("Ошибка при выдаче промо", show_alert=True)
             return
         
+        # Handle mass promo select server
+        if data == 'mass_promo_select_server':
+            try:
+                from core.handlers.give_promo import mass_promo_select_server
+                await mass_promo_select_server(call)
+            except Exception as e:
+                logger.log('error', f'mass_promo_select_server callback error: {e}')
+                await call.answer("Ошибка при выборе сервера", show_alert=True)
+            return
+        
+        # Handle mass promo execute
+        if data.startswith('mass_promo_exec_'):
+            try:
+                region_server = data.split('_')[-1]
+                from core.handlers.give_promo import mass_promo_execute
+                await mass_promo_execute(call, region_server)
+            except Exception as e:
+                logger.log('error', f'mass_promo_execute callback error: {e}')
+                await call.answer("Ошибка при выдаче промо", show_alert=True)
+            return
+        
         # Handle docs callback
         if data == 'docs':
             try:
