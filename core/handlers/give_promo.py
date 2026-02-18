@@ -49,33 +49,37 @@ async def command_promo(message: Message) -> None:
             await message.answer("❌ Нет пользователей в базе данных", parse_mode=None)
             return
 
-        # Фильтруем пользователей: без платных активных ключей И без промо ключа
+        # Фильтруем пользователей: без платных активных ключей И без активных промо ключей
         now = datetime.now()
         users_without_paid_keys = []
         
         for user in all_users:
             user_keys = await get_user_keys(account=user.account)
             
-            # Проверяем, есть ли у пользователя активный платный ключ
+            # Проверяем наличие активных ключей (платных и промо)
             has_paid_active_key = False
-            for key in user_keys:
-                if key.date and key.date > now:
-                    if not key.promo:  # Платный ключ
-                        has_paid_active_key = True
-                        break
+            has_promo_active_key = False
             
-            # Если нет активного платного ключа - добавляем в список
-            if not has_paid_active_key:
+            for key in user_keys:
+                # Проверяем что ключ активен (дата в будущем)
+                if key.date and key.date > now:
+                    if key.promo:  # Активный промо ключ
+                        has_promo_active_key = True
+                    else:  # Активный платный ключ
+                        has_paid_active_key = True
+            
+            # Включаем в список только если нет активных платных И активных промо ключей
+            if not has_paid_active_key and not has_promo_active_key:
                 users_without_paid_keys.append(user)
         
         if not users_without_paid_keys:
-            await message.answer("✅ Все пользователи уже имеют платные активные ключи", parse_mode=None)
+            await message.answer("✅ Все пользователи уже имеют активные ключи (платные или промо)", parse_mode=None)
             return
 
         # Формируем список с кнопками
         lines = [
-            f"<b>📋 Пользователи без платных ключей</b>",
-            f"(без активных платных + без промо ключей)\n"
+            f"<b>📋 Пользователи доступные для промо</b>",
+            f"(без активных платных и без активных промо ключей)\n"
         ]
         kb = InlineKeyboardBuilder()
         
@@ -273,7 +277,7 @@ async def mass_promo_execute(callback: CallbackQuery, region_server: str) -> Non
         import json
         from pathlib import Path
         
-        # Получаем пользователей без платных активных ключей
+        # Получаем пользователей без платных активных ключей И без активных промо ключей
         all_users = await get_all_records_from_table_users()
         now = datetime.now()
         users_to_promo = []
@@ -282,13 +286,17 @@ async def mass_promo_execute(callback: CallbackQuery, region_server: str) -> Non
             user_keys = await get_user_keys(account=user.account)
             
             has_paid_active_key = False
+            has_promo_active_key = False
+            
             for key in user_keys:
                 if key.date and key.date > now:
-                    if not key.promo:
+                    if key.promo:  # Активный промо ключ
+                        has_promo_active_key = True
+                    else:  # Активный платный ключ
                         has_paid_active_key = True
-                        break
             
-            if not has_paid_active_key:
+            # Включаем в список только если нет активных платных И активных промо ключей
+            if not has_paid_active_key and not has_promo_active_key:
                 users_to_promo.append(user)
         
         if not users_to_promo:
