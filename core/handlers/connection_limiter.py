@@ -3,7 +3,7 @@
 """
 from aiogram.types import Message
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from core.sql.function_db_user_vpn.key_connections import (
     log_connection,
@@ -156,8 +156,7 @@ async def admin_connection_stats(message: Message) -> None:
             total_connections = s.query(func.count(KeyConnection.id)).scalar() or 0
             
             # Активные подключения (за последние 30 минут)
-            import datetime as dt
-            cutoff_time = dt.datetime.now() - dt.timedelta(minutes=30)
+            cutoff_time = datetime.now() - timedelta(minutes=30)
             active_connections = s.query(func.count(KeyConnection.id)).filter(
                 KeyConnection.last_activity >= cutoff_time,
                 KeyConnection.status == 'active'
