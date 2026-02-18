@@ -63,6 +63,16 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 await call.answer("Ошибка при выдаче промо", show_alert=True)
             return
         
+        # Handle referral callback
+        if data == 'referral':
+            try:
+                from core.handlers.referral_handler import show_referral_info
+                await show_referral_info(call)
+            except Exception as e:
+                logger.log('error', f'referral callback error: {e}')
+                await call.answer("Ошибка при загрузке реферальной программы", show_alert=True)
+            return
+        
         # Handle docs callback
         if data == 'docs':
             try:

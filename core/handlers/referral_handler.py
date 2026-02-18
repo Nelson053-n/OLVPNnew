@@ -1,10 +1,12 @@
 """
 Реферальная программа - выдача бонусов и управление рефералами
 """
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 import traceback
 from datetime import datetime, timedelta
+import json
+from pathlib import Path
 
 from core.sql.function_db_user_vpn.users_vpn import (
     get_user_data_from_table_users,
@@ -23,8 +25,6 @@ from core.api_s.outline.outline_api import OutlineManager, get_server_display_na
 from core.settings import admin_tlg
 from logs.log_main import RotatingFileLogger
 import uuid
-import json
-from pathlib import Path
 
 logger = RotatingFileLogger()
 
@@ -71,6 +71,52 @@ async def command_referral(message: Message) -> None:
     except Exception as e:
         logger.log('error', f'command_referral error: {e}\n{traceback.format_exc()}')
         await message.answer("❌ Ошибка при получении информации о рефералах", parse_mode=None)
+
+
+async def show_referral_info(callback: CallbackQuery) -> None:
+    """
+    Показать информацию о реферальной программе в callback (из меню)
+    Вызывается при нажатии кнопки в главном меню
+    """
+    try:
+        account = callback.from_user.id
+        
+        # Получаем информацию о рефералах
+        referral_count = await get_referral_count_by_user(account)
+        bonus_given_count = await get_referral_count_by_user(account, only_with_bonus=True)
+        
+        # Загружаем настройки промо дней
+        settings_path = Path(__file__).parent.parent / 'settings_prices.json'
+        with open(settings_path, 'r', encoding='utf-8') as f:
+            prices = json.load(f)
+        referral_bonus_days = prices.get('promo', {}).get('days', 7)
+        
+        text = (
+            f"<b>👥 Реферальная программа</b>\n\n"
+            f"Приглашайте друзей и получайте <b>{referral_bonus_days} дней бесплатного доступа</b>!\n\n"
+            f"<b>Ваша статистика:</b>\n"
+            f"📊 Всего приглашено: <b>{referral_count}</b>\n"
+            f"✅ Бонусов выдано: <b>{bonus_given_count}</b>\n\n"
+            f"<b>Как это работает:</b>\n"
+            f"1️⃣ Друг использует ваш ID как реферера при регистрации\n"
+            f"2️⃣ При первой покупке система определит вас как реферера\n"
+            f"3️⃣ Вы получаете <b>{referral_bonus_days} дней</b> бесплатного доступа\n"
+            f"4️⃣ Можно приглашать много друзей и получать много бонусов! 🎉\n\n"
+            f"<b>Ваш реф-ID:</b>\n"
+            f"<code>{account}</code>\n\n"
+            f"<b>Поделитесь этим ID с друзьями</b> - и они смогут активировать вашу реферальность при первой покупке!"
+        )
+        
+        # Создаём клавиатуру с кнопкой возврата
+        kb = InlineKeyboardBuilder()
+        kb.button(text='🔙 Назад в меню', callback_data='back_start')
+        
+        await callback.message.edit_text(text, reply_markup=kb.as_markup())
+        await callback.answer()
+        
+    except Exception as e:
+        logger.log('error', f'show_referral_info error: {e}\n{traceback.format_exc()}')
+        await callback.answer("❌ Ошибка при загрузке информации", show_alert=True)
 
 
 async def give_referral_bonus(account: int, referrer_id: int = None) -> bool:
