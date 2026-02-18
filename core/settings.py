@@ -22,6 +22,9 @@ secret_key = os.getenv("YOUKASSA_SECRET")
 # Для чата техподдержки
 support_chat_username = os.getenv("SUPPORT_CHAT_USERNAME", "helpvpb_bot")
 
+# Имя основного бота для реферальных ссылок
+main_bot_username = os.getenv("MAIN_BOT_USERNAME", "OneYearVpb_bot")
+
 # Для бота техподдержки (необязательно - запускается отдельно)
 support_bot_token = os.getenv("SUPPORT_BOT_TOKEN")
 
