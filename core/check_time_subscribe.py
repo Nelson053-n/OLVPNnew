@@ -122,12 +122,23 @@ async def finish_set_date_and_premium() -> int:
 async def main_check_subscribe() -> None:
     """
     Запуск цикла проверки БД на активную подписку
+    и отправки напоминаний о продлении
     :return: None
     """
+    from core.handlers.renewal_handler import send_renewal_reminders
+    
     logger = RotatingFileLogger()
     while True:
         try:
+            # Блокируем истекшие ключи
             await finish_set_date_and_premium()
+            
+            # Отправляем напоминания о скором истечении (один раз в час)
+            try:
+                from core.bot import bot
+                await send_renewal_reminders(bot)
+            except Exception as e:
+                logger.log('warning', f'Failed to send renewal reminders: {e}')
         except Exception as e:
             logger.log('error', f'main_check_subscribe error: {e}\n{traceback.format_exc()}')
             print(f'[check_subscribe] Error: {e}')
