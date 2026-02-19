@@ -60,6 +60,16 @@ async def pay_check_key(call: CallbackQuery, state: FSMContext) -> tuple:
             content = await after_pay(call, state)
             await add_payment_to_db(account=id_user, payment_key=payment.id, payment_date=payment.created_at)
             logger_payments.log('info', f'{id_user} - Successful payment\n\tPayment ID: {payment.id}\n\tDate & Time: {payment.created_at}')
+
+            # backup: если бонус реферера ещё не был выдан (например, генерация сразу не удалась), попробуем дать его сейчас
+            try:
+                from core.handlers.referral_handler import give_referral_bonus
+                bonus_result = await give_referral_bonus(account=id_user)
+                if bonus_result:
+                    logger_payments.log('info', f'{id_user} triggered referral bonus on payment backup')
+            except Exception as e:
+                logger_payments.log('warning', f'Error running backup referral bonus for {id_user}: {e}')
+
             return content, start_keyboard()
         else:
             name_temp = 'error_pay'
