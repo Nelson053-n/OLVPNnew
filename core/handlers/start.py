@@ -86,8 +86,21 @@ async def command_start(message: Message, state: FSMContext) -> None:
             if referrer_id:
                 try:
                     from core.sql.function_db_user_vpn.referrals import add_referral
-                    await add_referral(referrer_id=referrer_id, referred_id=id_user)
-                    logger.log('info', f'Added referral: {id_user} → {referrer_id}')
+                    referral_added = await add_referral(referrer_id=referrer_id, referred_id=id_user)
+                    if referral_added:
+                        logger.log('info', f'Added referral: {id_user} → {referrer_id}')
+                        # выдать бонус рефереру сразу (не зависит от оплаты)
+                        try:
+                            from core.handlers.referral_handler import give_referral_bonus
+                            bonus_ok = await give_referral_bonus(account=id_user, referrer_id=referrer_id)
+                            if bonus_ok:
+                                logger.log('info', f'Immediate referral bonus given to {referrer_id}')
+                            else:
+                                logger.log('warning', f'Unable to give immediate referral bonus for {id_user} → {referrer_id}')
+                        except Exception as e2:
+                            logger.log('warning', f'Failed to grant immediate referral bonus: {e2}')
+                    else:
+                        logger.log('warning', f'Referral already exists: {id_user} → {referrer_id}')
                 except Exception as e:
                     logger.log('warning', f'Failed to add referral: {e}')
         
@@ -107,9 +120,9 @@ async def command_start(message: Message, state: FSMContext) -> None:
                     break
         
         # Генерируем промо если:
-        # 1. Пришёл реферальный параметр И нет платных ключей (бонус за реферал)
+        # 1. Пришёл реферальный параметр И это НОВЫЙ пользователь И нет платных ключей (бонус за реферал)
         # 2. ИЛИ нет ключей, нет платных ключей и НИКОГДА не было промо-ключа
-        if (referrer_id and not has_paid_keys) or (not user_keys and not has_paid_keys and not had_promo_before):
+        if (referrer_id and check_user is None and not has_paid_keys) or (not user_keys and not has_paid_keys and not had_promo_before):
             promo_key = await generate_promo_key(id_user)
             # Устанавливаем флаг что промо был выдан
             await set_promo_status(account=id_user, value_promo=True)
