@@ -512,7 +512,7 @@ async def callback_give_promo(callback: CallbackQuery):
         logger.error(f'callback_give_promo error: {e}\n{tb}')
         try:
             await callback.message.answer(f"❌ Ошибка при выдаче промо: {str(e)}", parse_mode=None)
-        except:
+        except Exception as e:
             pass
 
 
@@ -684,7 +684,7 @@ async def callback_replace_key(callback: CallbackQuery):
         logger.error(f'callback_replace_key error: {e}\n{tb}')
         try:
             await callback.message.answer(f"❌ Ошибка при замене ключа: {str(e)}", parse_mode=None)
-        except:
+        except Exception as e:
             pass
 
 
@@ -769,7 +769,7 @@ async def main():
         # Попробуем отправить уведомление об ошибке
         try:
             await send_notification_to_admin(error_message)
-        except:
+        except Exception as e:
             pass
         raise
     
@@ -806,7 +806,7 @@ if __name__ == "__main__":
         logger.info("Бот остановлен пользователем (Ctrl+C)")
     except RuntimeError as e:
         logger.error(f"Ошибка конфигурации: {e}")
-        print(f"\n❌ ОШИБКА КОНФИГУРАЦИИ:\n{e}\n")
+        logger.error(f"\n❌ ОШИБКА КОНФИГУРАЦИИ:\n{e}\n")
     except Exception as e:
         logger.error(f"Критическая ошибка: {e}", exc_info=True)
-        print(f"\n❌ КРИТИЧЕСКАЯ ОШИБКА:\n{e}\n")
+        logger.error(f"\n❌ КРИТИЧЕСКАЯ ОШИБКА:\n{e}\n")
