@@ -129,38 +129,48 @@ async def show_referral_info(callback: CallbackQuery) -> None:
 
 async def give_referral_bonus(account: int, referrer_id: int = None) -> bool:
     """
-    Выдать реферальный бонус пользователю
-    Вызывается когда пользователь впервые платит и указывает реферера
+    Выдать реферальный бонус рефереру. Раньше вызывался после оплаты, теперь используется
+    как резерв «если бонус ещё не был выдан». Функция гарантирует, что бонус выдаётся
+    только один раз и не укоротит уже существующую подписку.
     
-    :param account: ID пользователя, получающего бонус
-    :param referrer_id: ID реферера (опционально, если уже известен)
-    :return: bool успешность
+    :param account: ID приглашённого пользователя (реферала)
+    :param referrer_id: ID реферера, можно передать явно
+    :return: bool успешность (True если бонус выдан или уже был выдан)
     """
     try:
         from core.bot import bot
-        
-        # Если referrer_id не указан, получаем из БД
+        # Получаем текущую запись реферала
+        referral_info = None
         if not referrer_id:
             referral_info = await get_referral_bonus_status(account)
             if not referral_info:
                 return False
             referrer_id = referral_info['referrer_id']
-        
-        # Загружаем настройки
+        else:
+            referral_info = await get_referral_bonus_status(account)
+
+        # если уже было выдано — ничего не делаем
+        if referral_info and referral_info.get('bonus_given'):
+            return False
+
+        # Загружаем настройки и считаем дни бонуса
         settings_path = Path(__file__).parent.parent / 'settings_prices.json'
         with open(settings_path, 'r', encoding='utf-8') as f:
             prices = json.load(f)
         bonus_days = prices.get('promo', {}).get('days', 7)
-        
-        # Выдаём бонус рефереру
-        user = await get_user_data_from_table_users(account=referrer_id)
-        if not user:
-            return False
-        
+
+        # Выясняем текущую дату окончания у реферера, чтобы не укоротить
+        old_expiry = None
+        ref_user = await get_user_data_from_table_users(account=referrer_id)
+        if ref_user and ref_user.date:
+            try:
+                old_expiry = datetime.strptime(ref_user.date, '%d.%m.%Y - %H:%M')
+            except Exception:
+                old_expiry = None
+
+        # выдаём ключ (промо, бесплатный)
         region = await get_region_server(account=referrer_id) or 'nederland'
-        expiry_date = datetime.now() + timedelta(days=bonus_days)
-        
-        # Создаём ключ на Outline
+        promo_expiry = datetime.now() + timedelta(days=bonus_days)
         olm = OutlineManager(region_server=region)
         try:
             unique_name = f"{referrer_id}-ref-bonus-{uuid.uuid4().hex[:8]}"
@@ -168,43 +178,46 @@ async def give_referral_bonus(account: int, referrer_id: int = None) -> bool:
         except Exception as e:
             logger.log('error', f'Failed to create referral bonus key: {e}')
             return False
-        
+
         if not key_data or not getattr(key_data, 'access_url', None):
             logger.log('error', f'Failed to create referral bonus key: no key_data')
             return False
-        
+
         outline_id = str(key_data.key_id)
-        
-        # Добавляем ключ в БД
         await add_user_key(
             account=referrer_id,
             access_url=key_data.access_url,
             outline_id=outline_id,
             region_server=region,
-            date_str=fmt(expiry_date),
-            promo=False  # Платный бонус, не промо
+            date_str=fmt(promo_expiry),
+            promo=True,
         )
+
+        # обновляем дату пользователя, расширяя или устанавливая новую
+        final_expiry = promo_expiry
+        if old_expiry and old_expiry > datetime.now():
+            final_expiry = old_expiry + timedelta(days=bonus_days)
         await set_premium_status(account=referrer_id, value_premium=True)
-        await set_date_to_table_users(account=referrer_id, value_date=fmt(expiry_date))
-        
+        await set_date_to_table_users(account=referrer_id, value_date=fmt(final_expiry))
+
         # Отмечаем что бонус выдан
         await mark_referral_bonus_given(account)
-        
+
         # Отправляем уведомление рефереру
         try:
             notification = (
                 f"🎉 <b>Реферальный бонус!</b>\n\n"
-                f"Ваш друг (ID: {account}) сделал первую покупку!\n"
+                f"Ваш друг (ID: {account}) зарегистрировался или оплатил подписку!\n"
                 f"Вам выдан бонус: <b>{bonus_days} дней</b> бесплатного доступа 🎁\n"
-                f"Действует до: <b>{fmt(expiry_date)}</b>\n\n"
+                f"Действует до: <b>{fmt(final_expiry)}</b>\n\n"
                 f"Используйте /start чтобы получить ключ доступа."
             )
             await bot.send_message(chat_id=referrer_id, text=notification)
         except Exception as e:
             logger.log('warning', f'Failed to send referral bonus notification: {e}')
-        
+
         return True
-        
+
     except Exception as e:
         logger.log('error', f'give_referral_bonus error: {e}\n{traceback.format_exc()}')
         return False
