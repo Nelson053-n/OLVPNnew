@@ -17,7 +17,6 @@ from core.handlers.seed_test_data import command_seed
 from core.handlers.unseed_test_data import command_unseed
 from core.handlers.server_stats import command_server_stats
 from core.handlers.bot_statistics import command_stats
-from core.handlers.bot_stats import command_stats as command_stats_new
 from core.handlers.pin_disclaimer import pin_disclaimer_handler
 from core.handlers.docs import command_docs
 from core.handlers.referral_handler import (
@@ -93,7 +92,6 @@ from core.handlers.handler_keyboard import build_and_edit_message
 from core.handlers.start import command_start
 
 router: Router = Router()
-olm = OutlineManager()
 BOT_TOKEN = api_key_tlg
 bot: Bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 
@@ -144,7 +142,7 @@ async def setup_bot_commands(bot: Bot):
                 scope=BotCommandScopeChat(chat_id=int(admin_tlg))
             )
         except Exception as e:
-            print(f"Не удалось установить команды для администратора: {e}")
+            logging.warning(f"Не удалось установить команды для администратора: {e}")
 
 
 async def start_bot():

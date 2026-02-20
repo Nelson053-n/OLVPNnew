@@ -32,7 +32,6 @@ from core.settings import admin_tlg
 from core.api_s.outline.outline_api import OutlineManager, get_name_all_active_server_ol, get_server_display_name
 from core.sql.function_db_user_vpn.users_vpn import (
     get_user_data_from_table_users,
-    get_region_server,
     get_user_keys,
     add_user_key,
     set_premium_status,
@@ -62,7 +61,7 @@ if not admin_tlg:
     )
 
 # Преобразуем admin_tlg в int для использования
-ADMIN_ID = int(admin_tlg)
+SUPPORT_ADMIN_ID = int(admin_tlg)
 
 # Настройка логирования
 logging.basicConfig(
@@ -145,7 +144,7 @@ async def send_notification_to_admin(text: str):
     """Отправка уведомления администратору"""
     try:
         await bot.send_message(
-            chat_id=ADMIN_ID,
+            chat_id=SUPPORT_ADMIN_ID,
             text=text,
             parse_mode=ParseMode.HTML
         )
@@ -217,7 +216,7 @@ async def cmd_start(message: Message):
 async def forward_to_admin(message: Message):
     """Пересылка сообщений от пользователей администратору"""
     # Игнорируем сообщения от администратора (они обрабатываются отдельно)
-    if message.from_user.id == ADMIN_ID:
+    if message.from_user.id == SUPPORT_ADMIN_ID:
         # Проверяем, является ли это ответом на сообщение пользователя
         if message.reply_to_message and message.reply_to_message.message_id in admin_messages:
             user_id = admin_messages[message.reply_to_message.message_id]
@@ -290,7 +289,7 @@ async def forward_to_admin(message: Message):
         
         # Отправляем сообщение администратору с кнопками
         sent_message = await bot.send_message(
-            chat_id=ADMIN_ID,
+            chat_id=SUPPORT_ADMIN_ID,
             text=admin_message_text,
             reply_markup=keyboard,
             parse_mode=ParseMode.HTML
@@ -322,7 +321,7 @@ async def forward_to_admin(message: Message):
 async def reply_to_user(message: Message):
     """Ответ администратора пользователю"""
     # Проверяем, что это администратор
-    if message.from_user.id != ADMIN_ID:
+    if message.from_user.id != SUPPORT_ADMIN_ID:
         await message.answer("У вас нет доступа к этой команде")
         return
     
@@ -408,7 +407,7 @@ async def callback_give_promo(callback: CallbackQuery):
         user_id = int(callback.data.split("_")[-1])
         
         # Проверка прав администратора
-        if callback.from_user.id != ADMIN_ID:
+        if callback.from_user.id != SUPPORT_ADMIN_ID:
             await callback.answer("❌ У вас нет доступа к этой функции", show_alert=True)
             return
         
@@ -523,7 +522,7 @@ async def callback_replace_key(callback: CallbackQuery):
         user_id = int(callback.data.split("_")[-1])
         
         # Проверка прав администратора
-        if callback.from_user.id != ADMIN_ID:
+        if callback.from_user.id != SUPPORT_ADMIN_ID:
             await callback.answer("❌ У вас нет доступа к этой функции", show_alert=True)
             return
         
@@ -798,7 +797,7 @@ if __name__ == "__main__":
         logger.info("=" * 50)
         logger.info("Запуск бота техподдержки...")
         logger.info(f"Токен бота: {'✓ Установлен' if SUPPORT_BOT_TOKEN else '✗ Отсутствует'}")
-        logger.info(f"ID администратора: {ADMIN_ID}")
+        logger.info(f"ID администратора: {SUPPORT_ADMIN_ID}")
         logger.info("=" * 50)
         
         asyncio.run(main())
