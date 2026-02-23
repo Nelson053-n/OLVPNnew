@@ -12,6 +12,8 @@ from aiogram.enums import ParseMode
 from logs.log_main import RotatingFileLogger
 from core.handlers.admin_keys import create_admin_main_menu_keyboard
 from core.settings import admin_tlg
+from core.handlers.get_db import command_get_db
+from core.handlers.get_log_payments import command_get_log_pay
 
 router = Router()
 
@@ -103,6 +105,18 @@ def create_logs_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(
                 text="🔄 Обновить информацию",
                 callback_data="logs_refresh"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="📄 Скачать логи",
+                callback_data="logs_download"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="💾 Скачать БД",
+                callback_data="logs_db"
             )
         ],
         [
@@ -237,6 +251,28 @@ async def callback_logs_refresh(callback: CallbackQuery):
     keyboard = create_logs_keyboard()
 
     await callback.message.edit_text(text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
+
+
+@router.callback_query(F.data == "logs_download")
+async def callback_logs_download(callback: CallbackQuery):
+    """Скачать файл логов платежей"""
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("❌ У вас нет доступа", show_alert=True)
+        return
+
+    await callback.answer()
+    await command_get_log_pay(callback.message)
+
+
+@router.callback_query(F.data == "logs_db")
+async def callback_logs_db(callback: CallbackQuery):
+    """Скачать файл БД"""
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("❌ У вас нет доступа", show_alert=True)
+        return
+
+    await callback.answer()
+    await command_get_db(callback.message)
 
 
 @router.callback_query(F.data == "logs_back")

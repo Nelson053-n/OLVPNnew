@@ -43,6 +43,15 @@ async def command_support(message: Message, state: FSMContext) -> None:
     """
     try:
         account = message.from_user.id
+
+        if admin_tlg and account == int(admin_tlg):
+            from core.handlers.admin_keys import create_admin_support_keyboard
+            await message.answer(
+                text="<b>🆘 Раздел: Поддержка</b>\n\nВыберите действие:",
+                parse_mode='HTML',
+                reply_markup=create_admin_support_keyboard(),
+            )
+            return
         
         # Проверяем что пользователь есть в БД
         user = await get_user_data_from_table_users(account=account)

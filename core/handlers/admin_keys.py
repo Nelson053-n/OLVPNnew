@@ -21,8 +21,12 @@ def create_admin_main_menu_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [InlineKeyboardButton(text="🏠 Главное меню", callback_data="admin_open_start")],
             [InlineKeyboardButton(text="📊 Статистика бота", callback_data="admin_open_stats")],
+            [InlineKeyboardButton(text="👥 Статистика рефералов", callback_data="admin_open_referrals")],
             [InlineKeyboardButton(text="📁 Управление логами", callback_data="admin_open_logs")],
+            [InlineKeyboardButton(text="🆘 Поддержка", callback_data="admin_open_support")],
             [InlineKeyboardButton(text="🔑 Ключи", callback_data="admin_open_keys")],
+            [InlineKeyboardButton(text="🧪 Тестовые данные", callback_data="admin_open_testdata")],
+            [InlineKeyboardButton(text="🖥️ Сервера", callback_data="admin_open_servers")],
         ]
     )
 
@@ -36,6 +40,38 @@ def create_admin_keys_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text="ℹ️ Информация о ключе", callback_data="admin_keys_keyinfo_help")],
             [InlineKeyboardButton(text="🔒 Блокировка просроченных ключей", callback_data="admin_keys_massblock")],
             [InlineKeyboardButton(text="🔄 Перенос между серверами", callback_data="admin_keys_migrate")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_main_menu")],
+        ]
+    )
+
+
+def create_admin_support_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📞 Очередь поддержки", callback_data="admin_support_queue")],
+            [InlineKeyboardButton(text="📊 Статистика поддержки", callback_data="admin_support_stats")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_main_menu")],
+        ]
+    )
+
+
+def create_admin_testdata_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🧪 Создать тестовые данные", callback_data="admin_testdata_seed")],
+            [InlineKeyboardButton(text="📋 Отобразить тестовые данные", callback_data="admin_testdata_show")],
+            [InlineKeyboardButton(text="🗑️ Удалить тестовые данные", callback_data="admin_testdata_unseed")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_main_menu")],
+        ]
+    )
+
+
+def create_admin_servers_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📊 Статистика серверов", callback_data="admin_servers_stats")],
+            [InlineKeyboardButton(text="➕ Добавить сервер", callback_data="admin_servers_add")],
+            [InlineKeyboardButton(text="🗑️ Удалить сервер", callback_data="admin_servers_delete")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_main_menu")],
         ]
     )
@@ -58,6 +94,82 @@ async def command_keys(message: Message) -> None:
     except Exception as e:
         logger.log('error', f'command_keys error: {e}\n{traceback.format_exc()}')
         await message.answer('❌ Ошибка открытия раздела ключей', parse_mode=None)
+
+
+async def command_support_admin(message: Message) -> None:
+    try:
+        if not _is_admin(message.from_user.id):
+            await message.answer("❌ У вас нет доступа к этой команде", parse_mode=None)
+            return
+
+        await message.answer(
+            text="<b>🆘 Раздел: Поддержка</b>\n\nВыберите действие:",
+            parse_mode='HTML',
+            reply_markup=create_admin_support_keyboard(),
+        )
+    except Exception as e:
+        logger.log('error', f'command_support_admin error: {e}\n{traceback.format_exc()}')
+        await message.answer('❌ Ошибка открытия раздела поддержки', parse_mode=None)
+
+
+async def command_testdata(message: Message) -> None:
+    try:
+        if not _is_admin(message.from_user.id):
+            await message.answer("❌ У вас нет доступа к этой команде", parse_mode=None)
+            return
+
+        await message.answer(
+            text="<b>🧪 Раздел: Тестовые данные</b>\n\nВыберите действие:",
+            parse_mode='HTML',
+            reply_markup=create_admin_testdata_keyboard(),
+        )
+    except Exception as e:
+        logger.log('error', f'command_testdata error: {e}\n{traceback.format_exc()}')
+        await message.answer('❌ Ошибка открытия раздела тестовых данных', parse_mode=None)
+
+
+async def command_servers(message: Message) -> None:
+    try:
+        if not _is_admin(message.from_user.id):
+            await message.answer("❌ У вас нет доступа к этой команде", parse_mode=None)
+            return
+
+        await message.answer(
+            text="<b>🖥️ Раздел: Сервера</b>\n\nВыберите действие:",
+            parse_mode='HTML',
+            reply_markup=create_admin_servers_keyboard(),
+        )
+    except Exception as e:
+        logger.log('error', f'command_servers error: {e}\n{traceback.format_exc()}')
+        await message.answer('❌ Ошибка открытия раздела серверов', parse_mode=None)
+
+
+async def _show_test_data(message: Message) -> None:
+    from datetime import datetime
+    from core.sql.function_db_user_vpn.users_vpn import get_all_records_from_table_users, get_user_keys
+
+    all_users = await get_all_records_from_table_users()
+    test_users = [user for user in all_users if user.account_name and user.account_name.startswith('test_')]
+
+    if not test_users:
+        await message.answer('✅ Тестовые данные не найдены', parse_mode=None)
+        return
+
+    lines = [f"<b>🧪 Тестовые данные ({len(test_users)})</b>\n"]
+    current_time = datetime.now()
+
+    for index, user in enumerate(test_users[:30], 1):
+        user_keys = await get_user_keys(account=user.account)
+        active_keys = sum(1 for key in user_keys if key.date and key.date > current_time)
+        lines.append(
+            f"<b>{index}.</b> <code>{user.account}</code> | {user.account_name}\n"
+            f"   Ключей: {len(user_keys)} | Активных: {active_keys}"
+        )
+
+    if len(test_users) > 30:
+        lines.append(f"\n... и ещё {len(test_users) - 30}")
+
+    await message.answer("\n".join(lines), parse_mode='HTML')
 
 
 async def callback_admin_main_menu(callback: CallbackQuery) -> None:
@@ -92,6 +204,16 @@ async def callback_admin_open_stats(callback: CallbackQuery) -> None:
     await command_stats(callback.message)
 
 
+async def callback_admin_open_referrals(callback: CallbackQuery) -> None:
+    if not _is_admin(callback.from_user.id):
+        await callback.answer("❌ У вас нет доступа", show_alert=True)
+        return
+
+    await callback.answer()
+    from core.handlers.referral_handler import command_referrals_admin
+    await command_referrals_admin(callback.message)
+
+
 async def callback_admin_open_logs(callback: CallbackQuery) -> None:
     if not _is_admin(callback.from_user.id):
         await callback.answer("❌ У вас нет доступа", show_alert=True)
@@ -116,6 +238,45 @@ async def callback_admin_open_keys(callback: CallbackQuery) -> None:
         ),
         parse_mode='HTML',
         reply_markup=create_admin_keys_keyboard(),
+    )
+
+
+async def callback_admin_open_support(callback: CallbackQuery) -> None:
+    if not _is_admin(callback.from_user.id):
+        await callback.answer("❌ У вас нет доступа", show_alert=True)
+        return
+
+    await callback.answer()
+    await callback.message.edit_text(
+        text="<b>🆘 Раздел: Поддержка</b>\n\nВыберите действие:",
+        parse_mode='HTML',
+        reply_markup=create_admin_support_keyboard(),
+    )
+
+
+async def callback_admin_open_testdata(callback: CallbackQuery) -> None:
+    if not _is_admin(callback.from_user.id):
+        await callback.answer("❌ У вас нет доступа", show_alert=True)
+        return
+
+    await callback.answer()
+    await callback.message.edit_text(
+        text="<b>🧪 Раздел: Тестовые данные</b>\n\nВыберите действие:",
+        parse_mode='HTML',
+        reply_markup=create_admin_testdata_keyboard(),
+    )
+
+
+async def callback_admin_open_servers(callback: CallbackQuery) -> None:
+    if not _is_admin(callback.from_user.id):
+        await callback.answer("❌ У вас нет доступа", show_alert=True)
+        return
+
+    await callback.answer()
+    await callback.message.edit_text(
+        text="<b>🖥️ Раздел: Сервера</b>\n\nВыберите действие:",
+        parse_mode='HTML',
+        reply_markup=create_admin_servers_keyboard(),
     )
 
 
@@ -157,4 +318,70 @@ async def callback_admin_keys_action(callback: CallbackQuery, state: FSMContext)
     if data == "admin_keys_migrate":
         from core.handlers.migrate_server import command_migrate_server
         await command_migrate_server(callback.message, state)
+        return
+
+
+async def callback_admin_support_action(callback: CallbackQuery) -> None:
+    if not _is_admin(callback.from_user.id):
+        await callback.answer("❌ У вас нет доступа", show_alert=True)
+        return
+
+    data = callback.data or ""
+    await callback.answer()
+
+    if data == "admin_support_queue":
+        from core.handlers.support_handler import admin_support_queue
+        await admin_support_queue(callback.message)
+        return
+
+    if data == "admin_support_stats":
+        from core.handlers.support_handler import admin_support_stats
+        await admin_support_stats(callback.message)
+        return
+
+
+async def callback_admin_testdata_action(callback: CallbackQuery) -> None:
+    if not _is_admin(callback.from_user.id):
+        await callback.answer("❌ У вас нет доступа", show_alert=True)
+        return
+
+    data = callback.data or ""
+    await callback.answer()
+
+    if data == "admin_testdata_seed":
+        from core.handlers.seed_test_data import command_seed
+        await command_seed(callback.message)
+        return
+
+    if data == "admin_testdata_show":
+        await _show_test_data(callback.message)
+        return
+
+    if data == "admin_testdata_unseed":
+        from core.handlers.unseed_test_data import command_unseed
+        await command_unseed(callback.message)
+        return
+
+
+async def callback_admin_servers_action(callback: CallbackQuery, state: FSMContext) -> None:
+    if not _is_admin(callback.from_user.id):
+        await callback.answer("❌ У вас нет доступа", show_alert=True)
+        return
+
+    data = callback.data or ""
+    await callback.answer()
+
+    if data == "admin_servers_stats":
+        from core.handlers.server_stats import command_server_stats
+        await command_server_stats(callback.message)
+        return
+
+    if data == "admin_servers_add":
+        from core.handlers.add_server import command_addserver
+        await command_addserver(callback.message, state)
+        return
+
+    if data == "admin_servers_delete":
+        from core.handlers.delete_server import deleteserver_handler
+        await deleteserver_handler(callback.message)
         return

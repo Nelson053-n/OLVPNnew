@@ -65,6 +65,8 @@ from core.handlers.logs_handler import (
     cmd_logs,
     callback_logs_clean,
     callback_logs_refresh,
+    callback_logs_download,
+    callback_logs_db,
     callback_logs_back,
 )
 from core.handlers.add_server import (
@@ -95,12 +97,21 @@ from core.handlers.test_key_broadcast import (
 from core.handlers.replace_key import replace_key_handler
 from core.handlers.admin_keys import (
     command_keys,
+    command_testdata,
+    command_servers,
     callback_admin_main_menu,
     callback_admin_open_start,
     callback_admin_open_stats,
+    callback_admin_open_referrals,
     callback_admin_open_logs,
     callback_admin_open_keys,
+    callback_admin_open_support,
+    callback_admin_open_testdata,
+    callback_admin_open_servers,
     callback_admin_keys_action,
+    callback_admin_support_action,
+    callback_admin_testdata_action,
+    callback_admin_servers_action,
 )
 from core.settings import api_key_tlg, admin_tlg
 from core.api_s.outline.outline_api import OutlineManager
@@ -124,8 +135,12 @@ async def setup_bot_commands(bot: Bot):
     admin_commands = [
         BotCommand(command="start", description="🏠 Главное меню"),
         BotCommand(command="stats", description="📊 Статистика бота"),
+        BotCommand(command="referrals", description="👥 Статистика рефералов"),
         BotCommand(command="logs", description="📁 Управление логами"),
+        BotCommand(command="support", description="🆘 Поддержка"),
         BotCommand(command="keys", description="🔑 Ключи"),
+        BotCommand(command="testdata", description="🧪 Тестовые данные"),
+        BotCommand(command="servers", description="🖥️ Сервера"),
     ]
     
     # Устанавливаем команды для всех пользователей
@@ -153,6 +168,8 @@ async def start_bot():
     dp.message.register(command_stats, Command('stats'))
     dp.message.register(command_docs, Command('docs'))
     dp.message.register(command_keys, Command('keys'))
+    dp.message.register(command_testdata, Command('testdata'))
+    dp.message.register(command_servers, Command('servers'))
     dp.message.register(lambda m: pin_disclaimer_handler(m, bot), Command('pindisclaimer'))
     dp.message.register(command_migrate, Command('migrate'))
     dp.message.register(command_check_migration_status, Command('checkstatus'))
@@ -262,6 +279,14 @@ async def start_bot():
         lambda c: c.data == 'logs_refresh'
     )
     dp.callback_query.register(
+        callback_logs_download,
+        lambda c: c.data == 'logs_download'
+    )
+    dp.callback_query.register(
+        callback_logs_db,
+        lambda c: c.data == 'logs_db'
+    )
+    dp.callback_query.register(
         callback_logs_back,
         lambda c: c.data == 'logs_back'
     )
@@ -280,6 +305,10 @@ async def start_bot():
         lambda c: c.data == 'admin_open_stats'
     )
     dp.callback_query.register(
+        callback_admin_open_referrals,
+        lambda c: c.data == 'admin_open_referrals'
+    )
+    dp.callback_query.register(
         callback_admin_open_logs,
         lambda c: c.data == 'admin_open_logs'
     )
@@ -288,8 +317,32 @@ async def start_bot():
         lambda c: c.data == 'admin_open_keys'
     )
     dp.callback_query.register(
+        callback_admin_open_support,
+        lambda c: c.data == 'admin_open_support'
+    )
+    dp.callback_query.register(
+        callback_admin_open_testdata,
+        lambda c: c.data == 'admin_open_testdata'
+    )
+    dp.callback_query.register(
+        callback_admin_open_servers,
+        lambda c: c.data == 'admin_open_servers'
+    )
+    dp.callback_query.register(
         callback_admin_keys_action,
         lambda c: c.data and c.data.startswith('admin_keys_')
+    )
+    dp.callback_query.register(
+        callback_admin_support_action,
+        lambda c: c.data and c.data.startswith('admin_support_')
+    )
+    dp.callback_query.register(
+        callback_admin_testdata_action,
+        lambda c: c.data and c.data.startswith('admin_testdata_')
+    )
+    dp.callback_query.register(
+        callback_admin_servers_action,
+        lambda c: c.data and c.data.startswith('admin_servers_')
     )
     
     # 5. Обработчик блокировки с причиной (БЕЗ фильтра, регистрируется ПОСЛЕДНИМ)
