@@ -71,6 +71,7 @@ from core.handlers.logs_handler import (
     callback_logs_download_db,
     callback_logs_download_logs,
     callback_logs_find_payment,
+    callback_pay_detail,
 )
 from core.handlers.test_data_handler import (
     cmd_testdata,
@@ -304,6 +305,10 @@ async def start_bot():
     dp.callback_query.register(
         callback_logs_find_payment,
         lambda c: c.data == 'logs_find_payment'
+    )
+    dp.callback_query.register(
+        callback_pay_detail,
+        lambda c: c.data.startswith('pay_detail_')
     )
 
     # 4e. Callback'и для тестовых данных

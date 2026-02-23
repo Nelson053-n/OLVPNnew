@@ -6,25 +6,56 @@ from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, C
 from aiogram.filters import Command
 import asyncio
 import traceback
+import aiohttp
+import time
 from datetime import datetime
 
 from core.settings import admin_tlg
 from core.api_s.outline.outline_api import OutlineManager, get_name_all_active_server_ol, get_server_display_name
 from core.sql.function_db_user_vpn.users_vpn import get_all_user_keys
 from core.utils.cache import server_stats_cache, server_ping_cache
-from core.utils.server_ping import ping_server
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
 
 
+async def ping_outline_server(api_url: str, timeout: int = 5) -> dict:
+    """
+    Проверка доступности сервера Outline.
+    Пытается подключиться к API и проверить статус.
+    """
+    result = {
+        'latency_ms': None,
+        'is_online': False,
+        'error': None
+    }
+
+    try:
+        start = time.time()
+        async with aiohttp.ClientSession() as session:
+            # Пробуем сделать запрос к API Outline
+            async with session.get(
+                api_url,
+                timeout=aiohttp.ClientTimeout(total=timeout),
+                ssl=False
+            ) as resp:
+                latency = (time.time() - start) * 1000
+                # 200 = OK, 401/403 = сервер работает (нужна авторизация)
+                result['is_online'] = resp.status in [200, 401, 403]
+                result['latency_ms'] = round(latency, 2)
+    except asyncio.TimeoutError:
+        result['error'] = 'Timeout'
+    except Exception as e:
+        result['error'] = str(e)
+
+    return result
+
+
 async def fetch_server_data(server: str, all_keys: list) -> dict:
     """
     Получить данные по серверу (асинхронно).
-    Вызывается через asyncio.gather для параллельного выполнения.
     """
     try:
-        # Запускаем блокирующие вызовы в executor
         loop = asyncio.get_event_loop()
 
         # Получаем данные с сервера Outline
@@ -40,7 +71,7 @@ async def fetch_server_data(server: str, all_keys: list) -> dict:
         # Пинг (кешируется)
         ping_result = await server_ping_cache.get(
             f"ping_{server}",
-            lambda: ping_server(olm_data.get('api_url', '')),
+            lambda: ping_outline_server(olm_data.get('api_url', '')),
             ttl=60
         )
 
@@ -78,10 +109,13 @@ def _get_ol_data(server: str) -> dict:
         server_keys = olm._client.get_keys()
 
         total_keys = len(server_keys) if server_keys else 0
-        total_traffic_bytes = sum(
-            getattr(sk, 'used_bytes', 0) or 0
-            for sk in (server_keys or [])
-        )
+
+        # Считаем трафик
+        total_traffic_bytes = 0
+        if server_keys:
+            for sk in server_keys:
+                used = getattr(sk, 'used_bytes', 0) or 0
+                total_traffic_bytes += used
 
         return {
             'total_keys': total_keys,

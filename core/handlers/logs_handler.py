@@ -351,15 +351,118 @@ async def callback_logs_download_logs(callback: CallbackQuery):
 
 @router.callback_query(F.data == "logs_find_payment")
 async def callback_logs_find_payment(callback: CallbackQuery):
-    """Поиск платежей - запрос ID пользователя"""
+    """Поиск платежей - показать все платежи"""
     if callback.from_user.id != ADMIN_ID:
         await callback.answer("❌ У вас нет доступа", show_alert=True)
         return
 
-    await callback.answer()
-    await callback.message.answer(
-        "🔍 <b>Поиск платежей</b>\n\n"
-        "Отправьте ID пользователя для поиска его платежей:\n\n"
-        "<i>Пример: 123456789</i>",
-        parse_mode=ParseMode.HTML
-    )
+    await callback.answer("⏳ Загрузка платежей...")
+
+    try:
+        from core.sql.function_db_user_payments.users_payments import get_all_user_payments
+        from core.sql.function_db_user_vpn.users_vpn import get_user_data_from_table_users
+
+        # Получаем все платежи
+        all_payments = await get_all_user_payments()
+
+        if not all_payments:
+            await callback.message.answer("💳 Платежи не найдены")
+            return
+
+        # Сортируем по дате (новые сверху)
+        sorted_payments = sorted(
+            all_payments,
+            key=lambda x: x.time_added or datetime.min,
+            reverse=True
+        )
+
+        # Показываем первые 20
+        text = "💳 <b>Все платежи</b>\n\n"
+        text += f"Всего: {len(sorted_payments)}\n\n"
+
+        keyboard_buttons = []
+
+        for pay in sorted_payments[:20]:
+            date_str = pay.time_added.strftime("%d.%m.%Y %H:%M") if pay.time_added else "N/A"
+            btn_text = f"💰 {pay.account_id} | {date_str}"
+            keyboard_buttons.append([
+                InlineKeyboardButton(
+                    text=btn_text,
+                    callback_data=f"pay_detail_{pay.account_id}"
+                )
+            ])
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+
+        await callback.message.answer(text, reply_markup=keyboard)
+
+    except Exception as e:
+        await callback.answer(f"❌ Ошибка: {e}", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("pay_detail_"))
+async def callback_pay_detail(callback: CallbackQuery):
+    """Детали платежа по аккаунту"""
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("❌ У вас нет доступа", show_alert=True)
+        return
+
+    account_id = int(callback.data.split("_")[-1])
+    await callback.answer("⏳ Загрузка информации...")
+
+    try:
+        from core.sql.function_db_user_payments.users_payments import get_all_user_payments
+        from core.sql.function_db_user_vpn.users_vpn import get_user_data_from_table_users, get_user_keys
+
+        # Получаем данные пользователя
+        user = await get_user_data_from_table_users(account=account_id)
+        user_keys = await get_user_keys(account=account_id)
+        all_payments = await get_all_user_payments()
+        user_payments = [p for p in all_payments if p.account_id == account_id]
+
+        # Формируем информацию
+        text = f"💳 <b>Платежи пользователя</b>\n\n"
+        text += f"👤 <b>Аккаунт:</b> {account_id}\n"
+        if user:
+            text += f"📛 <b>Имя:</b> {user.account_name}\n"
+
+        total_paid = len(user_payments)
+        text += f"💰 <b>Всего платежей:</b> {total_paid}\n\n"
+
+        if user_payments:
+            text += "<b>История платежей:</b>\n"
+            for pay in sorted(user_payments, key=lambda x: x.time_added or datetime.min, reverse=True):
+                date_str = pay.time_added.strftime("%d.%m.%Y %H:%M") if pay.time_added else "N/A"
+                text += f"  • {date_str}\n"
+
+        text += "\n🔑 <b>Ключи:</b>\n"
+        if user_keys:
+            for key in user_keys:
+                status = "✅" if key.premium else "❌"
+                region = key.region_server or "N/A"
+                date_str = key.date.strftime("%d.%m.%Y") if key.date else "N/A"
+                text += f"  {status} {region} | до {date_str}\n"
+
+                # Добавляем кнопку для получения ключа
+                if key.access_url:
+                    # Сокращаем URL для кнопки
+                    key_short = key.access_url[:50] + "..." if len(key.access_url) > 50 else key.access_url
+        else:
+            text += "  Нет активных ключей\n"
+
+        # Кнопка с ключом
+        keyboard = None
+        if user_keys and user_keys[0].access_url:
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="🔑 Получить ключ",
+                        url=user_keys[0].access_url
+                    )
+                ]
+            ])
+
+        await callback.message.answer(text, reply_markup=keyboard)
+
+    except Exception as e:
+        await callback.answer(f"❌ Ошибка: {e}", show_alert=True)
