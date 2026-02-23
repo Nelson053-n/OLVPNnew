@@ -1,12 +1,12 @@
 """
-Хендлер для управления логами бота.
-Просмотр информации о логах, очистка, сжатие.
+Хендлер для управления логами и тестовыми данными.
+Просмотр информации о логах, очистка, сжатие, управление тестовыми данными.
 """
 import os
 import shutil
 from aiogram import F, Router
 from aiogram.filters import Command
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 from aiogram.enums import ParseMode
 
 from logs.log_main import RotatingFileLogger
@@ -96,6 +96,28 @@ def create_logs_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(
                 text="🗑️ Очистить старше 30 дней",
                 callback_data="logs_clean_30"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="💾 Скачать БД",
+                callback_data="logs_download_db"
+            ),
+            InlineKeyboardButton(
+                text="📄 Скачать логи",
+                callback_data="logs_download_logs"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="💳 Поиск платежей",
+                callback_data="logs_find_payment"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="🧪 Тестовые данные",
+                callback_data="logs_test_data"
             )
         ],
         [
@@ -248,3 +270,172 @@ async def callback_logs_back(callback: CallbackQuery):
     await callback.answer()
     # Здесь можно добавить импорт и вызов главного меню
     await callback.message.answer("🔙 Возврат в главное меню...")
+
+
+@router.callback_query(F.data == "logs_download_db")
+async def callback_logs_download_db(callback: CallbackQuery):
+    """Скачать базу данных"""
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("❌ У вас нет доступа", show_alert=True)
+        return
+
+    await callback.answer("⏳ Подготовка файла БД...")
+
+    try:
+        db_path = 'data/vpn_bot.db'
+        if os.path.exists(db_path):
+            await callback.answer()
+            await callback.message.answer_document(
+                document=FSInputFile(db_path),
+                caption="📦 База данных бота"
+            )
+        else:
+            await callback.message.answer("❌ Файл базы данных не найден")
+    except Exception as e:
+        await callback.answer(f"❌ Ошибка: {e}", show_alert=True)
+
+
+@router.callback_query(F.data == "logs_download_logs")
+async def callback_logs_download_logs(callback: CallbackQuery):
+    """Скачать логи"""
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("❌ У вас нет доступа", show_alert=True)
+        return
+
+    await callback.answer("⏳ Подготовка логов...")
+
+    try:
+        # Собираем все логи в один архив
+        import zipfile
+        from datetime import datetime
+
+        zip_path = f'logs_{datetime.now().strftime("%Y%m%d_%H%M%S")}.zip'
+
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for log_dir in ['logs/base', 'logs/payments']:
+                if os.path.exists(log_dir):
+                    for file in os.listdir(log_dir):
+                        if file.endswith('.log') or file.endswith('.log.gz'):
+                            zipf.write(os.path.join(log_dir, file), f'{log_dir}/{file}')
+
+        await callback.answer()
+        await callback.message.answer_document(
+            document=FSInputFile(zip_path),
+            caption="📄 Логи бота"
+        )
+
+        # Удаляем временный файл
+        os.remove(zip_path)
+
+    except Exception as e:
+        await callback.answer(f"❌ Ошибка: {e}", show_alert=True)
+
+
+@router.callback_query(F.data == "logs_find_payment")
+async def callback_logs_find_payment(callback: CallbackQuery):
+    """Поиск платежей - запрос ID пользователя"""
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("❌ У вас нет доступа", show_alert=True)
+        return
+
+    await callback.answer()
+    await callback.message.answer(
+        "🔍 <b>Поиск платежей</b>\n\n"
+        "Отправьте ID пользователя для поиска его платежей:\n\n"
+        "<i>Пример: 123456789</i>",
+        parse_mode=ParseMode.HTML
+    )
+
+
+@router.callback_query(F.data == "logs_test_data")
+async def callback_logs_test_data(callback: CallbackQuery):
+    """Меню тестовых данных"""
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("❌ У вас нет доступа", show_alert=True)
+        return
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text="🧪 Создать тестовые данные",
+                callback_data="test_data_create"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="🗑️ Удалить тестовые данные",
+                callback_data="test_data_delete"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="📊 Список тестовых данных",
+                callback_data="test_data_list"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="🔙 Назад",
+                callback_data="logs_back"
+            )
+        ]
+    ])
+
+    await callback.answer()
+    await callback.message.answer(
+        "🧪 <b>Управление тестовыми данными</b>\n\n"
+        "Выберите действие:\n\n"
+        "<i>Тестовые данные используются для проверки функционала бота</i>",
+        parse_mode=ParseMode.HTML,
+        reply_markup=keyboard
+    )
+
+
+@router.callback_query(F.data.startswith("test_data_"))
+async def callback_test_data(callback: CallbackQuery):
+    """Обработка кнопок тестовых данных"""
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("❌ У вас нет доступа", show_alert=True)
+        return
+
+    action = callback.data.split("_")[2]
+
+    if action == "create":
+        await callback.answer("⏳ Создание тестовых данных...")
+        try:
+            from core.handlers.seed_test_data import command_seed
+            await command_seed(callback.message)
+            await callback.answer("✅ Тестовые данные созданы")
+        except Exception as e:
+            await callback.answer(f"❌ Ошибка: {e}", show_alert=True)
+
+    elif action == "delete":
+        await callback.answer("⏳ Удаление тестовых данных...")
+        try:
+            from core.handlers.unseed_test_data import command_unseed
+            await command_unseed(callback.message)
+            await callback.answer("✅ Тестовые данные удалены")
+        except Exception as e:
+            await callback.answer(f"❌ Ошибка: {e}", show_alert=True)
+
+    elif action == "list":
+        await callback.answer()
+        try:
+            from core.sql.function_db_user_vpn.users_vpn import get_all_user_keys
+            keys = await get_all_user_keys()
+            test_keys = [k for k in keys if 'test' in str(k.account).lower() or k.promo]
+
+            if not test_keys:
+                await callback.message.answer("📊 Тестовые данные не найдены")
+                return
+
+            text = f"📊 <b>Тестовые данные</b>\n\nНайдено записей: {len(test_keys)}\n\n"
+            for key in test_keys[:20]:  # Показываем первые 20
+                text += f"• User: {key.account}, Server: {key.region_server}, Promo: {key.promo}\n"
+
+            if len(test_keys) > 20:
+                text += f"\n<i>... и ещё {len(test_keys) - 20}</i>"
+
+            await callback.message.answer(text, parse_mode=ParseMode.HTML)
+        except Exception as e:
+            await callback.answer(f"❌ Ошибка: {e}", show_alert=True)

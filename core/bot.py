@@ -6,10 +6,8 @@ import asyncio
 
 from core.handlers.find_user_payments import command_findpay
 from core.handlers.get_db import command_get_db
-from core.handlers.get_log_payments import command_get_log_pay
 from core.handlers.message_to_admin import send_admin_message
 from core.handlers.give_promo import command_promo
-from core.handlers.key_info import command_keyinfo
 from core.handlers.active_keys import command_active_keys
 from core.handlers.admin_block_reason import command_block_reason
 from core.handlers.mass_block import command_mass_block
@@ -66,6 +64,11 @@ from core.handlers.logs_handler import (
     callback_logs_clean,
     callback_logs_refresh,
     callback_logs_back,
+    callback_logs_download_db,
+    callback_logs_download_logs,
+    callback_logs_find_payment,
+    callback_logs_test_data,
+    callback_test_data,
 )
 from core.handlers.add_server import (
     command_addserver, 
@@ -120,7 +123,6 @@ async def setup_bot_commands(bot: Bot):
         BotCommand(command="promo", description="🎁 Выдать промо-ключ"),
         BotCommand(command="testkey", description="🎉 Рассылка тестовых ключей"),
         BotCommand(command="activekeys", description="📋 Активные ключи"),
-        BotCommand(command="keyinfo", description="ℹ️ Информация о ключе"),
         BotCommand(command="massblock", description="🔒 Блокировка просроченных"),
         BotCommand(command="serverstats", description="📊 Статистика серверов"),
         BotCommand(command="migrateserver", description="🔄 Перенос между серверами"),
@@ -130,14 +132,12 @@ async def setup_bot_commands(bot: Bot):
         BotCommand(command="renewalstats", description="📋 Статистика продлений"),
         BotCommand(command="connectstats", description="🔌 Статистика подключений"),
         BotCommand(command="referrals", description="👥 Статистика рефералов"),
-        BotCommand(command="findpay", description="💳 Поиск платежей"),
         BotCommand(command="editprice", description="💰 Редактировать цены"),
         BotCommand(command="addserver", description="➕ Добавить сервер"),
         BotCommand(command="deleteserver", description="🗑️ Удалить сервер"),
         BotCommand(command="seed", description="🧪 Создать тестовые данные"),
         BotCommand(command="unseed", description="🗑️ Удалить тестовые данные"),
         BotCommand(command="get_db", description="💾 Скачать БД"),
-        BotCommand(command="get_log_pay", description="📄 Скачать логи"),
     ]
     
     # Устанавливаем команды для всех пользователей
@@ -170,11 +170,8 @@ async def start_bot():
     dp.message.register(command_fix_migration_dates, Command('fixmigration'))
     dp.message.register(command_debug_keys, Command('debugkeys'))
     dp.message.register(command_show_old_keys, Command('showoldkeys'))
-    dp.message.register(command_findpay, Command('findpay'))
-    dp.message.register(command_get_log_pay, Command('get_log_pay'))
     dp.message.register(command_get_db, Command('get_db'))
     dp.message.register(command_promo, Command('promo'))
-    dp.message.register(command_keyinfo, Command('keyinfo'))
     dp.message.register(command_active_keys, Command('activekeys'))
     dp.message.register(command_mass_block, Command('massblock'))
     dp.message.register(command_server_stats, Command('serverstats'))
@@ -275,6 +272,26 @@ async def start_bot():
     dp.callback_query.register(
         callback_logs_back,
         lambda c: c.data == 'logs_back'
+    )
+    dp.callback_query.register(
+        callback_logs_download_db,
+        lambda c: c.data == 'logs_download_db'
+    )
+    dp.callback_query.register(
+        callback_logs_download_logs,
+        lambda c: c.data == 'logs_download_logs'
+    )
+    dp.callback_query.register(
+        callback_logs_find_payment,
+        lambda c: c.data == 'logs_find_payment'
+    )
+    dp.callback_query.register(
+        callback_logs_test_data,
+        lambda c: c.data == 'logs_test_data'
+    )
+    dp.callback_query.register(
+        callback_test_data,
+        lambda c: c.data.startswith('test_data_')
     )
     
     # 5. Обработчик блокировки с причиной (БЕЗ фильтра, регистрируется ПОСЛЕДНИМ)
