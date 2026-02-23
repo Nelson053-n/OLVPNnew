@@ -93,6 +93,15 @@ from core.handlers.test_key_broadcast import (
     TestKeyStates
 )
 from core.handlers.replace_key import replace_key_handler
+from core.handlers.admin_keys import (
+    command_keys,
+    callback_admin_main_menu,
+    callback_admin_open_start,
+    callback_admin_open_stats,
+    callback_admin_open_logs,
+    callback_admin_open_keys,
+    callback_admin_keys_action,
+)
 from core.settings import api_key_tlg, admin_tlg
 from core.api_s.outline.outline_api import OutlineManager
 from core.handlers.handler_keyboard import build_and_edit_message
@@ -116,28 +125,7 @@ async def setup_bot_commands(bot: Bot):
         BotCommand(command="start", description="🏠 Главное меню"),
         BotCommand(command="stats", description="📊 Статистика бота"),
         BotCommand(command="logs", description="📁 Управление логами"),
-        BotCommand(command="pindisclaimer", description="📌 Закрепить дисклеймер"),
-        BotCommand(command="promo", description="🎁 Выдать промо-ключ"),
-        BotCommand(command="testkey", description="🎉 Рассылка тестовых ключей"),
-        BotCommand(command="activekeys", description="📋 Активные ключи"),
-        BotCommand(command="keyinfo", description="ℹ️ Информация о ключе"),
-        BotCommand(command="massblock", description="🔒 Блокировка просроченных"),
-        BotCommand(command="serverstats", description="📊 Статистика серверов"),
-        BotCommand(command="migrateserver", description="🔄 Перенос между серверами"),
-        BotCommand(command="vpnstatus", description="🌐 Статус VPN серверов"),
-        BotCommand(command="supportqueue", description="📞 Очередь поддержки"),
-        BotCommand(command="supportstats", description="📊 Статистика поддержки"),
-        BotCommand(command="renewalstats", description="📋 Статистика продлений"),
-        BotCommand(command="connectstats", description="🔌 Статистика подключений"),
-        BotCommand(command="referrals", description="👥 Статистика рефералов"),
-        BotCommand(command="findpay", description="💳 Поиск платежей"),
-        BotCommand(command="editprice", description="💰 Редактировать цены"),
-        BotCommand(command="addserver", description="➕ Добавить сервер"),
-        BotCommand(command="deleteserver", description="🗑️ Удалить сервер"),
-        BotCommand(command="seed", description="🧪 Создать тестовые данные"),
-        BotCommand(command="unseed", description="🗑️ Удалить тестовые данные"),
-        BotCommand(command="get_db", description="💾 Скачать БД"),
-        BotCommand(command="get_log_pay", description="📄 Скачать логи"),
+        BotCommand(command="keys", description="🔑 Ключи"),
     ]
     
     # Устанавливаем команды для всех пользователей
@@ -164,6 +152,7 @@ async def start_bot():
     dp.message.register(command_start, Command('start'))
     dp.message.register(command_stats, Command('stats'))
     dp.message.register(command_docs, Command('docs'))
+    dp.message.register(command_keys, Command('keys'))
     dp.message.register(lambda m: pin_disclaimer_handler(m, bot), Command('pindisclaimer'))
     dp.message.register(command_migrate, Command('migrate'))
     dp.message.register(command_check_migration_status, Command('checkstatus'))
@@ -275,6 +264,32 @@ async def start_bot():
     dp.callback_query.register(
         callback_logs_back,
         lambda c: c.data == 'logs_back'
+    )
+
+    # 4d. Callback'и админ-разделов и раздела ключей
+    dp.callback_query.register(
+        callback_admin_main_menu,
+        lambda c: c.data == 'admin_main_menu'
+    )
+    dp.callback_query.register(
+        callback_admin_open_start,
+        lambda c: c.data == 'admin_open_start'
+    )
+    dp.callback_query.register(
+        callback_admin_open_stats,
+        lambda c: c.data == 'admin_open_stats'
+    )
+    dp.callback_query.register(
+        callback_admin_open_logs,
+        lambda c: c.data == 'admin_open_logs'
+    )
+    dp.callback_query.register(
+        callback_admin_open_keys,
+        lambda c: c.data == 'admin_open_keys'
+    )
+    dp.callback_query.register(
+        callback_admin_keys_action,
+        lambda c: c.data and c.data.startswith('admin_keys_')
     )
     
     # 5. Обработчик блокировки с причиной (БЕЗ фильтра, регистрируется ПОСЛЕДНИМ)

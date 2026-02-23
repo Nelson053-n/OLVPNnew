@@ -10,6 +10,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from aiogram.enums import ParseMode
 
 from logs.log_main import RotatingFileLogger
+from core.handlers.admin_keys import create_admin_main_menu_keyboard
 from core.settings import admin_tlg
 
 router = Router()
@@ -246,5 +247,8 @@ async def callback_logs_back(callback: CallbackQuery):
         return
 
     await callback.answer()
-    # Здесь можно добавить импорт и вызов главного меню
-    await callback.message.answer("🔙 Возврат в главное меню...")
+    await callback.message.edit_text(
+        text="<b>🛠 Админ-разделы</b>\n\nВыберите нужный раздел:",
+        parse_mode=ParseMode.HTML,
+        reply_markup=create_admin_main_menu_keyboard(),
+    )
