@@ -1,31 +1,17 @@
 from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from datetime import datetime, timedelta
+from datetime import datetime
 import traceback
-import uuid
 
-from core.api_s.outline.outline_api import OutlineManager
+from core.services.key_service import key_service
 from core.settings import admin_tlg
 from core.sql.function_db_user_vpn.users_vpn import (
-    set_promo_status,
-    set_key_to_table_users,
-    set_premium_status,
-    set_date_to_table_users,
-    set_region_server,
-    get_promo_status,
-    get_user_data_from_table_users,
-    add_user_key,
-    get_region_server,
     get_all_records_from_table_users,
     get_user_keys,
 )
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
-
-
-def fmt(dt: datetime) -> str:
-    return dt.strftime('%d.%m.%Y - %H:%M')
 
 
 async def command_promo(message: Message) -> None:
@@ -137,86 +123,36 @@ async def command_promo(message: Message) -> None:
 
 async def give_promo_to_user(callback: CallbackQuery, target_user_id: int) -> None:
     """
-    Выдает промо-ключ пользователю на 14 дней.
+    Выдает промо-ключ пользователю.
     Вызывается при нажатии на кнопку промо.
-    
+
     :param callback: CallbackQuery - объект callback запроса
     :param target_user_id: int - ID пользователя, которому выдается промо
     """
     try:
         from core.bot import bot
-        
-        # Check user exists
-        user = await get_user_data_from_table_users(account=target_user_id)
-        if not user:
-            await callback.answer(f'❌ Пользователь {target_user_id} не найден в БД', show_alert=True)
+
+        result = await key_service.create_promo_key(user_id=target_user_id)
+
+        if not result['success']:
+            await callback.answer(f"❌ {result['error']}", show_alert=True)
             return
-
-        # Determine region
-        region = await get_region_server(account=target_user_id) or 'nederland'
-
-        # Загружаем настройки промо из JSON
-        import json
-        from pathlib import Path
-        settings_path = Path(__file__).parent.parent / 'settings_prices.json'
-        with open(settings_path, 'r', encoding='utf-8') as f:
-            prices = json.load(f)
-        promo_days = prices.get('promo', {}).get('days', 7)
-        
-        # Expiry date (промо период из настроек)
-        expiry_date = datetime.now() + timedelta(days=promo_days)
-
-        # Create key on Outline server (without key_id, let server generate it)
-        # Use unique name for identification
-        unique_name = f"{target_user_id}-promo-{uuid.uuid4().hex[:8]}"
-        olm = OutlineManager(region_server=region)
-        try:
-            # Create key without key_id parameter - only with name
-            key_data = olm._client.create_key(name=unique_name)
-        except Exception as e:
-            logger.log('error', f'Promo create_key error for {target_user_id}: {e}')
-            await callback.answer(f'❌ Ошибка создания промо-ключа на сервере: {e}', show_alert=True)
-            return
-
-        if not key_data or not getattr(key_data, 'access_url', None):
-            await callback.answer('❌ Ошибка создания промо-ключа на сервере', show_alert=True)
-            return
-
-        # Получаем сгенерированный сервером outline_id (конвертируем в строку)
-        outline_id = str(key_data.key_id)
-
-        # Update DB - add to UserKey table and update Users for compatibility
-        await add_user_key(
-            account=target_user_id,
-            access_url=key_data.access_url,
-            outline_id=outline_id,
-            region_server=region,
-            date_str=fmt(expiry_date),
-            promo=True,
-        )
-        await set_premium_status(account=target_user_id, value_premium=True)
-        await set_date_to_table_users(account=target_user_id, value_date=fmt(expiry_date))
-        await set_region_server(account=target_user_id, value_region=region)
-        await set_key_to_table_users(account=target_user_id, value_key=key_data.access_url)
-        await set_promo_status(account=target_user_id, value_promo=True)
 
         # Отправляем уведомление пользователю
         try:
             notification_text = (
                 f"🎁 <b>Тестовый доступ к демо-среде:</b>\n\n"
-                f"Вам выдан тестовый доступ к выделенной сетевой среде на 7 дней.\n"
-                f"Регион дата-центра: <b>{region}</b>\n"
-                f"Действует до: <b>{fmt(expiry_date)}</b>\n\n"
+                f"Вам выдан тестовый доступ к выделенной сетевой среде на {result['days']} дней.\n"
+                f"Регион дата-центра: <b>{result['server_display']}</b>\n"
+                f"Действует до: <b>{result['expiry_date']}</b>\n\n"
                 f"Используйте команду /start чтобы получить ключ доступа."
             )
             await bot.send_message(chat_id=target_user_id, text=notification_text)
         except Exception as notify_error:
             logger.log('warning', f'Failed to send promo notification to {target_user_id}: {notify_error}')
 
-        # Уведомляем администратора об успешной выдаче
         await callback.answer(f'✅ Промо-доступ выдан пользователю {target_user_id}', show_alert=True)
-        
-        # Обновляем сообщение с кнопками, убирая выданный промо
+
         if callback.message:
             try:
                 await callback.message.edit_text(
@@ -268,121 +204,70 @@ async def mass_promo_select_server(callback: CallbackQuery) -> None:
 async def mass_promo_execute(callback: CallbackQuery, region_server: str) -> None:
     """
     Массовая выдача промо всем пользователям без платных активных ключей.
-    
+
     :param callback: CallbackQuery - объект callback запроса
     :param region_server: str - выбранный регион сервера
     """
     try:
         from core.bot import bot
-        import json
-        from pathlib import Path
-        
-        # Получаем пользователей без платных активных ключей И без активных промо ключей
+
         all_users = await get_all_records_from_table_users()
         now = datetime.now()
         users_to_promo = []
-        
+
         for user in all_users:
             user_keys = await get_user_keys(account=user.account)
-            
-            has_paid_active_key = False
-            has_promo_active_key = False
-            
-            for key in user_keys:
-                if key.date and key.date > now:
-                    if key.promo:  # Активный промо ключ
-                        has_promo_active_key = True
-                    else:  # Активный платный ключ
-                        has_paid_active_key = True
-            
-            # Включаем в список только если нет активных платных И активных промо ключей
+            has_paid_active_key = any(k.date and k.date > now and not k.promo for k in user_keys)
+            has_promo_active_key = any(k.date and k.date > now and k.promo for k in user_keys)
             if not has_paid_active_key and not has_promo_active_key:
                 users_to_promo.append(user)
-        
+
         if not users_to_promo:
             await callback.answer("✅ Нет пользователей для выдачи промо", show_alert=True)
             return
-        
-        # Загружаем настройки промо
-        settings_path = Path(__file__).parent.parent / 'settings_prices.json'
-        with open(settings_path, 'r', encoding='utf-8') as f:
-            prices = json.load(f)
-        promo_days = prices.get('promo', {}).get('days', 7)
-        
-        # Expiry date для всех ключей
-        expiry_date = datetime.now() + timedelta(days=promo_days)
-        
-        # Инициализируем Outline Manager для выбранного сервера
-        olm = OutlineManager(region_server=region_server)
-        
-        # Статистика выполнения
+
         success_count = 0
         error_count = 0
         errors_list = []
-        
-        # Отправляем статус
+
         status_msg = await callback.message.edit_text(
-            f"⏳ <b>Выдача промо на {promo_days} дней...</b>\n"
+            f"⏳ <b>Выдача промо...</b>\n"
             f"Всего пользователей: {len(users_to_promo)}\n"
             f"Сервер: <b>{region_server}</b>\n\n"
             f"Обработано: 0/{len(users_to_promo)}"
         )
-        
-        # Выдаём промо каждому пользователю
+
         for idx, user in enumerate(users_to_promo, 1):
             try:
-                # Create key on Outline server
-                unique_name = f"{user.account}-promo-{uuid.uuid4().hex[:8]}"
-                
-                key_data = olm._client.create_key(name=unique_name)
-                
-                if not key_data or not getattr(key_data, 'access_url', None):
-                    error_count += 1
-                    errors_list.append(f"User {user.account}: create_key returned None")
-                    continue
-                
-                outline_id = str(key_data.key_id)
-                
-                # Update DB
-                await add_user_key(
-                    account=user.account,
-                    access_url=key_data.access_url,
-                    outline_id=outline_id,
-                    region_server=region_server,
-                    date_str=fmt(expiry_date),
-                    promo=True,
+                result = await key_service.create_promo_key(
+                    user_id=user.account,
+                    server=region_server,
                 )
-                await set_premium_status(account=user.account, value_premium=True)
-                await set_date_to_table_users(account=user.account, value_date=fmt(expiry_date))
-                await set_region_server(account=user.account, value_region=region_server)
-                await set_key_to_table_users(account=user.account, value_key=key_data.access_url)
-                await set_promo_status(account=user.account, value_promo=True)
-                
-                success_count += 1
-                
-                # Отправляем уведомление пользователю
-                try:
-                    notification_text = (
-                        f"🎁 <b>Тестовый доступ:</b>\n\n"
-                        f"Вам выдан тестовый доступ на <b>{promo_days} дней</b>.\n"
-                        f"Регион: <b>{region_server}</b>\n"
-                        f"Действует до: <b>{fmt(expiry_date)}</b>\n\n"
-                        f"Используйте /start чтобы получить ключ доступа."
-                    )
-                    await bot.send_message(chat_id=user.account, text=notification_text)
-                except Exception as notify_error:
-                    logger.log('warning', f'Failed to send mass promo notification to {user.account}: {notify_error}')
-                
+                if result['success']:
+                    success_count += 1
+                    try:
+                        notification_text = (
+                            f"🎁 <b>Тестовый доступ:</b>\n\n"
+                            f"Вам выдан тестовый доступ на <b>{result['days']} дней</b>.\n"
+                            f"Регион: <b>{result['server_display']}</b>\n"
+                            f"Действует до: <b>{result['expiry_date']}</b>\n\n"
+                            f"Используйте /start чтобы получить ключ доступа."
+                        )
+                        await bot.send_message(chat_id=user.account, text=notification_text)
+                    except Exception as notify_error:
+                        logger.log('warning', f'Failed to send mass promo notification to {user.account}: {notify_error}')
+                else:
+                    error_count += 1
+                    errors_list.append(f"User {user.account}: {result['error']}")
             except Exception as e:
                 error_count += 1
                 errors_list.append(f"User {user.account}: {str(e)}")
                 logger.log('error', f'Mass promo error for user {user.account}: {e}')
-            
-            # Обновляем статус каждые 5 пользователей
+
             if idx % 5 == 0 or idx == len(users_to_promo):
                 try:
                     await status_msg.edit_text(
-                        f"⏳ <b>Выдача промо на {promo_days} дней...</b>\n"
+                        f"⏳ <b>Выдача промо...</b>\n"
                         f"Сервер: <b>{region_server}</b>\n\n"
                         f"Обработано: {idx}/{len(users_to_promo)}\n"
                         f"✅ Успешно: {success_count}\n"
@@ -390,27 +275,24 @@ async def mass_promo_execute(callback: CallbackQuery, region_server: str) -> Non
                     )
                 except Exception:
                     pass
-        
-        # Финальный отчёт
+
         report_text = (
             f"<b>✅ Массовая раздача промо завершена</b>\n\n"
-            f"🎁 Количество дней: <b>{promo_days}</b>\n"
             f"🌍 Сервер: <b>{region_server}</b>\n"
             f"✅ Успешно выдано: <b>{success_count}/{len(users_to_promo)}</b>\n"
         )
-        
         if error_count > 0:
             report_text += f"❌ Ошибок: <b>{error_count}</b>\n"
             if errors_list:
                 report_text += f"\n<b>Детали ошибок:</b>\n"
-                for err in errors_list[:10]:  # Показываем первые 10 ошибок
+                for err in errors_list[:10]:
                     report_text += f"• {err}\n"
                 if len(errors_list) > 10:
                     report_text += f"... и ещё {len(errors_list) - 10} ошибок"
-        
+
         await status_msg.edit_text(report_text)
         logger.log('info', f'Mass promo executed: {success_count} success, {error_count} errors on server {region_server}')
-        
+
     except Exception as e:
         tb = traceback.format_exc()
         logger.log('error', f'mass_promo_execute error: {e}\n{tb}')
