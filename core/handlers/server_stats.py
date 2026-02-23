@@ -2,7 +2,7 @@
 Команда для просмотра статистики по серверам Outline.
 С кешированием, асинхронными запросами и пингом.
 """
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.filters import Command
 import asyncio
 import traceback
