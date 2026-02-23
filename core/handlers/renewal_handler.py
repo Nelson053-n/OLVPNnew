@@ -196,11 +196,13 @@ async def admin_renewal_stats(message: Message) -> None:
             await message.answer("❌ У вас нет доступа к этой команде", parse_mode=None)
             return
         
-        from core.sql.base import RenewalReminder, session
+        from core.sql.base import RenewalReminder
+        from core.sql.function_db_user_vpn.renewal_reminders import engine
+        from sqlalchemy.orm import Session
         from sqlalchemy import func
         
         # Статистика по дням (всего)
-        with session() as s:
+        with Session(engine) as s:
             stats_total = s.query(
                 RenewalReminder.days_until_expiry,
                 func.count(RenewalReminder.id).label('count')
@@ -239,7 +241,7 @@ async def admin_renewal_stats(message: Message) -> None:
             text += f"⏳ Ожидает: {total - sent_total}\n"
         
         # Очистка старых напоминаний
-        cleaned = await cleanup_old_reminders(days_before=7)
+        cleaned = await cleanup_old_reminders(days_old=7)
         text += f"\n🗑️ Очищено старых напоминаний: {cleaned}"
         
         await message.answer(text)
