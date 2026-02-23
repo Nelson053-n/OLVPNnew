@@ -67,10 +67,15 @@ async def get_all_accounts_from_db() -> list:
         return [str(account[0]) for account in all_accounts]
 
 
-async def get_all_user_payments() -> list[UserPay]:
+async def get_all_user_payments(account_id: int = None) -> list[UserPay]:
     """
-    Получить все записи о платежах из таблицы UserPay
-    :return: list[UserPay] - список всех платежей
+    Получить записи о платежах из таблицы UserPay.
+
+    :param account_id: int - если указан, возвращает только платежи данного пользователя
+    :return: list[UserPay] - список платежей
     """
     with Session() as session:
-        return session.query(UserPay).all()
+        query = session.query(UserPay)
+        if account_id is not None:
+            query = query.filter(UserPay.account_id == account_id)
+        return query.all()

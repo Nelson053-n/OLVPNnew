@@ -1,12 +1,12 @@
 """
 Сервис для работы с платежами.
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 
 from core.sql.function_db_user_payments.users_payments import (
     add_payment_to_db,
-    get_user_payments,
+    get_all_user_payments,
 )
 from core.sql.function_db_user_vpn.users_vpn import (
     get_user_data_from_table_users,
@@ -63,9 +63,8 @@ class PaymentService:
 
             if payment_id:
                 await add_payment_to_db(
-                    account_id=user_id,
-                    paykey=payment_id,
-                    amount=amount
+                    account=user_id,
+                    paykey=payment_id
                 )
 
             return {
@@ -86,7 +85,7 @@ class PaymentService:
         :return: dict с историей платежей
         """
         try:
-            payments = await get_user_payments(account_id=user_id)
+            payments = await get_all_user_payments(account_id=user_id)
 
             payment_list = []
             for pay in payments:

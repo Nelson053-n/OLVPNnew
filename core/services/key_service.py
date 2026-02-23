@@ -216,6 +216,7 @@ class KeyService:
                 'old_server_display': get_server_display_name(old_server),
                 'new_server': new_server,
                 'new_server_display': get_server_display_name(new_server),
+                'new_access_url': new_access_url,
                 'expiry_date': date_str
             }
 
