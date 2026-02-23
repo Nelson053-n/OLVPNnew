@@ -188,7 +188,7 @@ async def command_server_stats(message: Message):
         # Очищаем кеш при ручном запросе (опционально)
         # await server_stats_cache.clear()
 
-        await message.answer('\n'.join(lines), parse_mode=None, reply_markup=keyboard)
+        await message.answer('\n'.join(lines), parse_mode='HTML', reply_markup=keyboard)
 
     except Exception as e:
         logger.log('error', f'command_server_stats error: {e}\n{traceback.format_exc()}')

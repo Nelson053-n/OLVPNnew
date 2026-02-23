@@ -71,8 +71,13 @@ from core.handlers.logs_handler import (
     callback_logs_download_db,
     callback_logs_download_logs,
     callback_logs_find_payment,
-    callback_logs_test_data,
-    callback_test_data,
+)
+from core.handlers.test_data_handler import (
+    cmd_testdata,
+    callback_test_data_create,
+    callback_test_data_delete,
+    callback_test_data_list,
+    callback_test_data_back,
 )
 from core.handlers.add_server import (
     command_addserver, 
@@ -202,6 +207,7 @@ async def start_bot():
     dp.message.register(admin_renewal_stats, Command('renewalstats_admin'))  # Статистика продлений (админ)
     dp.message.register(admin_trigger_renewal_reminders, Command('trigger_reminders'))  # Ручная отправка напоминаний (админ)
     dp.message.register(cmd_logs, Command('logs'))  # Управление логами (админ)
+    dp.message.register(cmd_testdata, Command('testdata'))  # Тестовые данные (админ)
     
     # 2. Обработчики состояний (FSM) для добавления сервера
     dp.callback_query.register(
@@ -299,13 +305,23 @@ async def start_bot():
         callback_logs_find_payment,
         lambda c: c.data == 'logs_find_payment'
     )
+
+    # 4e. Callback'и для тестовых данных
     dp.callback_query.register(
-        callback_logs_test_data,
-        lambda c: c.data == 'logs_test_data'
+        callback_test_data_create,
+        lambda c: c.data == 'test_data_create'
     )
     dp.callback_query.register(
-        callback_test_data,
-        lambda c: c.data.startswith('test_data_')
+        callback_test_data_delete,
+        lambda c: c.data == 'test_data_delete'
+    )
+    dp.callback_query.register(
+        callback_test_data_list,
+        lambda c: c.data == 'test_data_list'
+    )
+    dp.callback_query.register(
+        callback_test_data_back,
+        lambda c: c.data == 'test_data_back'
     )
     
     # 5. Обработчик блокировки с причиной (БЕЗ фильтра, регистрируется ПОСЛЕДНИМ)

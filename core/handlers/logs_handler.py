@@ -116,12 +116,6 @@ def create_logs_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(
-                text="🧪 Тестовые данные",
-                callback_data="logs_test_data"
-            )
-        ],
-        [
-            InlineKeyboardButton(
                 text="🔄 Обновить информацию",
                 callback_data="logs_refresh"
             )
@@ -282,15 +276,39 @@ async def callback_logs_download_db(callback: CallbackQuery):
     await callback.answer("⏳ Подготовка файла БД...")
 
     try:
-        db_path = 'data/vpn_bot.db'
-        if os.path.exists(db_path):
+        # Проверяем несколько возможных путей
+        db_paths = [
+            'data/vpn_bot.db',
+            'olvpnbot.db',
+            '/root/OLVPNnew/data/vpn_bot.db',
+            '/root/OLVPNnew/olvpnbot.db'
+        ]
+
+        db_path = None
+        for path in db_paths:
+            if os.path.exists(path):
+                db_path = path
+                break
+
+        if db_path:
             await callback.answer()
             await callback.message.answer_document(
                 document=FSInputFile(db_path),
                 caption="📦 База данных бота"
             )
         else:
-            await callback.message.answer("❌ Файл базы данных не найден")
+            # Ищем любой .db файл
+            import glob
+            db_files = glob.glob('**/*.db', recursive=True)
+            if db_files:
+                db_path = db_files[0]
+                await callback.answer()
+                await callback.message.answer_document(
+                    document=FSInputFile(db_path),
+                    caption="📦 База данных бота"
+                )
+            else:
+                await callback.message.answer("❌ Файл базы данных не найден")
     except Exception as e:
         await callback.answer(f"❌ Ошибка: {e}", show_alert=True)
 
@@ -345,97 +363,3 @@ async def callback_logs_find_payment(callback: CallbackQuery):
         "<i>Пример: 123456789</i>",
         parse_mode=ParseMode.HTML
     )
-
-
-@router.callback_query(F.data == "logs_test_data")
-async def callback_logs_test_data(callback: CallbackQuery):
-    """Меню тестовых данных"""
-    if callback.from_user.id != ADMIN_ID:
-        await callback.answer("❌ У вас нет доступа", show_alert=True)
-        return
-
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(
-                text="🧪 Создать тестовые данные",
-                callback_data="test_data_create"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text="🗑️ Удалить тестовые данные",
-                callback_data="test_data_delete"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text="📊 Список тестовых данных",
-                callback_data="test_data_list"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text="🔙 Назад",
-                callback_data="logs_back"
-            )
-        ]
-    ])
-
-    await callback.answer()
-    await callback.message.answer(
-        "🧪 <b>Управление тестовыми данными</b>\n\n"
-        "Выберите действие:\n\n"
-        "<i>Тестовые данные используются для проверки функционала бота</i>",
-        parse_mode=ParseMode.HTML,
-        reply_markup=keyboard
-    )
-
-
-@router.callback_query(F.data.startswith("test_data_"))
-async def callback_test_data(callback: CallbackQuery):
-    """Обработка кнопок тестовых данных"""
-    if callback.from_user.id != ADMIN_ID:
-        await callback.answer("❌ У вас нет доступа", show_alert=True)
-        return
-
-    action = callback.data.split("_")[2]
-
-    if action == "create":
-        await callback.answer("⏳ Создание тестовых данных...")
-        try:
-            from core.handlers.seed_test_data import command_seed
-            await command_seed(callback.message)
-            await callback.answer("✅ Тестовые данные созданы")
-        except Exception as e:
-            await callback.answer(f"❌ Ошибка: {e}", show_alert=True)
-
-    elif action == "delete":
-        await callback.answer("⏳ Удаление тестовых данных...")
-        try:
-            from core.handlers.unseed_test_data import command_unseed
-            await command_unseed(callback.message)
-            await callback.answer("✅ Тестовые данные удалены")
-        except Exception as e:
-            await callback.answer(f"❌ Ошибка: {e}", show_alert=True)
-
-    elif action == "list":
-        await callback.answer()
-        try:
-            from core.sql.function_db_user_vpn.users_vpn import get_all_user_keys
-            keys = await get_all_user_keys()
-            test_keys = [k for k in keys if 'test' in str(k.account).lower() or k.promo]
-
-            if not test_keys:
-                await callback.message.answer("📊 Тестовые данные не найдены")
-                return
-
-            text = f"📊 <b>Тестовые данные</b>\n\nНайдено записей: {len(test_keys)}\n\n"
-            for key in test_keys[:20]:  # Показываем первые 20
-                text += f"• User: {key.account}, Server: {key.region_server}, Promo: {key.promo}\n"
-
-            if len(test_keys) > 20:
-                text += f"\n<i>... и ещё {len(test_keys) - 20}</i>"
-
-            await callback.message.answer(text, parse_mode=ParseMode.HTML)
-        except Exception as e:
-            await callback.answer(f"❌ Ошибка: {e}", show_alert=True)

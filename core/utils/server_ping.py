@@ -11,6 +11,7 @@ from typing import Dict, Optional
 async def ping_server(api_url: str, timeout: int = 5) -> Dict:
     """
     Измерить пинг до сервера Outline.
+    Пытается подключиться к API URL сервера.
 
     :param api_url: URL API сервера (https://ip:port)
     :param timeout: Таймаут запроса в секундах
@@ -28,9 +29,10 @@ async def ping_server(api_url: str, timeout: int = 5) -> Dict:
         start_time = time.time()
 
         async with aiohttp.ClientSession() as session:
-            # Пытаемся сделать запрос к API
+            # Пытаемся сделать запрос к API Outline
+            # Используем /status или просто корень
             async with session.get(
-                f"{api_url}/health",
+                f"{api_url}/status",
                 timeout=aiohttp.ClientTimeout(total=timeout),
                 ssl=False  # Игнорируем SSL ошибки для self-signed сертификатов
             ) as response:
@@ -38,15 +40,21 @@ async def ping_server(api_url: str, timeout: int = 5) -> Dict:
 
                 result['latency_ms'] = round(latency, 2)
                 result['status_code'] = response.status
-                result['is_online'] = response.status == 200
+                result['is_online'] = response.status in [200, 401, 403]  # 401/403 = сервер онлайн, но нужна авторизация
 
     except asyncio.TimeoutError:
         result['error'] = f'Timeout after {timeout}s'
         result['is_online'] = False
 
     except aiohttp.ClientError as e:
-        result['error'] = f'Client error: {str(e)}'
-        result['is_online'] = False
+        # Сервер доступен но SSL ошибка - это нормально для Outline
+        if 'SSL' in str(e) or 'certificate' in str(e).lower():
+            result['is_online'] = True
+            result['latency_ms'] = 0
+            result['error'] = 'SSL (но сервер онлайн)'
+        else:
+            result['error'] = f'Client error: {str(e)}'
+            result['is_online'] = False
 
     except Exception as e:
         result['error'] = f'Error: {str(e)}'
