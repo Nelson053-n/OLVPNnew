@@ -15,7 +15,7 @@ def check_time_subscribe(date: datetime) -> bool:
     :param date: datetime - дата подписки
     :return: True в случае окончания, в противном False
     """
-    if date != None:
+    if date is not None:
         if datetime.now() < date:
             return False
         else:

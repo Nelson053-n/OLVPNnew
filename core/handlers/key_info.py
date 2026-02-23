@@ -144,7 +144,7 @@ async def command_keyinfo(message: Message) -> None:
         logger.log('error', f'command_keyinfo error for user {message.from_user.id}: {e}\n{tb}')
         try:
             await message.answer(f"Ошибка при обработке /keyinfo: {str(e)}", parse_mode=None)
-        except:
+        except Exception:
             pass
 
 

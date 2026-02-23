@@ -63,7 +63,7 @@ async def command_findpay(message: Message) -> None:
                             user_name = user_record.account_name if user_record else "Unknown"
                             response += f"{user_name} (ID: {user_id_int})\n"
                             keyboard.button(text=f"{user_name} ({user_id_int})", callback_data=f"chk_usr_{user_id_int}")
-                        except:
+                        except Exception:
                             pass
                     keyboard.adjust(1)
                     await message.answer(text=response, reply_markup=keyboard.as_markup(), parse_mode=None)
@@ -74,7 +74,7 @@ async def command_findpay(message: Message) -> None:
         logger.log('error', f'command_findpay error: {e}\n{tb}')
         try:
             await message.answer(f"Ошибка при обработке /findpay: {str(e)}", parse_mode=None)
-        except:
+        except Exception:
             pass
 
 

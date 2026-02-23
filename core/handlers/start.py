@@ -146,7 +146,7 @@ async def command_start(message: Message, state: FSMContext) -> None:
         logger.log('error', f'command_start error for user {message.from_user.id}: {e}\n{tb}')
         try:
             await message.answer(f"Ошибка при обработке /start: {str(e)}")
-        except:
+        except Exception:
             pass
 
 
