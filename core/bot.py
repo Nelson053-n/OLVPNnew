@@ -67,6 +67,7 @@ from core.handlers.logs_handler import (
     callback_logs_refresh,
     callback_logs_download,
     callback_logs_db,
+    callback_logs_all_payments,
     callback_logs_back,
 )
 from core.handlers.add_server import (
@@ -285,6 +286,10 @@ async def start_bot():
     dp.callback_query.register(
         callback_logs_db,
         lambda c: c.data == 'logs_db'
+    )
+    dp.callback_query.register(
+        callback_logs_all_payments,
+        lambda c: c.data == 'logs_all_payments'
     )
     dp.callback_query.register(
         callback_logs_back,

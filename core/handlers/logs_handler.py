@@ -15,6 +15,8 @@ from core.handlers.admin_keys import create_admin_main_menu_keyboard
 from core.settings import admin_tlg
 from core.handlers.get_db import command_get_db
 from core.handlers.get_log_payments import command_get_log_pay
+from core.sql.function_db_user_payments.users_payments import get_all_user_payments
+from core.sql.function_db_user_vpn.users_vpn import get_user_data_from_table_users
 
 router = Router()
 
@@ -133,6 +135,12 @@ def create_logs_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(
                 text="💾 Скачать БД",
                 callback_data="logs_db"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="💳 Все платежи",
+                callback_data="logs_all_payments"
             )
         ],
         [
@@ -289,6 +297,65 @@ async def callback_logs_db(callback: CallbackQuery):
 
     await callback.answer()
     await command_get_db(_as_message_from_callback(callback))
+
+
+@router.callback_query(F.data == "logs_all_payments")
+async def callback_logs_all_payments(callback: CallbackQuery):
+    """Вывести все платежи из БД"""
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("❌ У вас нет доступа", show_alert=True)
+        return
+
+    await callback.answer("⏳ Собираю все платежи...")
+
+    try:
+        payments = await get_all_user_payments()
+
+        if not payments:
+            await callback.message.answer("💳 Платежи не найдены", parse_mode=None)
+            return
+
+        lines = [f"<b>💳 Все платежи ({len(payments)})</b>\n"]
+
+        for index, pay in enumerate(payments, 1):
+            account_id = getattr(pay, 'account_id', None)
+            user_name = "Unknown"
+            if account_id is not None:
+                try:
+                    user = await get_user_data_from_table_users(account=int(account_id))
+                    if user and getattr(user, 'account_name', None):
+                        user_name = user.account_name
+                except Exception:
+                    pass
+
+            paykey = getattr(pay, 'paykey', '-') or '-'
+            time_added = getattr(pay, 'time_added', None)
+            time_str = time_added.strftime('%d.%m.%Y %H:%M') if time_added else '-'
+
+            lines.append(
+                f"<b>{index}.</b> <code>{account_id}</code> | <b>{user_name}</b>\n"
+                f"   Время: {time_str}\n"
+                f"   PayKey: <code>{paykey}</code>"
+            )
+
+        # Отправляем частями, чтобы не превысить лимит Telegram
+        chunk = []
+        current_len = 0
+        for line in lines:
+            line_len = len(line) + 1
+            if current_len + line_len > 3800 and chunk:
+                await callback.message.answer("\n".join(chunk), parse_mode='HTML')
+                chunk = [line]
+                current_len = line_len
+            else:
+                chunk.append(line)
+                current_len += line_len
+
+        if chunk:
+            await callback.message.answer("\n".join(chunk), parse_mode='HTML')
+
+    except Exception as e:
+        await callback.message.answer(f"❌ Ошибка при получении платежей: {e}", parse_mode=None)
 
 
 @router.callback_query(F.data == "logs_back")

@@ -86,6 +86,7 @@ def create_admin_servers_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="📊 Статистика серверов", callback_data="admin_servers_stats")],
+            [InlineKeyboardButton(text="🌐 Доступность VPN серверов", callback_data="admin_servers_vpnstatus")],
             [InlineKeyboardButton(text="➕ Добавить сервер", callback_data="admin_servers_add")],
             [InlineKeyboardButton(text="🗑️ Удалить сервер", callback_data="admin_servers_delete")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_main_menu")],
@@ -397,6 +398,11 @@ async def callback_admin_servers_action(callback: CallbackQuery, state: FSMConte
     if data == "admin_servers_stats":
         from core.handlers.server_stats import command_server_stats
         await command_server_stats(msg)
+        return
+
+    if data == "admin_servers_vpnstatus":
+        from core.handlers.vpn_status_handler import command_vpn_status
+        await command_vpn_status(msg)
         return
 
     if data == "admin_servers_add":
