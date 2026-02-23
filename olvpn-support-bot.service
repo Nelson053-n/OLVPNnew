@@ -4,11 +4,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=YOUR_USER
-Group=YOUR_GROUP
-WorkingDirectory=/path/to/OLVPNnew
-Environment="PATH=/path/to/venv/bin"
-ExecStart=/path/to/venv/bin/python /path/to/OLVPNnew/support_bot.py
+User=olvpn
+Group=olvpn
+WorkingDirectory=/opt/olvpn/OneYearVpb
+Environment="PATH=/opt/olvpn/venv/bin"
+ExecStart=/opt/olvpn/venv/bin/python /opt/olvpn/OneYearVpb/support_bot.py
 Restart=always
 RestartSec=10
 

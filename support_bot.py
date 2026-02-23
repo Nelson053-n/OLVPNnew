@@ -782,7 +782,7 @@ async def main():
             shutdown_message = (
                 f"🔴 <b>Бот техподдержки остановлен</b>\n\n"
                 f"⏹️ <b>Статус:</b> Бот прекратил работу\n"
-                f"🕐 <b>Время остановки:</b> {asyncio.get_event_loop().time()}\n\n"
+                f"🕐 <b>Время остановки:</b> {datetime.now().strftime('%H:%M:%S')}\n\n"
                 f"<i>Сообщения от пользователей не будут приниматься</i>"
             )
             await send_notification_to_admin(shutdown_message)
