@@ -200,6 +200,6 @@ async def process_testkey_server_choice(callback: CallbackQuery, state: FSMConte
         logger.log('error', f'process_testkey_server_choice error: {e}\n{tb}')
         try:
             await callback.message.edit_text(f'❌ Ошибка при создании доступов: {str(e)}')
-        except:
+        except Exception:
             pass
         await state.clear()

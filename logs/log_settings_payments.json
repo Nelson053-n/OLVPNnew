@@ -1,7 +1,9 @@
 {
     "log_name": "payments",
     "log_dir": "logs/payments",
+    "log_filename": "payments.log",
     "log_file_format": "%Y-%m-%d.log",
     "max_bytes": 200000000,
-    "backup_count": 7
+    "backup_count": 7,
+    "use_compression": false
 }

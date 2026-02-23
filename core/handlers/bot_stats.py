@@ -93,7 +93,7 @@ async def command_stats(message: Message) -> None:
                     f"🟡 В процессе: {ticket_stats.get('in_progress', 0)}\n"
                     f"✅ Решённых: {ticket_stats.get('resolved', 0)}\n"
                 )
-        except:
+        except Exception:
             pass
         
         # Добавляем процент активности

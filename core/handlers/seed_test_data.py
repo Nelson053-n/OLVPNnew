@@ -94,7 +94,7 @@ async def command_seed(message: Message) -> None:
             # Удаляем созданный активный ключ
             try:
                 olm.delete_key_by_id(outline_id_active)
-            except:
+            except Exception:
                 pass
             return
 
@@ -103,7 +103,7 @@ async def command_seed(message: Message) -> None:
             # Удаляем созданный активный ключ
             try:
                 olm.delete_key_by_id(outline_id_active)
-            except:
+            except Exception:
                 pass
             return
 

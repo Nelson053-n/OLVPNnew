@@ -68,6 +68,11 @@ if __name__ == "__main__":
 
     logger.log('info', 'Запуск приложения')
     logger_payments.log('warning', 'Запуск логгера payments')
+    
+    # Автоочистка старых логов при старте
+    logger.cleanup_old_logs()
+    logger_payments.cleanup_old_logs()
+    
     print('[main] Запуск приложения')
     bot_th = multiprocessing.Process(target=run_bot)
     plan_th = multiprocessing.Process(target=run_checker)
