@@ -11,7 +11,7 @@ def start_keyboard() -> InlineKeyboardMarkup:
     keyboard_builder = InlineKeyboardBuilder()
     keyboard_builder.button(text='🏢 Заказать доступ', callback_data='get_key')
     keyboard_builder.button(text='🔧 Мои подключения', callback_data='my_key')
-    keyboard_builder.button(text='🎁 Реферальная программа', callback_data='referral')
+    keyboard_builder.button(text='🎁 Реф программа', callback_data='referral')
     keyboard_builder.button(text='📄 Документация', callback_data='docs')
     keyboard_builder.adjust(2, 2)  # 2 кнопки в первом ряду, 2 во втором
     return keyboard_builder.as_markup()
