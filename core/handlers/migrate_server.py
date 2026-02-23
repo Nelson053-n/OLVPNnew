@@ -282,7 +282,7 @@ async def handle_migration_confirmation(callback: CallbackQuery, state: FSMConte
                                 f'Ошибок: {error_count}',
                                 parse_mode='HTML'
                             )
-                        except:
+                        except Exception:
                             pass
                     
                 except Exception as e:
@@ -307,6 +307,6 @@ async def handle_migration_confirmation(callback: CallbackQuery, state: FSMConte
         logger.log('error', f'handle_migration_confirmation error: {e}\n{tb}')
         try:
             await callback.message.edit_text(f'❌ Ошибка миграции: {str(e)}')
-        except:
+        except Exception:
             pass
         await state.clear()

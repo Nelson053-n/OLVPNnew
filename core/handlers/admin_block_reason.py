@@ -60,5 +60,5 @@ async def command_block_reason(message: Message, state: FSMContext) -> None:
         logger.log('error', f'command_block_reason error for admin {message.from_user.id}: {e}\n{tb}')
         try:
             await message.answer('Ошибка при обработке причины блокировки.', parse_mode=None)
-        except:
+        except Exception:
             pass

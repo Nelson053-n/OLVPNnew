@@ -131,7 +131,7 @@ async def command_promo(message: Message) -> None:
         logger.log('error', f'command_promo error for user {message.from_user.id}: {e}\n{tb}')
         try:
             await message.answer(f"Ошибка при обработке /promo: {str(e)}", parse_mode=None)
-        except:
+        except Exception:
             pass
 
 
@@ -222,7 +222,7 @@ async def give_promo_to_user(callback: CallbackQuery, target_user_id: int) -> No
                 await callback.message.edit_text(
                     f"{callback.message.text}\n\n<b>✅ Промо выдан пользователю {target_user_id}</b>"
                 )
-            except:
+            except Exception:
                 pass
 
     except Exception as e:
@@ -230,7 +230,7 @@ async def give_promo_to_user(callback: CallbackQuery, target_user_id: int) -> No
         logger.log('error', f'give_promo_to_user error for user {target_user_id}: {e}\n{tb}')
         try:
             await callback.answer(f"Ошибка при выдаче промо: {str(e)}", show_alert=True)
-        except:
+        except Exception:
             pass
 
 
@@ -388,7 +388,7 @@ async def mass_promo_execute(callback: CallbackQuery, region_server: str) -> Non
                         f"✅ Успешно: {success_count}\n"
                         f"❌ Ошибок: {error_count}"
                     )
-                except:
+                except Exception:
                     pass
         
         # Финальный отчёт

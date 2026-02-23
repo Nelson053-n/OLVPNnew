@@ -61,6 +61,12 @@ from core.handlers.migrate_server import (
     handle_migration_confirmation, 
     MigrateServerStates
 )
+from core.handlers.logs_handler import (
+    cmd_logs,
+    callback_logs_clean,
+    callback_logs_refresh,
+    callback_logs_back,
+)
 from core.handlers.add_server import (
     command_addserver, 
     process_country_choice,
@@ -109,6 +115,7 @@ async def setup_bot_commands(bot: Bot):
     admin_commands = [
         BotCommand(command="start", description="🏠 Главное меню"),
         BotCommand(command="stats", description="📊 Статистика бота"),
+        BotCommand(command="logs", description="📁 Управление логами"),
         BotCommand(command="pindisclaimer", description="📌 Закрепить дисклеймер"),
         BotCommand(command="promo", description="🎁 Выдать промо-ключ"),
         BotCommand(command="testkey", description="🎉 Рассылка тестовых ключей"),
@@ -193,6 +200,7 @@ async def start_bot():
     dp.message.register(command_renewal_stats, Command('renewalstats'))  # Мои напоминания о продлении
     dp.message.register(admin_renewal_stats, Command('renewalstats_admin'))  # Статистика продлений (админ)
     dp.message.register(admin_trigger_renewal_reminders, Command('trigger_reminders'))  # Ручная отправка напоминаний (админ)
+    dp.message.register(cmd_logs, Command('logs'))  # Управление логами (админ)
     
     # 2. Обработчики состояний (FSM) для добавления сервера
     dp.callback_query.register(
@@ -253,6 +261,20 @@ async def start_bot():
     dp.callback_query.register(
         handle_migration_confirmation,
         lambda c: c.data in ['confirm_migrate', 'cancel_migrate']
+    )
+
+    # 4c. Callback'и для управления логами
+    dp.callback_query.register(
+        callback_logs_clean,
+        lambda c: c.data.startswith('logs_clean_')
+    )
+    dp.callback_query.register(
+        callback_logs_refresh,
+        lambda c: c.data == 'logs_refresh'
+    )
+    dp.callback_query.register(
+        callback_logs_back,
+        lambda c: c.data == 'logs_back'
     )
     
     # 5. Обработчик блокировки с причиной (БЕЗ фильтра, регистрируется ПОСЛЕДНИМ)
