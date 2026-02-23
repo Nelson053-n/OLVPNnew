@@ -53,6 +53,9 @@ def create_admin_keys_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text="🎁 Выдать промоключ", callback_data="admin_keys_promo")],
             [InlineKeyboardButton(text="🎉 Рассылка тестовых ключей", callback_data="admin_keys_testkey")],
             [InlineKeyboardButton(text="📋 Активные ключи", callback_data="admin_keys_active")],
+            [InlineKeyboardButton(text="🔌 Статистика подключений", callback_data="admin_keys_connectstats")],
+            [InlineKeyboardButton(text="💰 Редактировать цены", callback_data="admin_keys_editprice")],
+            [InlineKeyboardButton(text="📈 Статистика продления", callback_data="admin_keys_renewalstats")],
             [InlineKeyboardButton(text="ℹ️ Информация о ключе", callback_data="admin_keys_keyinfo_help")],
             [InlineKeyboardButton(text="🔒 Блокировка просроченных ключей", callback_data="admin_keys_massblock")],
             [InlineKeyboardButton(text="🔄 Перенос между серверами", callback_data="admin_keys_migrate")],
@@ -323,6 +326,21 @@ async def callback_admin_keys_action(callback: CallbackQuery, state: FSMContext)
     if data == "admin_keys_active":
         from core.handlers.active_keys import command_active_keys
         await command_active_keys(msg)
+        return
+
+    if data == "admin_keys_connectstats":
+        from core.handlers.connection_limiter import admin_connection_stats
+        await admin_connection_stats(msg)
+        return
+
+    if data == "admin_keys_editprice":
+        from core.handlers.edit_price import editprice_handler
+        await editprice_handler(msg)
+        return
+
+    if data == "admin_keys_renewalstats":
+        from core.handlers.renewal_handler import admin_renewal_stats
+        await admin_renewal_stats(msg)
         return
 
     if data == "admin_keys_keyinfo_help":
