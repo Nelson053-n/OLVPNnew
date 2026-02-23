@@ -2,6 +2,7 @@
 Раздел админ-команд для операций с ключами.
 """
 import traceback
+from types import SimpleNamespace
 
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
@@ -14,6 +15,21 @@ logger = RotatingFileLogger()
 
 def _is_admin(user_id: int) -> bool:
     return bool(admin_tlg) and user_id == int(admin_tlg)
+
+
+class _MessageProxy:
+    def __init__(self, message: Message, user_id: int):
+        self._message = message
+        self.from_user = SimpleNamespace(id=user_id)
+        self.chat = message.chat
+        self.text = message.text
+
+    def __getattr__(self, item):
+        return getattr(self._message, item)
+
+
+def _as_admin_message(callback: CallbackQuery) -> _MessageProxy:
+    return _MessageProxy(callback.message, callback.from_user.id)
 
 
 def create_admin_main_menu_keyboard() -> InlineKeyboardMarkup:
@@ -200,8 +216,9 @@ async def callback_admin_open_stats(callback: CallbackQuery) -> None:
         return
 
     await callback.answer()
+    msg = _as_admin_message(callback)
     from core.handlers.bot_statistics import command_stats
-    await command_stats(callback.message)
+    await command_stats(msg)
 
 
 async def callback_admin_open_referrals(callback: CallbackQuery) -> None:
@@ -210,8 +227,9 @@ async def callback_admin_open_referrals(callback: CallbackQuery) -> None:
         return
 
     await callback.answer()
+    msg = _as_admin_message(callback)
     from core.handlers.referral_handler import command_referrals_admin
-    await command_referrals_admin(callback.message)
+    await command_referrals_admin(msg)
 
 
 async def callback_admin_open_logs(callback: CallbackQuery) -> None:
@@ -220,8 +238,9 @@ async def callback_admin_open_logs(callback: CallbackQuery) -> None:
         return
 
     await callback.answer()
+    msg = _as_admin_message(callback)
     from core.handlers.logs_handler import cmd_logs
-    await cmd_logs(callback.message)
+    await cmd_logs(msg)
 
 
 async def callback_admin_open_keys(callback: CallbackQuery) -> None:
@@ -287,20 +306,21 @@ async def callback_admin_keys_action(callback: CallbackQuery, state: FSMContext)
 
     data = callback.data or ""
     await callback.answer()
+    msg = _as_admin_message(callback)
 
     if data == "admin_keys_promo":
         from core.handlers.give_promo import command_promo
-        await command_promo(callback.message)
+        await command_promo(msg)
         return
 
     if data == "admin_keys_testkey":
         from core.handlers.test_key_broadcast import command_testkey
-        await command_testkey(callback.message, state)
+        await command_testkey(msg, state)
         return
 
     if data == "admin_keys_active":
         from core.handlers.active_keys import command_active_keys
-        await command_active_keys(callback.message)
+        await command_active_keys(msg)
         return
 
     if data == "admin_keys_keyinfo_help":
@@ -312,12 +332,12 @@ async def callback_admin_keys_action(callback: CallbackQuery, state: FSMContext)
 
     if data == "admin_keys_massblock":
         from core.handlers.mass_block import command_mass_block
-        await command_mass_block(callback.message)
+        await command_mass_block(msg)
         return
 
     if data == "admin_keys_migrate":
         from core.handlers.migrate_server import command_migrate_server
-        await command_migrate_server(callback.message, state)
+        await command_migrate_server(msg, state)
         return
 
 
@@ -328,15 +348,16 @@ async def callback_admin_support_action(callback: CallbackQuery) -> None:
 
     data = callback.data or ""
     await callback.answer()
+    msg = _as_admin_message(callback)
 
     if data == "admin_support_queue":
         from core.handlers.support_handler import admin_support_queue
-        await admin_support_queue(callback.message)
+        await admin_support_queue(msg)
         return
 
     if data == "admin_support_stats":
         from core.handlers.support_handler import admin_support_stats
-        await admin_support_stats(callback.message)
+        await admin_support_stats(msg)
         return
 
 
@@ -347,19 +368,20 @@ async def callback_admin_testdata_action(callback: CallbackQuery) -> None:
 
     data = callback.data or ""
     await callback.answer()
+    msg = _as_admin_message(callback)
 
     if data == "admin_testdata_seed":
         from core.handlers.seed_test_data import command_seed
-        await command_seed(callback.message)
+        await command_seed(msg)
         return
 
     if data == "admin_testdata_show":
-        await _show_test_data(callback.message)
+        await _show_test_data(msg)
         return
 
     if data == "admin_testdata_unseed":
         from core.handlers.unseed_test_data import command_unseed
-        await command_unseed(callback.message)
+        await command_unseed(msg)
         return
 
 
@@ -370,18 +392,19 @@ async def callback_admin_servers_action(callback: CallbackQuery, state: FSMConte
 
     data = callback.data or ""
     await callback.answer()
+    msg = _as_admin_message(callback)
 
     if data == "admin_servers_stats":
         from core.handlers.server_stats import command_server_stats
-        await command_server_stats(callback.message)
+        await command_server_stats(msg)
         return
 
     if data == "admin_servers_add":
         from core.handlers.add_server import command_addserver
-        await command_addserver(callback.message, state)
+        await command_addserver(msg, state)
         return
 
     if data == "admin_servers_delete":
         from core.handlers.delete_server import deleteserver_handler
-        await deleteserver_handler(callback.message)
+        await deleteserver_handler(msg)
         return

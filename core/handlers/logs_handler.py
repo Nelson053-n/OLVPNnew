@@ -4,6 +4,7 @@
 """
 import os
 import shutil
+from types import SimpleNamespace
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
@@ -19,6 +20,21 @@ router = Router()
 
 # Проверяем наличие администратора
 ADMIN_ID = int(admin_tlg) if admin_tlg else None
+
+
+class _MessageProxy:
+    def __init__(self, message: Message, user_id: int):
+        self._message = message
+        self.from_user = SimpleNamespace(id=user_id)
+        self.chat = message.chat
+        self.text = message.text
+
+    def __getattr__(self, item):
+        return getattr(self._message, item)
+
+
+def _as_message_from_callback(callback: CallbackQuery) -> _MessageProxy:
+    return _MessageProxy(callback.message, callback.from_user.id)
 
 
 def get_disk_usage(path: str = '/') -> dict:
@@ -261,7 +277,7 @@ async def callback_logs_download(callback: CallbackQuery):
         return
 
     await callback.answer()
-    await command_get_log_pay(callback.message)
+    await command_get_log_pay(_as_message_from_callback(callback))
 
 
 @router.callback_query(F.data == "logs_db")
@@ -272,7 +288,7 @@ async def callback_logs_db(callback: CallbackQuery):
         return
 
     await callback.answer()
-    await command_get_db(callback.message)
+    await command_get_db(_as_message_from_callback(callback))
 
 
 @router.callback_query(F.data == "logs_back")
