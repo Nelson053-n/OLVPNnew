@@ -118,6 +118,9 @@ from core.settings import api_key_tlg, admin_tlg
 from core.api_s.outline.outline_api import OutlineManager
 from core.handlers.handler_keyboard import build_and_edit_message
 from core.handlers.start import command_start
+from core.handlers.runtime_metrics import command_metrics
+from core.monitoring.metrics_middleware import MetricsMiddleware
+from core.monitoring.infra_alerts import InfraAlertsMonitor
 
 router: Router = Router()
 olm = OutlineManager()
@@ -136,6 +139,7 @@ async def setup_bot_commands(bot: Bot):
     admin_commands = [
         BotCommand(command="start", description="🏠 Главное меню"),
         BotCommand(command="stats", description="📊 Статистика бота"),
+        BotCommand(command="metrics", description="📈 Runtime-метрики"),
         BotCommand(command="referrals", description="👥 Статистика рефералов"),
         BotCommand(command="logs", description="📁 Управление логами"),
         BotCommand(command="support", description="🆘 Поддержка"),
@@ -162,11 +166,16 @@ async def start_bot():
     """Запуск бота"""
     dp: Dispatcher = Dispatcher()
     dp.include_router(router=router)
+
+    # Middleware метрик для сообщений и callback
+    dp.message.middleware(MetricsMiddleware())
+    dp.callback_query.middleware(MetricsMiddleware())
     
     # Регистрация команд (порядок важен!)
     # 1. Команды с фильтрами Command регистрируются РАНЬШЕ
     dp.message.register(command_start, Command('start'))
     dp.message.register(command_stats, Command('stats'))
+    dp.message.register(command_metrics, Command('metrics'))
     dp.message.register(command_docs, Command('docs'))
     dp.message.register(command_keys, Command('keys'))
     dp.message.register(command_testdata, Command('testdata'))
@@ -356,13 +365,24 @@ async def start_bot():
     # 6. Callback query обработчик (общий, регистрируется после специфичных)
     dp.callback_query.register(build_and_edit_message)
 
+    infra_task = None
     try:
         # Устанавливаем команды бота в меню
         await setup_bot_commands(bot)
+
+        # Фоновый мониторинг инфраструктуры
+        infra_monitor = InfraAlertsMonitor(bot)
+        infra_task = asyncio.create_task(infra_monitor.run())
         
         await send_admin_message(bot, "Бот был запущен.")
         await dp.start_polling(bot, skip_updates=True)
     finally:
+        if infra_task:
+            infra_task.cancel()
+            try:
+                await infra_task
+            except asyncio.CancelledError:
+                pass
         await send_admin_message(bot, "Бот был остановлен.")
         await bot.session.close()
 

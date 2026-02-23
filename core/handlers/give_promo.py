@@ -7,7 +7,7 @@ from core.services.key_service import key_service
 from core.settings import admin_tlg
 from core.sql.function_db_user_vpn.users_vpn import (
     get_all_records_from_table_users,
-    get_user_keys,
+    get_all_user_keys,
 )
 from logs.log_main import RotatingFileLogger
 
@@ -38,9 +38,13 @@ async def command_promo(message: Message) -> None:
         # Фильтруем пользователей: без платных активных ключей И без активных промо ключей
         now = datetime.now()
         users_without_paid_keys = []
+        all_keys = await get_all_user_keys()
+        keys_by_user: dict[int, list] = {}
+        for key in all_keys:
+            keys_by_user.setdefault(key.account, []).append(key)
         
         for user in all_users:
-            user_keys = await get_user_keys(account=user.account)
+            user_keys = keys_by_user.get(user.account, [])
             
             # Проверяем наличие активных ключей (платных и промо)
             has_paid_active_key = False
@@ -214,9 +218,13 @@ async def mass_promo_execute(callback: CallbackQuery, region_server: str) -> Non
         all_users = await get_all_records_from_table_users()
         now = datetime.now()
         users_to_promo = []
+        all_keys = await get_all_user_keys()
+        keys_by_user: dict[int, list] = {}
+        for key in all_keys:
+            keys_by_user.setdefault(key.account, []).append(key)
 
         for user in all_users:
-            user_keys = await get_user_keys(account=user.account)
+            user_keys = keys_by_user.get(user.account, [])
             has_paid_active_key = any(k.date and k.date > now and not k.promo for k in user_keys)
             has_promo_active_key = any(k.date and k.date > now and k.promo for k in user_keys)
             if not has_paid_active_key and not has_promo_active_key:

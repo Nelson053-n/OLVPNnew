@@ -19,6 +19,7 @@ from core.sql.function_db_user_vpn.referrals import (
     get_referral_bonus_status,
     get_user_referrals,
     get_referral_count_by_user,
+    get_referral_counts_for_users,
     mark_referral_bonus_given,
 )
 from core.api_s.outline.outline_api import OutlineManager, get_server_display_name
@@ -235,10 +236,12 @@ async def command_referrals_admin(message: Message) -> None:
         from core.sql.function_db_user_vpn.users_vpn import get_all_records_from_table_users
         
         all_users = await get_all_records_from_table_users()
+        user_ids = [user.account for user in all_users]
+        counts_map = await get_referral_counts_for_users(user_ids)
         
         top_referrers = []
         for user in all_users:
-            count = await get_referral_count_by_user(user.account)
+            count = counts_map.get(user.account, 0)
             if count > 0:
                 top_referrers.append({
                     'account': user.account,

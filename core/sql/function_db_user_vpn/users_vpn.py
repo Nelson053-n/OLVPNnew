@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 from typing import Union
 from sqlalchemy import create_engine
 from sqlalchemy.exc import NoResultFound
@@ -9,7 +10,8 @@ from core.api_s.outline.outline_api import OutlineManager
 from core.sql.base import Base, Users, UserKey
 
 DATABASE_URL = 'sqlite:///olvpnbot.db'
-engine = create_engine(DATABASE_URL, echo=True)
+SQL_ECHO = os.getenv('SQL_ECHO', 'false').lower() == 'true'
+engine = create_engine(DATABASE_URL, echo=SQL_ECHO)
 Base.metadata.create_all(engine)
 
 

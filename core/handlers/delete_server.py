@@ -23,7 +23,8 @@ router = Router()
 
 # Подключение к БД
 DATABASE_URL = 'sqlite:///olvpnbot.db'
-engine = create_engine(DATABASE_URL, echo=True)
+SQL_ECHO = os.getenv('SQL_ECHO', 'false').lower() == 'true'
+engine = create_engine(DATABASE_URL, echo=SQL_ECHO)
 
 
 @router.message(Command('deleteserver'))

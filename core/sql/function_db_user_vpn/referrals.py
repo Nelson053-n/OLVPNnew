@@ -2,7 +2,7 @@
 Функции работы с реферальной программой
 """
 from datetime import datetime
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
 import uuid
@@ -131,3 +131,30 @@ async def get_referral_count_by_user(referrer_id: int, only_with_bonus: bool = F
         except Exception as e:
             print(f"ERROR get_referral_count_by_user: {e}")
             return 0
+
+
+async def get_referral_counts_for_users(referrer_ids: list[int]) -> dict[int, int]:
+    """
+    Получить количества рефералов пачкой для списка пользователей.
+
+    :param referrer_ids: список ID рефереров
+    :return: словарь {referrer_id: count}
+    """
+    if not referrer_ids:
+        return {}
+
+    with Session(engine) as session:
+        try:
+            rows = (
+                session.query(
+                    Referral.referrer_id,
+                    func.count(Referral.id)
+                )
+                .filter(Referral.referrer_id.in_(referrer_ids))
+                .group_by(Referral.referrer_id)
+                .all()
+            )
+            return {int(referrer_id): int(count) for referrer_id, count in rows}
+        except Exception as e:
+            print(f"ERROR get_referral_counts_for_users: {e}")
+            return {}

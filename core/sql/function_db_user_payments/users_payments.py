@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -7,7 +8,8 @@ from core.sql.function_db_user_vpn.users_vpn import get_user_data_from_table_use
 from core.utils.format_iso_datetime import format_iso_datetime
 
 DATABASE_URL = 'sqlite:///olvpnbot.db'
-engine = create_engine(DATABASE_URL, echo=True)
+SQL_ECHO = os.getenv('SQL_ECHO', 'false').lower() == 'true'
+engine = create_engine(DATABASE_URL, echo=SQL_ECHO)
 Session = sessionmaker(bind=engine)
 Base.metadata.create_all(engine)
 
