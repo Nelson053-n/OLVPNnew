@@ -141,45 +141,59 @@ async def command_my_connections(message: Message) -> None:
 
 async def admin_connection_stats(message: Message) -> None:
     """
-    Команда администратора для просмотра статистики подключений
+    Команда администратора для просмотра статистики подключений.
+    Улучшенная версия с детальной информацией.
     """
     try:
         if not admin_tlg or message.from_user.id != int(admin_tlg):
             await message.answer("❌ У вас нет доступа к этой команде", parse_mode=None)
             return
-        
+
         from core.sql.base import KeyConnection
-        from sqlalchemy import func, create_engine
+        from sqlalchemy import func, create_engine, distinct
         from sqlalchemy.orm import Session
-        
+
         # Инициализируем БД
         DATABASE_URL = 'sqlite:///olvpnbot.db'
         engine = create_engine(DATABASE_URL)
-        
+
         # Получаем статистику
         with Session(engine) as s:
             total_connections = s.query(func.count(KeyConnection.id)).scalar() or 0
-            
+
             # Активные подключения (за последние 30 минут)
             cutoff_time = datetime.now() - timedelta(minutes=30)
             active_connections = s.query(func.count(KeyConnection.id)).filter(
                 KeyConnection.last_activity >= cutoff_time,
                 KeyConnection.status == 'active'
             ).scalar() or 0
-            
+
             # Уникальные IP адреса
             unique_ips = s.query(func.count(func.distinct(KeyConnection.ip_address))).scalar() or 0
-        
+
+            # Топ IP по количеству подключений
+            top_ips = s.query(
+                KeyConnection.ip_address,
+                func.count(KeyConnection.id).label('count')
+            ).group_by(KeyConnection.ip_address).order_by(
+                func.count(KeyConnection.id).desc()
+            ).limit(5).all()
+
+        top_ips_text = "\n".join([f"   • {ip}: {count} подключений" for ip, count in top_ips]) if top_ips else "   Нет данных"
+
         text = (
             "<b>🔌 Статистика подключений (администратор)</b>\n\n"
             f"📊 Всего подключений: {total_connections}\n"
-            f"🟢 Активных сейчас: {active_connections}\n"
+            f"🟢 Активных за 30 мин: {active_connections}\n"
             f"🌐 Уникальных IP: {unique_ips}\n\n"
-            f"⚙️ Лимит одновременных подключений: {MAX_CONCURRENT_CONNECTIONS}"
+            f"🔝 <b>Топ IP адресов:</b>\n{top_ips_text}\n\n"
+            f"⚙️ Лимит одновременных подключений: {MAX_CONCURRENT_CONNECTIONS}\n\n"
+            f"<i>ℹ️ Примечание: Статистика основана на логах подключений,\n"
+            f"а не на реальных сессиях Outline VPN</i>"
         )
-        
+
         await message.answer(text)
-        
+
     except Exception as e:
         logger.log('error', f'admin_connection_stats error: {e}\n{traceback.format_exc()}')
         await message.answer("❌ Ошибка при получении статистики", parse_mode=None)

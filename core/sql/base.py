@@ -125,13 +125,17 @@ class KeyConnection(Base):
     Отслеживание одновременных подключений к ключу
     """
     __tablename__ = 'key_connections'
+    __table_args__ = (
+        # Индексы для ускорения запросов
+        {'sqlite_autoincrement': True}
+    )
     id = Column(String, primary_key=True)
-    key_id = Column(String, ForeignKey('user_keys.id'))
-    ip_address = Column(String, nullable=False)
+    key_id = Column(String, ForeignKey('user_keys.id'), index=True)
+    ip_address = Column(String, nullable=False, index=True)
     user_agent = Column(String, nullable=True)
-    connected_at = Column(DateTime, default=datetime.now)
-    last_activity = Column(DateTime, default=datetime.now)
-    status = Column(String, default='active')  # active, disconnected, blocked
+    connected_at = Column(DateTime, default=datetime.now, index=True)
+    last_activity = Column(DateTime, default=datetime.now, index=True)
+    status = Column(String, default='active', index=True)  # active, disconnected, blocked
 
 
 class RenewalReminder(Base):

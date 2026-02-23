@@ -13,7 +13,11 @@ from core.handlers.admin_block_reason import command_block_reason
 from core.handlers.mass_block import command_mass_block
 from core.handlers.seed_test_data import command_seed
 from core.handlers.unseed_test_data import command_unseed
-from core.handlers.server_stats import command_server_stats
+from core.handlers.server_stats import (
+    command_server_stats,
+    callback_serverstats_add,
+    callback_serverstats_refresh,
+)
 from core.handlers.bot_statistics import command_stats
 from core.handlers.bot_stats import command_stats as command_stats_new
 from core.handlers.pin_disclaimer import pin_disclaimer_handler
@@ -258,6 +262,16 @@ async def start_bot():
     dp.callback_query.register(
         handle_migration_confirmation,
         lambda c: c.data in ['confirm_migrate', 'cancel_migrate']
+    )
+
+    # 4d. Callback'и для статистики серверов
+    dp.callback_query.register(
+        callback_serverstats_add,
+        lambda c: c.data == 'serverstats_add'
+    )
+    dp.callback_query.register(
+        callback_serverstats_refresh,
+        lambda c: c.data == 'serverstats_refresh'
     )
 
     # 4c. Callback'и для управления логами
