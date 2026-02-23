@@ -125,10 +125,6 @@ class KeyConnection(Base):
     Отслеживание одновременных подключений к ключу
     """
     __tablename__ = 'key_connections'
-    __table_args__ = (
-        # Индексы для ускорения запросов
-        {'sqlite_autoincrement': True}
-    )
     id = Column(String, primary_key=True)
     key_id = Column(String, ForeignKey('user_keys.id'), index=True)
     ip_address = Column(String, nullable=False, index=True)
