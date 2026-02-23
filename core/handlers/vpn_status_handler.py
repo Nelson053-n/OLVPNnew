@@ -139,7 +139,7 @@ async def command_vpn_status(message: Message) -> None:
         # Редактируем сообщение с результатом
         try:
             await msg.edit_text(text)
-        except:
+        except Exception:
             await message.answer(text)
         
     except Exception as e:
@@ -200,7 +200,7 @@ async def admin_vpn_detailed_check(message: Message) -> None:
         
         try:
             await msg.edit_text(text)
-        except:
+        except Exception:
             await message.answer(text)
         
     except Exception as e:

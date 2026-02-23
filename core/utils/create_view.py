@@ -23,7 +23,7 @@ async def create_answer_from_html(name_temp: str, **kwargs) -> str:
         with open(path, 'r') as f:
             template = Template(f.read())
             html_content = template.render(**kwargs)
-    except:
+    except Exception:
         html_content = await create_answer_from_html("error", **kwargs)
     finally:
         return html_content

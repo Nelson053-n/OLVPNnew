@@ -27,5 +27,5 @@ async def command_mass_block(message: Message) -> None:
         logger.log('error', f'command_mass_block error for admin {message.from_user.id}: {e}\n{tb}')
         try:
             await message.answer('Ошибка при выполнении массовой блокировки.', parse_mode=None)
-        except:
+        except Exception:
             pass

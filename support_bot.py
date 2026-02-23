@@ -512,7 +512,7 @@ async def callback_give_promo(callback: CallbackQuery):
         logger.error(f'callback_give_promo error: {e}\n{tb}')
         try:
             await callback.message.answer(f"❌ Ошибка при выдаче промо: {str(e)}", parse_mode=None)
-        except:
+        except Exception:
             pass
 
 
@@ -684,7 +684,7 @@ async def callback_replace_key(callback: CallbackQuery):
         logger.error(f'callback_replace_key error: {e}\n{tb}')
         try:
             await callback.message.answer(f"❌ Ошибка при замене ключа: {str(e)}", parse_mode=None)
-        except:
+        except Exception:
             pass
 
 
@@ -769,7 +769,7 @@ async def main():
         # Попробуем отправить уведомление об ошибке
         try:
             await send_notification_to_admin(error_message)
-        except:
+        except Exception:
             pass
         raise
     
@@ -782,7 +782,7 @@ async def main():
             shutdown_message = (
                 f"🔴 <b>Бот техподдержки остановлен</b>\n\n"
                 f"⏹️ <b>Статус:</b> Бот прекратил работу\n"
-                f"🕐 <b>Время остановки:</b> {asyncio.get_event_loop().time()}\n\n"
+                f"🕐 <b>Время остановки:</b> {datetime.now().strftime('%H:%M:%S')}\n\n"
                 f"<i>Сообщения от пользователей не будут приниматься</i>"
             )
             await send_notification_to_admin(shutdown_message)

@@ -213,5 +213,5 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
         logger.log('error', f'replace_key_handler error: {e}\n{tb}')
         try:
             await callback.message.answer(f'❌ Ошибка при замене ключа: {str(e)}', parse_mode=None)
-        except:
+        except Exception:
             pass

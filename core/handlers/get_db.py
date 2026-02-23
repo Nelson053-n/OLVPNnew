@@ -13,7 +13,7 @@ async def command_get_db(message: Message) -> None:
     if message.from_user.id == int(admin_tlg):
         try:
             sending_db_file = FSInputFile(path='olvpnbot.db', filename="olvpnbot.db")
-        except:
+        except Exception:
             await message.answer('Какая-то проблема с файлом БД')
         else:
             await message.answer_document(sending_db_file)

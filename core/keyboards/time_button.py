@@ -14,7 +14,7 @@ async def time_keyboard(id_user: int) -> InlineKeyboardMarkup:
     try:
         with open('core/settings_prices.json', 'r', encoding='utf-8') as f:
             prices = json.load(f)
-    except:
+    except Exception:
         prices = {
             "day": {"amount": 7},
             "month": {"amount": 150},
