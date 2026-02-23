@@ -335,12 +335,16 @@ async def callback_admin_keys_action(callback: CallbackQuery, state: FSMContext)
 
     if data == "admin_keys_editprice":
         from core.handlers.edit_price import editprice_handler
-        await editprice_handler(msg)
+        await editprice_handler(msg, state)
         return
 
     if data == "admin_keys_renewalstats":
-        from core.handlers.renewal_handler import admin_renewal_stats
-        await admin_renewal_stats(msg)
+        try:
+            from core.handlers.renewal_handler import admin_renewal_stats
+            await admin_renewal_stats(msg)
+        except Exception as e:
+            logger.log('error', f'admin_keys_renewalstats error: {e}\n{traceback.format_exc()}')
+            await callback.message.answer('❌ Ошибка при открытии статистики продления', parse_mode=None)
         return
 
     if data == "admin_keys_keyinfo_help":

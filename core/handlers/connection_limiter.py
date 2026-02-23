@@ -173,7 +173,7 @@ async def admin_connection_stats(message: Message) -> None:
         text = (
             "<b>🔌 Статистика подключений (администратор)</b>\n\n"
             f"📊 Всего подключений: {total_connections}\n"
-            f"🟢 Активных сейчас: {active_connections}\n"
+            f"🟢 Активных за 30 минут: {active_connections}\n"
             f"🌐 Уникальных IP: {unique_ips}\n\n"
             f"⚙️ Лимит одновременных подключений: {MAX_CONCURRENT_CONNECTIONS}"
         )

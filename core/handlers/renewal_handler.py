@@ -197,29 +197,38 @@ async def admin_renewal_stats(message: Message) -> None:
             return
         
         from core.sql.base import RenewalReminder, session
-        from sqlalchemy import func, case
+        from sqlalchemy import func
         
-        # Статистика по дням
+        # Статистика по дням (всего)
         with session() as s:
-            stats = s.query(
+            stats_total = s.query(
                 RenewalReminder.days_until_expiry,
-                func.count(RenewalReminder.id).label('count'),
-                func.sum(case([(RenewalReminder.sent_at.isnot(None), 1)], else_=0)).label('sent')
+                func.count(RenewalReminder.id).label('count')
             ).group_by(RenewalReminder.days_until_expiry).all()
+
+            # Статистика по дням (отправленные)
+            stats_sent = s.query(
+                RenewalReminder.days_until_expiry,
+                func.count(RenewalReminder.id).label('sent')
+            ).filter(
+                RenewalReminder.sent_at.isnot(None)
+            ).group_by(RenewalReminder.days_until_expiry).all()
+
+        sent_map = {days: sent for days, sent in stats_sent}
         
         text = "<b>📊 Статистика напоминаний (администратор)</b>\n\n"
         
-        if not stats:
+        if not stats_total:
             text += "Напоминаний не найдено"
         else:
             total = 0
             sent_total = 0
             
-            for days, count, sent in sorted(stats, key=lambda x: x[0]):
+            for days, count in sorted(stats_total, key=lambda x: x[0]):
                 emoji_map = {7: "🟡", 3: "🟠", 1: "🔴"}
                 emoji = emoji_map.get(days, "❓")
                 
-                sent = sent or 0
+                sent = sent_map.get(days, 0) or 0
                 text += f"{emoji} За {days} дней: {count} (отправлено: {sent})\n"
                 
                 total += count
