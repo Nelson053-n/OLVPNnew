@@ -79,7 +79,15 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 from core.settings import main_bot_username
                 user_id = int(data.split('_')[-1])
                 referral_link = f"https://t.me/{main_bot_username}?start=ref_{user_id}"
-                await call.answer(f"Ссылка скопирована в буфер обмена: {referral_link}", show_alert=False)
+                await call.message.answer(
+                    text=(
+                        "📋 <b>Ваша реферальная ссылка:</b>\n\n"
+                        f"<code>{referral_link}</code>\n\n"
+                        "Нажмите и удерживайте ссылку, чтобы скопировать."
+                    ),
+                    parse_mode='HTML'
+                )
+                await call.answer("✅ Ссылка отправлена отдельным сообщением", show_alert=False)
             except Exception as e:
                 logger.log('error', f'copy_ref callback error: {e}')
                 await call.answer("Ошибка при копировании ссылки", show_alert=True)
