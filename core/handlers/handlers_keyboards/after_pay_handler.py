@@ -33,6 +33,7 @@ _polling_tasks: dict[int, asyncio.Task] = {}
 _payment_lock = asyncio.Lock()
 # In-memory кэш обработанных платежей (быстрая проверка перед обращением к БД)
 _processed_payments: set[str] = set()
+_MAX_PROCESSED_CACHE = 5000  # Лимит кэша; при превышении сбрасываем (БД — основная защита)
 
 POLL_INTERVAL = 12  # секунды между проверками
 POLL_MAX_ATTEMPTS = 50  # 50 * 12с = 10 минут
@@ -61,6 +62,10 @@ async def _try_claim_payment(payment_id: str) -> bool:
             _processed_payments.add(payment_id)
             return False
         _processed_payments.add(payment_id)
+        # Очистка кэша при переполнении (БД остаётся основной защитой)
+        if len(_processed_payments) > _MAX_PROCESSED_CACHE:
+            _processed_payments.clear()
+            _processed_payments.add(payment_id)
         return True
 
 

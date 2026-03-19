@@ -78,7 +78,9 @@ async def is_payment_exists(payment_id: str) -> bool:
     :return: bool - True если платёж уже записан
     """
     with Session() as session:
-        records = session.query(UserPay).filter(UserPay.paykey.contains(payment_id)).all()
+        # Формат хранения: [payment_id|date] — ищем точное совпадение по ID
+        marker = f"[{payment_id}|"
+        records = session.query(UserPay).filter(UserPay.paykey.contains(marker)).all()
         return len(records) > 0
 
 

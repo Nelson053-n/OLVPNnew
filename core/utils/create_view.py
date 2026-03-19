@@ -1,12 +1,15 @@
-from os.path import join
+import os
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-ROOT_TEMPLATES = 'core/templates'  # Папка с шаблонами
+# Абсолютный путь к шаблонам (работает из любого рабочего каталога)
+ROOT_TEMPLATES = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
 
 _env = Environment(
     loader=FileSystemLoader(ROOT_TEMPLATES),
     autoescape=select_autoescape(['html'], default=True),
 )
+
+_FALLBACK_ERROR = "Произошла ошибка. Попробуйте позже."
 
 
 async def create_answer_from_html(name_temp: str, **kwargs) -> str:
@@ -20,8 +23,12 @@ async def create_answer_from_html(name_temp: str, **kwargs) -> str:
     page = name_temp.removeprefix('/')
     try:
         template = _env.get_template(f"{page}.html")
-        html_content = template.render(**kwargs)
+        return template.render(**kwargs)
     except Exception:
-        html_content = await create_answer_from_html("error", **kwargs)
-    finally:
-        return html_content
+        if page != "error":
+            try:
+                template = _env.get_template("error.html")
+                return template.render(**kwargs)
+            except Exception:
+                pass
+        return _FALLBACK_ERROR

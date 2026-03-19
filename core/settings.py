@@ -36,7 +36,7 @@ support_bot_token = os.getenv("SUPPORT_BOT_TOKEN")
 missing = []
 if not api_key_tlg:
     missing.append("API_KEY_TLG")
-if not admin_tlg:
+if admin_tlg is None:
     missing.append("ADMIN_TLG")
 if not client_id:
     missing.append("YOUKASSA_ID")
