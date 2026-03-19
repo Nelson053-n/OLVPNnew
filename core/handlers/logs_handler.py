@@ -21,7 +21,7 @@ from core.sql.function_db_user_vpn.users_vpn import get_user_data_from_table_use
 router = Router()
 
 # Проверяем наличие администратора
-ADMIN_ID = int(admin_tlg) if admin_tlg else None
+ADMIN_ID = admin_tlg
 
 
 class _MessageProxy:

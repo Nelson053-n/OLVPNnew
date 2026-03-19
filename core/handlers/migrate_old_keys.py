@@ -37,7 +37,7 @@ async def command_migrate(message: types.Message):
     4. НЕ удаляет старые данные (для безопасности)
     """
     # Проверка прав администратора
-    if str(message.from_user.id) != admin_tlg:
+    if not admin_tlg or message.from_user.id != admin_tlg:
         await message.answer("❌ Эта команда доступна только администратору")
         return
 
@@ -296,7 +296,7 @@ async def command_check_migration_status(message: types.Message):
     Доступна только администратору.
     """
     # Проверка прав администратора
-    if str(message.from_user.id) != admin_tlg:
+    if not admin_tlg or message.from_user.id != admin_tlg:
         await message.answer("❌ Эта команда доступна только администратору")
         return
 
@@ -345,7 +345,7 @@ async def command_fix_migration_dates(message: types.Message):
     Доступна только администратору.
     """
     # Проверка прав администратора
-    if str(message.from_user.id) != admin_tlg:
+    if not admin_tlg or message.from_user.id != admin_tlg:
         await message.answer("❌ Эта команда доступна только администратору")
         return
 
@@ -442,7 +442,7 @@ async def command_debug_keys(message: types.Message):
     Доступна только администратору.
     """
     # Проверка прав администратора
-    if str(message.from_user.id) != admin_tlg:
+    if not admin_tlg or message.from_user.id != admin_tlg:
         await message.answer("❌ Эта команда доступна только администратору")
         return
 
@@ -536,7 +536,7 @@ async def command_show_old_keys(message: types.Message):
     Доступна только администратору.
     """
     # Проверка прав администратора
-    if str(message.from_user.id) != admin_tlg:
+    if not admin_tlg or message.from_user.id != admin_tlg:
         await message.answer("❌ Эта команда доступна только администратору")
         return
 

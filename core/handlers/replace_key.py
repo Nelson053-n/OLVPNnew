@@ -21,7 +21,7 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
     try:
         await callback.answer()
 
-        if str(callback.from_user.id) != str(admin_tlg):
+        if not admin_tlg or callback.from_user.id != admin_tlg:
             await callback.message.answer('❌ У вас нет доступа к этой функции', parse_mode=None)
             return
 
@@ -29,13 +29,17 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
         logger.log('info', f'Replace key request: short_id={short_id}, from admin={callback.from_user.id}')
 
         all_keys = await get_all_user_keys()
-        logger.log('info', f'Total keys in DB: {len(all_keys)}')
-        target_key = None
-        for key in all_keys:
-            if str(key.id).endswith(short_id):
-                target_key = key
-                logger.log('info', f'Found target key: id={key.id}, user={key.account}, server={key.region_server}')
-                break
+        matches = [k for k in all_keys if str(k.id).endswith(short_id)]
+
+        if len(matches) > 1:
+            logger.log('warning', f'Short ID collision: {short_id} matches {len(matches)} keys')
+            await callback.message.edit_text(
+                f'❌ Найдено {len(matches)} ключей с таким ID — коллизия. Используйте полный ID.',
+                parse_mode=None, reply_markup=None
+            )
+            return
+
+        target_key = matches[0] if matches else None
 
         if not target_key:
             await callback.message.edit_text(

@@ -23,7 +23,7 @@ async def command_findpay(message: Message) -> None:
     :param message: Message - Объект Message, полученный при вызове команды.
     """
     try:
-        if message.from_user.id == int(admin_tlg):
+        if message.from_user.id == admin_tlg:
             data = message.text.split(' ')
             if len(data) == 2:
                 name_temp, id_find_user = data

@@ -69,6 +69,19 @@ async def get_all_accounts_from_db() -> list:
         return [str(account[0]) for account in all_accounts]
 
 
+async def is_payment_exists(payment_id: str) -> bool:
+    """
+    Проверяет, существует ли платёж с данным payment_id в БД.
+    Ищет подстроку payment_id в поле paykey (формат: [payment_id|date]).
+
+    :param payment_id: str - ID платежа YooKassa
+    :return: bool - True если платёж уже записан
+    """
+    with Session() as session:
+        records = session.query(UserPay).filter(UserPay.paykey.contains(payment_id)).all()
+        return len(records) > 0
+
+
 async def get_all_user_payments(account_id: int = None) -> list[UserPay]:
     """
     Получить записи о платежах из таблицы UserPay.

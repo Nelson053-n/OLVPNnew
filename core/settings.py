@@ -11,7 +11,11 @@ if not os.getenv("API_KEY_TLG") or not os.getenv("ADMIN_TLG"):
 
 # Для бота tlg
 api_key_tlg = os.getenv("API_KEY_TLG")
-admin_tlg = os.getenv("ADMIN_TLG")
+_admin_tlg_raw = os.getenv("ADMIN_TLG")
+try:
+    admin_tlg: int | None = int(_admin_tlg_raw) if _admin_tlg_raw else None
+except ValueError:
+    raise RuntimeError(f"ADMIN_TLG должен быть числом, получено: {_admin_tlg_raw!r}")
 
 # Для сервера outline — в json (core/api_s/outline/settings_api_outline.json)
 

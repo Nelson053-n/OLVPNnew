@@ -8,9 +8,13 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 
 from core.api_s.outline.outline_api import OutlineManager, get_name_all_active_server_ol, get_server_display_name
+from logs.log_main import RotatingFileLogger
+
+logger = RotatingFileLogger()
 from core.sql.function_db_user_vpn.users_vpn import (
     get_user_keys,
     get_all_user_keys,
+    get_server_load,
     add_user_key,
     set_premium_status,
     set_date_to_table_users,
@@ -32,6 +36,7 @@ class KeyService:
         """
         Получить самый свободный сервер для пользователя.
         Исключает серверы, на которых у пользователя уже есть ключи.
+        Использует SQL GROUP BY вместо загрузки всех ключей в Python.
         """
         try:
             user_keys = await get_user_keys(account=user_id)
@@ -46,18 +51,13 @@ class KeyService:
             if not available_servers:
                 return 'nederland'
 
-            all_user_keys = await get_all_user_keys()
-            server_load = {
-                server: sum(
-                    1 for key in all_user_keys
-                    if key.region_server == server and key.premium
-                )
-                for server in available_servers
-            }
+            load = await get_server_load()
+            server_load = {s: load.get(s, 0) for s in available_servers}
 
             return min(server_load.items(), key=lambda x: x[1])[0]
 
         except Exception as e:
+            logger.log('warning', f'get_least_busy_server fallback to nederland: {e}')
             return 'nederland'
 
     async def create_promo_key(
@@ -202,13 +202,13 @@ class KeyService:
             try:
                 olm_old = OutlineManager(old_server)
                 olm_old.delete_key_by_id(old_outline_id)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.log('warning', f'Failed to delete old key {old_outline_id} from {old_server}: {e}')
 
             try:
                 await delete_user_key_record(target_key.id)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.log('warning', f'Failed to delete old key record {target_key.id} from DB: {e}')
 
             return {
                 'success': True,
@@ -283,17 +283,64 @@ class KeyService:
             try:
                 olm = OutlineManager(region_server=target_key.region_server)
                 olm.delete_key_by_id(outline_id)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.log('warning', f'Failed to delete key {outline_id} from Outline: {e}')
 
             try:
                 await delete_user_key_record(target_key.id)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.log('warning', f'Failed to delete key record {target_key.id} from DB: {e}')
 
             return {'success': True, 'deleted': True}
 
         except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+
+    async def delete_key_by_short_id(self, short_id: str) -> Dict[str, Any]:
+        """
+        Удалить ключ по короткому ID (последние 8 символов UUID).
+        Удаляет из Outline, из БД, синхронизирует Users-таблицу.
+
+        :param short_id: последние символы UUID ключа
+        :return: dict с результатом: success, has_remaining_keys, account
+        """
+        try:
+            all_keys = await get_all_user_keys()
+            matches = [uk for uk in all_keys if str(uk.id).endswith(short_id)]
+            if len(matches) > 1:
+                return {'success': False, 'error': f'Коллизия: найдено {len(matches)} ключей'}
+            k = matches[0] if matches else None
+            if not k:
+                return {'success': False, 'error': 'Ключ не найден'}
+
+            # Удаляем на сервере Outline
+            try:
+                olm = OutlineManager(region_server=k.region_server or 'nederland')
+                olm.delete_key_by_id(k.outline_id)
+            except Exception as e:
+                logger.log('warning', f'Failed to delete key {k.outline_id} from Outline: {e}')
+
+            # Удаляем запись из БД
+            await delete_user_key_record(str(k.id))
+
+            # Синхронизируем Users-таблицу
+            remaining = await get_user_keys(account=k.account)
+            if remaining:
+                try:
+                    await set_key_to_table_users(account=k.account, value_key=remaining[0].access_url)
+                except Exception as e:
+                    logger.log('warning', f'Failed to sync key for user {k.account}: {e}')
+                return {'success': True, 'has_remaining_keys': True, 'account': k.account}
+            else:
+                await set_key_to_table_users(account=k.account, value_key=None)
+                await set_premium_status(account=k.account, value_premium=False)
+                await set_region_server(account=k.account, value_region=None)
+                await set_date_to_table_users(account=k.account, value_date=None)
+                return {'success': True, 'has_remaining_keys': False, 'account': k.account}
+
+        except Exception as e:
+            logger.log('error', f'delete_key_by_short_id error: {e}')
             return {'success': False, 'error': str(e)}
 
 

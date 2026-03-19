@@ -13,10 +13,16 @@ from core.handlers.handlers_keyboards.del_key_handler import del_key, ask_del_ke
 from core.handlers.handlers_keyboards.get_promo_handler import get_promo
 from core.handlers.handlers_keyboards.choise_region import region_handler
 from core.handlers.handlers_keyboards.admin_block_key_handler import admin_block_key_handler
+from core.settings import admin_tlg
 from core.utils.throttle import throttle
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
+
+
+def _is_admin(user_id: int) -> bool:
+    """Проверяет, является ли пользователь администратором."""
+    return bool(admin_tlg) and user_id == admin_tlg
 
 
 @throttle(seconds=0.2)
@@ -30,9 +36,16 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
     try:
         await call.answer()
         data = call.data
-        
-        # Handle promo give callback
+
+        # Отменяем фоновый polling проверки оплаты при навигации назад
+        if data in ('back', 'back_start'):
+            from core.handlers.handlers_keyboards.after_pay_handler import cancel_payment_polling
+            cancel_payment_polling(call.from_user.id)
+
+        # Handle promo give callback (admin only)
         if data.startswith('give_promo_'):
+            if not _is_admin(call.from_user.id):
+                return
             try:
                 user_id = int(data.split('_')[-1])
                 from core.handlers.give_promo import give_promo_to_user
@@ -41,9 +54,11 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 logger.log('error', f'give_promo callback error: {e}')
                 await call.answer("Ошибка при выдаче промо", show_alert=True)
             return
-        
-        # Handle mass promo select server
+
+        # Handle mass promo select server (admin only)
         if data == 'mass_promo_select_server':
+            if not _is_admin(call.from_user.id):
+                return
             try:
                 from core.handlers.give_promo import mass_promo_select_server
                 await mass_promo_select_server(call)
@@ -51,9 +66,11 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 logger.log('error', f'mass_promo_select_server callback error: {e}')
                 await call.answer("Ошибка при выборе сервера", show_alert=True)
             return
-        
-        # Handle mass promo execute
+
+        # Handle mass promo execute (admin only)
         if data.startswith('mass_promo_exec_'):
+            if not _is_admin(call.from_user.id):
+                return
             try:
                 region_server = data.split('_')[-1]
                 from core.handlers.give_promo import mass_promo_execute
@@ -104,6 +121,9 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
             return
         
         # Handle special callbacks that perform side-effects (copy key, confirmations)
+        # Admin-only block callbacks
+        if data.startswith('confirm_block_key_') and not _is_admin(call.from_user.id):
+            return
         if data.startswith('confirm_block_key_'):
             try:
                 user_id = int(data.split('_')[-1])
@@ -113,11 +133,13 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 kb.button(text='❌ Отмена', callback_data=f'cancel_block_{user_id}')
                 kb.adjust(1)
                 await call.message.answer(text=f'Вы уверены, что хотите заблокировать доступ пользователя {user_id}?', reply_markup=kb.as_markup())
-            except Exception:
-                pass
+            except Exception as e:
+                logger.log('error', f'confirm_block_key callback error: {e}')
             return
 
         if data.startswith('cfm_blk_'):
+            if not _is_admin(call.from_user.id):
+                return
             try:
                 short_id = data.split('_')[-1]  # Последние 8 символов UUID
                 kb = InlineKeyboardBuilder()
@@ -126,27 +148,31 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 kb.button(text='❌ Отмена', callback_data=f'cnl_blk_{short_id}')
                 kb.adjust(1)
                 await call.message.answer(text=f'Заблокировать выбранный доступ?', reply_markup=kb.as_markup())
-            except Exception:
-                pass
+            except Exception as e:
+                logger.log('error', f'cfm_blk callback error: {e}')
             return
 
         if data.startswith('block_with_reason_'):
+            if not _is_admin(call.from_user.id):
+                return
             try:
                 user_id = int(data.split('_')[-1])
                 # store pending block request in state and ask admin to send reason
                 await state.update_data(pending_block_user=user_id)
                 await call.message.answer(text=f'Введите причину блокировки для пользователя {user_id}. Отправьте сообщение с текстом причины.', parse_mode=None)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.log('error', f'block_with_reason callback error: {e}')
             return
 
         if data.startswith('blk_rsn_'):
+            if not _is_admin(call.from_user.id):
+                return
             try:
                 short_id = data.split('_')[-1]
                 await state.update_data(pending_block_key_short_id=short_id)
                 await call.message.answer(text='Введите причину блокировки для выбранного доступа.', parse_mode=None)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.log('error', f'blk_rsn callback error: {e}')
             return
 
         if data.startswith('cancel_block_'):
@@ -167,8 +193,8 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                     await call.message.answer(text=f"🔑 Доступ для копирования:\n{key}", parse_mode=None)
                 else:
                     await call.message.answer(text="Доступ не найден.", parse_mode=None)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.log('error', f'copy_key callback error: {e}')
             # do not edit the menu message
             return
 
@@ -177,13 +203,15 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 short_id = data.split('_')[-1]
                 from core.sql.function_db_user_vpn.users_vpn import get_all_user_keys
                 all_keys = await get_all_user_keys()
-                k = next((uk for uk in all_keys if str(uk.id).endswith(short_id)), None)
-                if k and k.access_url:
-                    await call.message.answer(text=f"🔑 Доступ для копирования:\n{k.access_url}", parse_mode=None)
+                matches = [uk for uk in all_keys if str(uk.id).endswith(short_id)]
+                if len(matches) > 1:
+                    await call.message.answer(text="Ошибка: найдено несколько ключей с таким ID.", parse_mode=None)
+                elif matches and matches[0].access_url:
+                    await call.message.answer(text=f"🔑 Доступ для копирования:\n{matches[0].access_url}", parse_mode=None)
                 else:
                     await call.message.answer(text="Доступ не найден.", parse_mode=None)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.log('error', f'cpy_k callback error: {e}')
             return
 
         if data.startswith('ask_del_'):
@@ -193,8 +221,8 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 from core.utils.create_view import create_answer_from_html
                 content = await create_answer_from_html(name_temp='ask_del_key', result='Подтверждаете удаление доступа?')
                 await call.message.edit_text(text=content, reply_markup=accept_del_userkey_keyboard(short_id), parse_mode='HTML')
-            except Exception:
-                # fallback notify
+            except Exception as e:
+                logger.log('error', f'ask_del callback error: {e}')
                 try:
                     await call.message.answer(text='Не удалось сформировать подтверждение удаления.', parse_mode=None)
                 except Exception:
@@ -204,56 +232,19 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
         if data.startswith('del_k_'):
             try:
                 short_id = data.split('_')[-1]
-                from core.sql.function_db_user_vpn.users_vpn import (
-                    get_all_user_keys,
-                    get_user_key_by_id,
-                    delete_user_key_record,
-                    get_user_keys,
-                    set_key_to_table_users,
-                    set_premium_status,
-                    set_region_server,
-                    set_date_to_table_users,
-                )
-                from core.api_s.outline.outline_api import OutlineManager
+                from core.services.key_service import key_service
 
-                # Найдем ключ по short_id
-                all_keys = await get_all_user_keys()
-                k = next((uk for uk in all_keys if str(uk.id).endswith(short_id)), None)
-                if not k:
-                    await call.message.answer(text='Доступ не найден.', parse_mode=None)
+                result = await key_service.delete_key_by_short_id(short_id)
+                if not result['success']:
+                    await call.message.answer(text=result.get('error', 'Доступ не найден.'), parse_mode=None)
                     return
 
-                # Удаляем на сервере Outline по outline_id
-                olm = OutlineManager(region_server=k.region_server or 'nederland')
-                try:
-                    olm.delete_key_by_id(k.outline_id)
-                except Exception:
-                    # Игнорируем ошибки сервера, продолжаем чистить БД
-                    pass
-
-                # Удаляем запись из БД
-                await delete_user_key_record(str(k.id))
-
-                # Синхронизируем поле users_vpn.key и статусы
-                remaining = await get_user_keys(account=k.account)
-                if remaining:
-                    # Если в users_vpn.key был удалённый ключ — заменим на любой оставшийся
-                    try:
-                        await set_key_to_table_users(account=k.account, value_key=remaining[0].access_url)
-                    except Exception:
-                        pass
-                    # Перерисовываем список ключей
+                if result['has_remaining_keys']:
                     from core.handlers.handlers_keyboards.get_key_handler import my_key as my_key_view
                     text, reply_markup = await my_key_view(call, state)
                     parse_mode = 'HTML' if any(tag in text for tag in ('<a ', '<code>', '<b>', '<i>', '<pre>')) else None
                     await call.message.edit_text(text=text, reply_markup=reply_markup, parse_mode=parse_mode)
                 else:
-                    # Ключей больше нет — сбрасываем флаги пользователя
-                    await set_key_to_table_users(account=k.account, value_key=None)
-                    await set_premium_status(account=k.account, value_premium=False)
-                    await set_region_server(account=k.account, value_region=None)
-                    await set_date_to_table_users(account=k.account, value_date=None)
-
                     from core.utils.create_view import create_answer_from_html
                     from core.keyboards.start_button import start_keyboard
                     content = await create_answer_from_html(name_temp='del_key', result='удален.')
@@ -287,24 +278,35 @@ async def switch_menu(case_number: str, call: CallbackQuery, state: FSMContext) 
     :return: Результат работы соответствующего обработчика.
     """
     try:
-        # Обработка admin callback'ов для блокировки ключей
+        # Обработка admin callback'ов для блокировки ключей (admin only)
         if case_number.startswith('admin_block_key_'):
+            if not _is_admin(call.from_user.id):
+                return ("Нет доступа", InlineKeyboardBuilder().as_markup())
             return await admin_block_key_handler(call)
         if case_number.startswith('adm_blk_'):
+            if not _is_admin(call.from_user.id):
+                return ("Нет доступа", InlineKeyboardBuilder().as_markup())
             short_id = case_number.split('_')[-1]
             from core.sql.function_db_user_vpn.users_vpn import get_all_user_keys
             from core.handlers.handlers_keyboards.admin_block_key_handler import perform_block_userkey
-            # Найти ключ по короткому ID
+            # Найти ключ по короткому ID с проверкой коллизий
             all_keys = await get_all_user_keys()
-            k = next((uk for uk in all_keys if str(uk.id).endswith(short_id)), None)
-            if k:
-                text, keyboard = await perform_block_userkey(key_id=str(k.id), admin_id=call.from_user.id)
+            matches = [uk for uk in all_keys if str(uk.id).endswith(short_id)]
+            if len(matches) > 1:
+                return (f"Коллизия: найдено {len(matches)} ключей", InlineKeyboardBuilder().as_markup())
+            if matches:
+                text, keyboard = await perform_block_userkey(key_id=str(matches[0].id), admin_id=call.from_user.id)
                 return (text, keyboard)
             return ("Доступ не найден", InlineKeyboardBuilder().as_markup())
         
-        # Обработка callback для проверки ключа пользователя (из activekeys)
+        # Обработка callback для проверки ключа пользователя (admin only)
         if case_number.startswith('chk_usr_'):
-            user_id = int(case_number.split('_')[-1])
+            if not _is_admin(call.from_user.id):
+                return ("Нет доступа", InlineKeyboardBuilder().as_markup())
+            try:
+                user_id = int(case_number.split('_')[-1])
+            except (ValueError, IndexError):
+                return ("Некорректный запрос", InlineKeyboardBuilder().as_markup())
             # Вызываем логику keyinfo
             from core.handlers.key_info import get_key_info_response
             response_text, keyboard = await get_key_info_response(user_id)

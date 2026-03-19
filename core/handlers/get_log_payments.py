@@ -12,7 +12,7 @@ async def command_get_log_pay(message: Message) -> None:
 
     :param message: Message - Объект Message, полученный при вызове команды.
     """
-    if message.from_user.id == int(admin_tlg):
+    if message.from_user.id == admin_tlg:
         try:
             payments_logger = RotatingFileLogger('logs/log_settings_payments.json')
             log_files = payments_logger.get_log_files()

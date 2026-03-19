@@ -1,13 +1,17 @@
 from datetime import datetime
 import os
-from typing import Union
-from sqlalchemy import create_engine
+from typing import Union, Dict
+from sqlalchemy import create_engine, func
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
 import uuid
+import traceback
 
 from core.api_s.outline.outline_api import OutlineManager
 from core.sql.base import Base, Users, UserKey
+from logs.log_main import RotatingFileLogger
+
+_logger = RotatingFileLogger()
 
 DATABASE_URL = 'sqlite:///olvpnbot.db'
 SQL_ECHO = os.getenv('SQL_ECHO', 'false').lower() == 'true'
@@ -43,12 +47,8 @@ async def get_all_records_from_table_users() -> list[Users]:
     Вывод всех записей таблицы users_vpn
     :return: list[Users] - Все записи из таблицы
     """
-    session = Session(engine)
-    try:
-        result_all_records = session.query(Users).all()
-        return result_all_records
-    finally:
-        session.close()
+    with Session(engine) as session:
+        return session.query(Users).all()
 
 
 async def get_user_data_from_table_users(account: int) -> Users:
@@ -266,41 +266,72 @@ async def add_user_key(account: int, access_url: str, outline_id: str, region_se
             session.commit()
             return True
         except ValueError as e:
-            # Ошибка парсинга даты
-            print(f"ERROR add_user_key: Invalid date format '{date_str}' (type: {type(date_str)}): {e}")
+            _logger.log('error', f"add_user_key: Invalid date format '{date_str}' (type: {type(date_str)}): {e}")
             return False
         except Exception as e:
-            # Другие ошибки БД
-            print(f"ERROR add_user_key: Database error for user {account}: {e}")
-            import traceback
-            traceback.print_exc()
+            _logger.log('error', f"add_user_key: Database error for user {account}: {e}\n{traceback.format_exc()}")
             return False
 
 
 async def get_user_keys(account: int) -> list[UserKey]:
-    session = Session(engine)
-    try:
+    with Session(engine) as session:
         return session.query(UserKey).filter_by(account=account).all()
-    finally:
-        session.close()
+
+
+async def get_server_load() -> Dict[str, int]:
+    """
+    Получить количество активных ключей по серверам через SQL GROUP BY.
+    Эффективнее, чем загрузка всех ключей в Python.
+
+    :return: dict {region_server: count}
+    """
+    with Session(engine) as session:
+        rows = (
+            session.query(UserKey.region_server, func.count(UserKey.id))
+            .filter(UserKey.premium.is_(True), UserKey.date > datetime.now())
+            .group_by(UserKey.region_server)
+            .all()
+        )
+        return {region: count for region, count in rows if region}
 
 
 async def get_all_user_keys() -> list[UserKey]:
-    session = Session(engine)
-    try:
+    with Session(engine) as session:
         return session.query(UserKey).all()
-    finally:
-        session.close()
 
 
 async def get_user_key_by_id(key_id: str) -> UserKey | None:
-    session = Session(engine)
-    try:
-        return session.query(UserKey).filter_by(id=key_id).one()
-    except NoResultFound:
-        return None
-    finally:
-        session.close()
+    with Session(engine) as session:
+        try:
+            return session.query(UserKey).filter_by(id=key_id).one()
+        except NoResultFound:
+            return None
+
+
+async def sync_premium_status(account: int) -> bool:
+    """
+    Вычисляет и устанавливает premium-статус на основании наличия активных ключей.
+    Решает гонку состояний между bot и checker процессами.
+
+    :param account: int - id пользователя
+    :return: bool - актуальный статус premium
+    """
+    with Session(engine) as session:
+        try:
+            user = session.query(Users).filter_by(account=account).one()
+            active_count = (
+                session.query(UserKey)
+                .filter_by(account=account, premium=True)
+                .filter(UserKey.date > datetime.now())
+                .count()
+            )
+            has_active = active_count > 0
+            if user.premium != has_active:
+                user.premium = has_active
+                session.commit()
+            return has_active
+        except NoResultFound:
+            return False
 
 
 async def delete_user_key_record(key_id: str) -> bool:

@@ -82,12 +82,12 @@ class InfraAlertsMonitor:
             lines = ['🚨 <b>Infra Alert</b>\n']
             for key in sorted(new_issues):
                 lines.append(f'• {issues[key]}')
-            await self.bot.send_message(chat_id=int(admin_tlg), text='\n'.join(lines), parse_mode='HTML')
+            await self.bot.send_message(chat_id=admin_tlg, text='\n'.join(lines), parse_mode='HTML')
 
         if recovered:
             lines = ['✅ <b>Infra Recovery</b>\n']
             for key in sorted(recovered):
                 lines.append(f'• Восстановлено: <code>{key}</code>')
-            await self.bot.send_message(chat_id=int(admin_tlg), text='\n'.join(lines), parse_mode='HTML')
+            await self.bot.send_message(chat_id=admin_tlg, text='\n'.join(lines), parse_mode='HTML')
 
         self._active_issues = current

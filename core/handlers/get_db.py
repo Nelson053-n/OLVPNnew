@@ -10,7 +10,7 @@ async def command_get_db(message: Message) -> None:
 
     :param message: Message - Объект Message, полученный при вызове команды.
     """
-    if message.from_user.id == int(admin_tlg):
+    if message.from_user.id == admin_tlg:
         try:
             sending_db_file = FSInputFile(path='olvpnbot.db', filename="olvpnbot.db")
         except Exception:

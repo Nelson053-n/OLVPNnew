@@ -35,8 +35,7 @@ async def deleteserver_handler(message: Message) -> None:
     """
     try:
         # Проверка прав администратора
-        admin_tlg = os.getenv('ADMIN_TLG')
-        if not admin_tlg or str(message.from_user.id) != str(admin_tlg):
+        if not admin_tlg or message.from_user.id != admin_tlg:
             await message.answer('❌ Эта команда доступна только администратору', parse_mode=None)
             return
 

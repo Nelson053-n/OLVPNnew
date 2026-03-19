@@ -16,12 +16,18 @@ class MetricItem:
     last_seen: datetime | None = None
 
 
+MAX_METRIC_KEYS = 500
+
 _METRICS: Dict[str, MetricItem] = {}
 
 
 def record_metric(name: str, duration_ms: float, success: bool) -> None:
     item = _METRICS.get(name)
     if item is None:
+        # Ограничиваем рост: удаляем самый старый, если лимит превышен
+        if len(_METRICS) >= MAX_METRIC_KEYS:
+            oldest_key = min(_METRICS, key=lambda k: _METRICS[k].last_seen or datetime.min)
+            del _METRICS[oldest_key]
         item = MetricItem()
         _METRICS[name] = item
 

@@ -16,7 +16,7 @@ async def command_block_reason(message: Message, state: FSMContext) -> None:
     """
     try:
         # Только для админа
-        if message.from_user.id != int(admin_tlg):
+        if message.from_user.id != admin_tlg:
             return
         
         data = await state.get_data()

@@ -62,7 +62,7 @@ if not admin_tlg:
     )
 
 # Преобразуем admin_tlg в int для использования
-ADMIN_ID = int(admin_tlg)
+ADMIN_ID = admin_tlg
 
 # Настройка логирования
 logging.basicConfig(

@@ -44,7 +44,7 @@ async def command_support(message: Message, state: FSMContext) -> None:
     try:
         account = message.from_user.id
 
-        if admin_tlg and account == int(admin_tlg):
+        if admin_tlg and account == admin_tlg:
             from core.handlers.admin_keys import create_admin_support_keyboard
             await message.answer(
                 text="<b>🆘 Раздел: Поддержка</b>\n\nВыберите действие:",
@@ -204,7 +204,7 @@ async def support_description_handler(message: Message, state: FSMContext) -> No
                     f"<b>Описание:</b>\n{description}"
                 )
                 from core.bot import bot
-                await bot.send_message(chat_id=int(admin_tlg), text=admin_text)
+                await bot.send_message(chat_id=admin_tlg, text=admin_text)
             except Exception as e:
                 logger.log('warning', f'Failed to notify admin: {e}')
         
@@ -263,7 +263,7 @@ async def admin_support_queue(message: Message) -> None:
     Команда администратора для просмотра очереди тикетов
     """
     try:
-        if not admin_tlg or message.from_user.id != int(admin_tlg):
+        if not admin_tlg or message.from_user.id != admin_tlg:
             await message.answer("❌ У вас нет доступа к этой команде", parse_mode=None)
             return
         
@@ -311,7 +311,7 @@ async def admin_support_stats(message: Message) -> None:
     Команда администратора для просмотра статистики поддержки
     """
     try:
-        if not admin_tlg or message.from_user.id != int(admin_tlg):
+        if not admin_tlg or message.from_user.id != admin_tlg:
             await message.answer("❌ У вас нет доступа к этой команде", parse_mode=None)
             return
         

@@ -6,7 +6,15 @@ import typing
 from dataclasses import dataclass
 
 import requests
+import urllib3
 from urllib3 import PoolManager
+
+# Outline использует самоподписанные сертификаты с известным fingerprint.
+# Верификация идёт через _FingerprintAdapter (assert_fingerprint), а не через CA.
+# verify=False нужен чтобы requests не проверял CA, но urllib3 warning подавляем.
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+REQUEST_TIMEOUT = 15  # seconds
 
 UNABLE_TO_GET_METRICS_ERROR = "Unable to get metrics"
 
@@ -87,10 +95,10 @@ class OutlineVPN:
 
     def get_keys(self):
         """Get all keys in the outline server"""
-        response = self.session.get(f"{self.api_url}/access-keys/", verify=False)
+        response = self.session.get(f"{self.api_url}/access-keys/", verify=False, timeout=REQUEST_TIMEOUT)
         if response.status_code == 200 and "accessKeys" in response.json():
             response_metrics = self.session.get(
-                f"{self.api_url}/metrics/transfer", verify=False
+                f"{self.api_url}/metrics/transfer", verify=False, timeout=REQUEST_TIMEOUT
             )
             if (
                 response_metrics.status_code >= 400
@@ -107,13 +115,13 @@ class OutlineVPN:
 
     def get_key(self, key_id: str) -> OutlineKey:
         response = self.session.get(
-            f"{self.api_url}/access-keys/{key_id}", verify=False
+            f"{self.api_url}/access-keys/{key_id}", verify=False, timeout=REQUEST_TIMEOUT
         )
         if response.status_code == 200:
             key = response.json()
 
             response_metrics = self.session.get(
-                f"{self.api_url}/metrics/transfer", verify=False
+                f"{self.api_url}/metrics/transfer", verify=False, timeout=REQUEST_TIMEOUT
             )
             if (
                 response_metrics.status_code >= 400
@@ -150,11 +158,11 @@ class OutlineVPN:
         if key_id:
             payload["id"] = key_id
             response = self.session.put(
-                f"{self.api_url}/access-keys/{key_id}", verify=False, json=payload
+                f"{self.api_url}/access-keys/{key_id}", verify=False, timeout=REQUEST_TIMEOUT, json=payload
             )
         else:
             response = self.session.post(
-                f"{self.api_url}/access-keys", verify=False, json=payload
+                f"{self.api_url}/access-keys", verify=False, timeout=REQUEST_TIMEOUT, json=payload
             )
 
         if response.status_code == 201:
@@ -167,7 +175,7 @@ class OutlineVPN:
     def delete_key(self, key_id: str) -> bool:
         """Delete a key"""
         response = self.session.delete(
-            f"{self.api_url}/access-keys/{key_id}", verify=False
+            f"{self.api_url}/access-keys/{key_id}", verify=False, timeout=REQUEST_TIMEOUT
         )
         return response.status_code == 204
 
@@ -178,7 +186,7 @@ class OutlineVPN:
         }
 
         response = self.session.put(
-            f"{self.api_url}/access-keys/{key_id}/name", files=files, verify=False
+            f"{self.api_url}/access-keys/{key_id}/name", files=files, verify=False, timeout=REQUEST_TIMEOUT
         )
         return response.status_code == 204
 
@@ -187,14 +195,14 @@ class OutlineVPN:
         data = {"limit": {"bytes": limit_bytes}}
 
         response = self.session.put(
-            f"{self.api_url}/access-keys/{key_id}/data-limit", json=data, verify=False
+            f"{self.api_url}/access-keys/{key_id}/data-limit", json=data, verify=False, timeout=REQUEST_TIMEOUT
         )
         return response.status_code == 204
 
     def delete_data_limit(self, key_id: str) -> bool:
         """Removes data limit for a key"""
         response = self.session.delete(
-            f"{self.api_url}/access-keys/{key_id}/data-limit", verify=False
+            f"{self.api_url}/access-keys/{key_id}/data-limit", verify=False, timeout=REQUEST_TIMEOUT
         )
         return response.status_code == 204
 
@@ -207,7 +215,7 @@ class OutlineVPN:
                 "3":752221577
             }
         }"""
-        response = self.session.get(f"{self.api_url}/metrics/transfer", verify=False)
+        response = self.session.get(f"{self.api_url}/metrics/transfer", verify=False, timeout=REQUEST_TIMEOUT)
         if (
             response.status_code >= 400
             or "bytesTransferredByUserId" not in response.json()
@@ -228,7 +236,7 @@ class OutlineVPN:
             "hostnameForAccessKeys":"example.com"
         }
         """
-        response = self.session.get(f"{self.api_url}/server", verify=False)
+        response = self.session.get(f"{self.api_url}/server", verify=False, timeout=REQUEST_TIMEOUT)
         if response.status_code != 200:
             raise OutlineServerErrorException(
                 "Unable to get information about the server"
@@ -238,7 +246,7 @@ class OutlineVPN:
     def set_server_name(self, name: str) -> bool:
         """Renames the server"""
         data = {"name": name}
-        response = self.session.put(f"{self.api_url}/name", verify=False, json=data)
+        response = self.session.put(f"{self.api_url}/name", verify=False, timeout=REQUEST_TIMEOUT, json=data)
         return response.status_code == 204
 
     def set_hostname(self, hostname: str) -> bool:
@@ -246,20 +254,20 @@ class OutlineVPN:
         Must be a valid hostname or IP address."""
         data = {"hostname": hostname}
         response = self.session.put(
-            f"{self.api_url}/server/hostname-for-access-keys", verify=False, json=data
+            f"{self.api_url}/server/hostname-for-access-keys", verify=False, timeout=REQUEST_TIMEOUT, json=data
         )
         return response.status_code == 204
 
     def get_metrics_status(self) -> bool:
         """Returns whether metrics is being shared"""
-        response = self.session.get(f"{self.api_url}/metrics/enabled", verify=False)
+        response = self.session.get(f"{self.api_url}/metrics/enabled", verify=False, timeout=REQUEST_TIMEOUT)
         return response.json().get("metricsEnabled")
 
     def set_metrics_status(self, status: bool) -> bool:
         """Enables or disables sharing of metrics"""
         data = {"metricsEnabled": status}
         response = self.session.put(
-            f"{self.api_url}/metrics/enabled", verify=False, json=data
+            f"{self.api_url}/metrics/enabled", verify=False, timeout=REQUEST_TIMEOUT, json=data
         )
         return response.status_code == 204
 
@@ -268,7 +276,7 @@ class OutlineVPN:
         This can be a port already used for access keys."""
         data = {"port": port}
         response = self.session.put(
-            f"{self.api_url}/server/port-for-new-access-keys", verify=False, json=data
+            f"{self.api_url}/server/port-for-new-access-keys", verify=False, timeout=REQUEST_TIMEOUT, json=data
         )
         if response.status_code == 400:
             raise OutlineServerErrorException(
@@ -284,13 +292,13 @@ class OutlineVPN:
         """Sets a data transfer limit for all access keys."""
         data = {"limit": {"bytes": limit_bytes}}
         response = self.session.put(
-            f"{self.api_url}/server/access-key-data-limit", verify=False, json=data
+            f"{self.api_url}/server/access-key-data-limit", verify=False, timeout=REQUEST_TIMEOUT, json=data
         )
         return response.status_code == 204
 
     def delete_data_limit_for_all_keys(self) -> bool:
         """Removes the access key data limit, lifting data transfer restrictions on all access keys."""
         response = self.session.delete(
-            f"{self.api_url}/server/access-key-data-limit", verify=False
+            f"{self.api_url}/server/access-key-data-limit", verify=False, timeout=REQUEST_TIMEOUT
         )
         return response.status_code == 204

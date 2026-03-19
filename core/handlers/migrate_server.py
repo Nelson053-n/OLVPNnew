@@ -31,7 +31,7 @@ async def command_migrate_server(message: Message, state: FSMContext) -> None:
     Переносит всех пользователей с одного сервера на другой через кнопки выбора
     """
     try:
-        if not admin_tlg or message.from_user.id != int(admin_tlg):
+        if not admin_tlg or message.from_user.id != admin_tlg:
             await message.answer('❌ У вас нет доступа к этой команде', parse_mode=None)
             return
 
@@ -233,10 +233,15 @@ async def handle_migration_confirmation(callback: CallbackQuery, state: FSMConte
                         date_str=date_str,
                         promo=old_key.promo
                     )
-                    
+
                     if not save_success:
+                        # Откат: удаляем созданный ключ с нового сервера
+                        try:
+                            olm_to.delete_key_by_id(new_outline_id)
+                        except Exception as rollback_err:
+                            logger.log('error', f'Rollback failed for key {new_outline_id} on {to_server}: {rollback_err}')
                         raise Exception("Failed to save key to database")
-                    
+
                     # Удаляем старый ключ
                     try:
                         olm_from.delete_key_by_id(old_key.outline_id)

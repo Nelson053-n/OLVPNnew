@@ -136,7 +136,7 @@ async def command_server_host_stats(message: Message) -> None:
     Статистика хоста: диск, CPU, нагрузка канала.
     """
     try:
-        if not admin_tlg or message.from_user.id != int(admin_tlg):
+        if not admin_tlg or message.from_user.id != admin_tlg:
             await message.answer('❌ У вас нет доступа к этой команде', parse_mode=None)
             return
 

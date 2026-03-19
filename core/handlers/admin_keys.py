@@ -14,7 +14,7 @@ logger = RotatingFileLogger()
 
 
 def _is_admin(user_id: int) -> bool:
-    return bool(admin_tlg) and user_id == int(admin_tlg)
+    return bool(admin_tlg) and user_id == admin_tlg
 
 
 class _MessageProxy:

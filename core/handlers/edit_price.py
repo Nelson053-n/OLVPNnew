@@ -54,7 +54,7 @@ async def editprice_handler(message: Message, state: FSMContext) -> None:
     """
     try:
         # Проверка прав администратора
-        if not admin_tlg or str(message.from_user.id) != str(admin_tlg):
+        if not admin_tlg or message.from_user.id != admin_tlg:
             await message.answer('❌ Эта команда доступна только администратору', parse_mode=None)
             return
 
@@ -112,7 +112,12 @@ async def select_period_to_edit(callback: CallbackQuery, state: FSMContext) -> N
         
         # Извлекаем период (day, month, year)
         period = callback.data.replace('edprc_', '')
-        
+
+        valid_periods = {'day', 'month', 'year', 'promo'}
+        if period not in valid_periods:
+            await callback.message.answer("Некорректный период.", parse_mode=None)
+            return
+
         # Загружаем текущие цены
         prices = load_prices()
         current_price = prices.get(period, {}).get('amount', 0)

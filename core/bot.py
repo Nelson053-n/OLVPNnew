@@ -156,7 +156,7 @@ async def setup_bot_commands(bot: Bot):
         try:
             await bot.set_my_commands(
                 admin_commands,
-                scope=BotCommandScopeChat(chat_id=int(admin_tlg))
+                scope=BotCommandScopeChat(chat_id=admin_tlg)
             )
         except Exception as e:
             print(f"Не удалось установить команды для администратора: {e}")

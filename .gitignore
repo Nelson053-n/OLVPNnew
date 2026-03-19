@@ -35,6 +35,10 @@ dist/
 .coverage
 htmlcov/
 
+# Secrets / config with credentials
+core/TEMP.env
+core/api_s/outline/settings_api_outline.json
+
 # mypy
 .mypy_cache/
 

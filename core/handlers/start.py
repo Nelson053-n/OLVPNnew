@@ -70,8 +70,17 @@ async def command_start(message: Message, state: FSMContext) -> None:
                 param = parts[1]
                 if param.startswith('ref_'):
                     try:
-                        referrer_id = int(param.split('_')[1])
-                        logger.log('info', f'Referral parameter detected: user {id_user} referred by {referrer_id}')
+                        ref_parts = param.split('_')
+                        if len(ref_parts) == 2:
+                            candidate = int(ref_parts[1])
+                            if candidate > 0 and candidate != id_user:
+                                # Проверяем, существует ли реферер в БД
+                                referrer_user = await get_user_data_from_table_users(account=candidate)
+                                if referrer_user:
+                                    referrer_id = candidate
+                                    logger.log('info', f'Referral parameter detected: user {id_user} referred by {referrer_id}')
+                                else:
+                                    logger.log('warning', f'Invalid referrer (not found): {candidate}')
                     except (ValueError, IndexError):
                         pass
         

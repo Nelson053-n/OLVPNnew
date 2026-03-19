@@ -15,7 +15,7 @@ async def command_active_keys(message: Message) -> None:
 
     :param message: Message - Объект Message, полученный при вызове команды.
     """
-    if message.from_user.id != int(admin_tlg):
+    if message.from_user.id != admin_tlg:
         await message.answer("❌ У вас нет доступа к этой команде")
         return
 
