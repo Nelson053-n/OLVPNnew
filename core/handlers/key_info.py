@@ -71,12 +71,13 @@ async def get_key_info_response(user_id: int) -> tuple:
                     else:
                         days_left = " (истёк)"
                 
+                url_line = f"  URL: {uk.access_url[:30]}...[MASKED]\n" if uk.access_url and len(uk.access_url) > 30 else "  URL: [REDACTED]\n"
                 parts.append(
                     f"<b>{idx}.</b> {server_display}\n"
                     f"  Трафик: {used_gb:.2f} ГБ\n"
                     f"  Статус: {'Активен' if uk.premium else 'Неактивен'}\n"
                     f"  Истекает: {uk.date.strftime('%d.%m.%Y - %H:%M') if uk.date else '—'}{days_left}\n"
-                    f"  URL: {uk.access_url[:30]}...[MASKED]\n" if uk.access_url and len(uk.access_url) > 30 else f"  URL: [REDACTED]\n"
+                    + url_line
                 )
             except Exception as e:
                 # Получаем отображаемое имя с флагом даже если ключ не найден
@@ -92,10 +93,11 @@ async def get_key_info_response(user_id: int) -> tuple:
                     else:
                         days_left = " (истёк)"
                 
+                url_line = f"  URL: {uk.access_url[:30]}...[MASKED]\n" if uk.access_url and len(uk.access_url) > 30 else "  URL: [REDACTED]\n"
                 parts.append(
                     f"<b>{idx}.</b> {server_display} (ключ не найден на сервере)\n"
                     f"  Истекает: {uk.date.strftime('%d.%m.%Y - %H:%M') if uk.date else '—'}{days_left}\n"
-                    f"  URL: {uk.access_url[:30]}...[MASKED]\n" if uk.access_url and len(uk.access_url) > 30 else f"  URL: [REDACTED]\n"
+                    + url_line
                 )
             # Добавляем кнопки для каждого ключа
             # uk.id формата "{account}_key_{uuid}", берем последние 8 символов полного ID

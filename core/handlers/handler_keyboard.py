@@ -360,7 +360,7 @@ async def switch_menu(case_number: str, call: CallbackQuery, state: FSMContext) 
                 switch_dict[name] = handler
         default_handler: Callable[[CallbackQuery, FSMContext],
                          Tuple[str, InlineKeyboardMarkup]] = \
-                        lambda call, state: ("", InlineKeyboardMarkup())
+                        lambda call, state: ("", InlineKeyboardBuilder().as_markup())
 
         handler: Callable[[CallbackQuery, FSMContext],
                  Tuple[str, InlineKeyboardMarkup]] = (
