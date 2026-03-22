@@ -39,6 +39,13 @@ htmlcov/
 core/TEMP.env
 core/api_s/outline/settings_api_outline.json
 
+# Certificates and private keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+
 # mypy
 .mypy_cache/
 
