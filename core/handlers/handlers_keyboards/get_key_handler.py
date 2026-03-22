@@ -130,7 +130,11 @@ async def replace_key_choose_server(call: CallbackQuery, state: FSMContext) -> (
     
     if not target_key:
         return ("❌ Доступ не найден", InlineKeyboardBuilder().as_markup())
-    
+
+    # Ownership check
+    if target_key.account != call.from_user.id:
+        return ("❌ Нет доступа к этому ключу", InlineKeyboardBuilder().as_markup())
+
     # Получаем список всех активных серверов
     all_servers = get_name_all_active_server_ol()
     current_server = target_key.region_server
@@ -193,7 +197,11 @@ async def replace_key_execute(call: CallbackQuery, state: FSMContext) -> (str, I
         
         if not target_key:
             return ("❌ Доступ не найден", InlineKeyboardBuilder().as_markup())
-        
+
+        # Ownership check
+        if target_key.account != call.from_user.id:
+            return ("❌ Нет доступа к этому ключу", InlineKeyboardBuilder().as_markup())
+
         user_id = target_key.account
         old_server = target_key.region_server
         old_outline_id = target_key.outline_id
@@ -279,7 +287,7 @@ async def replace_key_execute(call: CallbackQuery, state: FSMContext) -> (str, I
         logger.log('error', f'Error replacing key: {e}')
         import traceback
         traceback.print_exc()
-        return (f"❌ Ошибка при замене доступа: {str(e)}", InlineKeyboardBuilder().as_markup())
+        return ("❌ Ошибка при замене доступа", InlineKeyboardBuilder().as_markup())
 
 
 async def my_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboardMarkup):

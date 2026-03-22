@@ -164,7 +164,7 @@ async def command_start(message: Message, state: FSMContext) -> None:
         tb = traceback.format_exc()
         logger.log('error', f'command_start error for user {message.from_user.id}: {e}\n{tb}')
         try:
-            await message.answer(f"Ошибка при обработке /start: {str(e)}")
+            await message.answer("Произошла ошибка. Попробуйте позже.")
         except Exception:
             pass
 

@@ -190,6 +190,7 @@ async def _poll_payment_status(bot: Bot, user_id: int, payment_id: str, payment_
                 untill_date = get_future_date(add_day=day_count)
                 olm = OutlineManager(region_server)
                 unique_name = f"{user_id}-{uuid.uuid4().hex[:8]}"
+                # Using _client directly because OutlineManager.create_key_from_ol() uses PUT with fixed ID
                 key_user = olm._client.create_key(name=unique_name)
                 outline_id = str(key_user.key_id)
 

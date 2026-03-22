@@ -188,7 +188,7 @@ async def admin_vpn_detailed_check(message: Message) -> None:
                     server_info = olm._client.get_server_information()
                     
                     text += f"✅ API доступен\n"
-                    text += f"   Версия: {getattr(server_info, 'version', 'Unknown')}\n"
+                    text += f"   Версия: {server_info.get('version', 'Unknown') if isinstance(server_info, dict) else getattr(server_info, 'version', 'Unknown')}\n"
                     
                 except Exception as e:
                     text += f"❌ API недоступен: {str(e)[:50]}\n"

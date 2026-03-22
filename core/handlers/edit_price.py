@@ -109,7 +109,11 @@ async def select_period_to_edit(callback: CallbackQuery, state: FSMContext) -> N
     """
     try:
         await callback.answer()
-        
+
+        # Проверка прав администратора
+        if not admin_tlg or callback.from_user.id != admin_tlg:
+            return
+
         # Извлекаем период (day, month, year)
         period = callback.data.replace('edprc_', '')
 
@@ -167,6 +171,11 @@ async def process_new_price(message: Message, state: FSMContext) -> None:
     Обработка ввода новой цены
     """
     try:
+        # Проверка прав администратора
+        if not admin_tlg or message.from_user.id != admin_tlg:
+            await state.clear()
+            return
+
         if message.text == '/cancel':
             await state.clear()
             await message.answer('❌ Изменение цены отменено', parse_mode=None)

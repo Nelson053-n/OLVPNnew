@@ -2,15 +2,11 @@
 Функции работы с подключениями (для ограничения одновременных подключений)
 """
 from datetime import datetime, timedelta
-from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 import uuid
 
-from core.sql.base import Base, KeyConnection
-
-DATABASE_URL = 'sqlite:///olvpnbot.db'
-engine = create_engine(DATABASE_URL, echo=False)
-Base.metadata.create_all(engine)
+from core.sql.base import KeyConnection
+from core.sql.engine import engine
 
 
 async def log_connection(key_id: str, ip_address: str, user_agent: str = None) -> str | None:

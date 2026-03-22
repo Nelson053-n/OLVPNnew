@@ -2,16 +2,12 @@
 Функции работы с поддержкой (тикеты)
 """
 from datetime import datetime
-from sqlalchemy import create_engine
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
 import uuid
 
-from core.sql.base import Base, SupportTicket
-
-DATABASE_URL = 'sqlite:///olvpnbot.db'
-engine = create_engine(DATABASE_URL, echo=False)
-Base.metadata.create_all(engine)
+from core.sql.base import SupportTicket
+from core.sql.engine import engine
 
 
 async def create_ticket(account: int, title: str, description: str, category: str = 'general', priority: str = 'normal') -> str | None:

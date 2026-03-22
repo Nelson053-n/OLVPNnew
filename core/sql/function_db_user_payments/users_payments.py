@@ -1,17 +1,9 @@
 from datetime import datetime
-import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
 
-from core.sql.base import Base, UserPay
+from core.sql.base import UserPay
+from core.sql.engine import SessionLocal as Session
 from core.sql.function_db_user_vpn.users_vpn import get_user_data_from_table_users, add_user_to_db
 from core.utils.format_iso_datetime import format_iso_datetime
-
-DATABASE_URL = 'sqlite:///olvpnbot.db'
-SQL_ECHO = os.getenv('SQL_ECHO', 'false').lower() == 'true'
-engine = create_engine(DATABASE_URL, echo=SQL_ECHO)
-Session = sessionmaker(bind=engine)
-Base.metadata.create_all(engine)
 
 
 async def add_payment_to_db(account: int, payment_key: str = None, payment_date: str = None, paykey: str = None) -> None:

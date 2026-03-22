@@ -115,7 +115,6 @@ from core.handlers.admin_keys import (
     callback_admin_servers_action,
 )
 from core.settings import api_key_tlg, admin_tlg
-from core.api_s.outline.outline_api import OutlineManager
 from core.handlers.handler_keyboard import build_and_edit_message
 from core.handlers.start import command_start
 from core.handlers.runtime_metrics import command_metrics
@@ -123,7 +122,6 @@ from core.monitoring.metrics_middleware import MetricsMiddleware
 from core.monitoring.infra_alerts import InfraAlertsMonitor
 
 router: Router = Router()
-olm = OutlineManager()
 BOT_TOKEN = api_key_tlg
 bot: Bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 

@@ -1,3 +1,5 @@
+import asyncio
+
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup
 
@@ -6,6 +8,9 @@ from core.sql.function_db_user_vpn.users_vpn import get_promo_status, set_promo_
 from core.utils.create_view import create_answer_from_html
 from core.utils.get_key_utils import get_future_date, get_ol_key_func
 from core.utils.get_region_name import get_region_name_from_json
+
+# Lock для защиты от двойной выдачи промо-ключа
+_promo_lock = asyncio.Lock()
 
 
 async def get_promo(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboardMarkup):
@@ -23,13 +28,20 @@ async def get_promo(call: CallbackQuery, state: FSMContext) -> (str, InlineKeybo
     name_temp = call.data
     region_server = data.get('region_server', 'nederland')
     region_name = await get_region_name_from_json(region=region_server)
-    promo_status = await get_promo_status(account=id_user)
-    if not promo_status:
-        await set_promo_status(account=id_user, value_promo=True)
-        add_day = 1
-        untill_date = get_future_date(add_day=add_day)
-        key_user = await get_ol_key_func(call=call, untill_date=untill_date,
-                                         region_server=region_server)
-        content = await create_answer_from_html(name_temp=name_temp, key_user=key_user.access_url,
-                                                untill_date=untill_date, region_name=region_name)
+
+    async with _promo_lock:
+        promo_status = await get_promo_status(account=id_user)
+        if not promo_status:
+            await set_promo_status(account=id_user, value_promo=True)
+            add_day = 1
+            untill_date = get_future_date(add_day=add_day)
+            key_user = await get_ol_key_func(call=call, untill_date=untill_date,
+                                             region_server=region_server)
+            if not key_user or key_user is False:
+                content = await create_answer_from_html(name_temp='error')
+                return content, start_keyboard()
+            from core.sql.function_db_user_vpn.users_vpn import set_key_to_table_users
+            await set_key_to_table_users(account=id_user, value_key=key_user.access_url)
+            content = await create_answer_from_html(name_temp=name_temp, key_user=key_user.access_url,
+                                                    untill_date=untill_date, region_name=region_name)
     return content, start_keyboard()

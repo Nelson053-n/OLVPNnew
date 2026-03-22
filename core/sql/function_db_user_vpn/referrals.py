@@ -2,16 +2,13 @@
 Функции работы с реферальной программой
 """
 from datetime import datetime
-from sqlalchemy import create_engine, func
+from sqlalchemy import func
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
 import uuid
 
-from core.sql.base import Base, Referral
-
-DATABASE_URL = 'sqlite:///olvpnbot.db'
-engine = create_engine(DATABASE_URL, echo=False)
-Base.metadata.create_all(engine)
+from core.sql.base import Referral
+from core.sql.engine import engine
 
 
 async def add_referral(referrer_id: int, referred_id: int, bonus_days: int = 7) -> bool:

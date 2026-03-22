@@ -2,15 +2,11 @@
 Функции работы с напоминаниями об окончании подписки и продлением
 """
 from datetime import datetime, timedelta
-from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 import uuid
 
-from core.sql.base import Base, RenewalReminder
-
-DATABASE_URL = 'sqlite:///olvpnbot.db'
-engine = create_engine(DATABASE_URL, echo=False)
-Base.metadata.create_all(engine)
+from core.sql.base import RenewalReminder
+from core.sql.engine import engine
 
 
 async def create_renewal_reminder(account: int, key_id: str, days_until_expiry: int) -> bool:

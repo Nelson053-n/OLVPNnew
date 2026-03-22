@@ -31,13 +31,10 @@ def is_test_key(outline_id: str | None) -> bool:
 
 async def _delete_user_from_db(user_id: int):
     """Удаляет пользователя из таблицы Users"""
-    from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
     from core.sql.base import Users
-    
-    DATABASE_URL = 'sqlite:///olvpnbot.db'
-    engine = create_engine(DATABASE_URL, echo=True)
-    
+    from core.sql.engine import engine
+
     with Session(engine) as session:
         try:
             user = session.query(Users).filter_by(account=user_id).first()
@@ -52,13 +49,10 @@ async def _delete_user_from_db(user_id: int):
 
 async def _delete_user_payments(user_id: int):
     """Удаляет платежи пользователя из таблицы UserPay"""
-    from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
     from core.sql.base import UserPay
-    
-    DATABASE_URL = 'sqlite:///olvpnbot.db'
-    engine = create_engine(DATABASE_URL, echo=True)
-    
+    from core.sql.engine import engine
+
     with Session(engine) as session:
         try:
             payments = session.query(UserPay).filter_by(account_id=user_id).all()

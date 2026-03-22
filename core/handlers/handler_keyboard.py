@@ -72,7 +72,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
             if not _is_admin(call.from_user.id):
                 return
             try:
-                region_server = data.split('_')[-1]
+                region_server = data.replace('mass_promo_exec_', '', 1)
                 from core.handlers.give_promo import mass_promo_execute
                 await mass_promo_execute(call, region_server)
             except Exception as e:
@@ -187,6 +187,9 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
         if data.startswith('copy_key_'):
             try:
                 user_id = int(data.split('_')[-1])
+                # Only admin or the key owner can copy
+                if not _is_admin(call.from_user.id) and call.from_user.id != user_id:
+                    return
                 from core.sql.function_db_user_vpn.users_vpn import get_key_from_table_users
                 key = await get_key_from_table_users(account=user_id)
                 if key:
@@ -206,8 +209,14 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 matches = [uk for uk in all_keys if str(uk.id).endswith(short_id)]
                 if len(matches) > 1:
                     await call.message.answer(text="Ошибка: найдено несколько ключей с таким ID.", parse_mode=None)
-                elif matches and matches[0].access_url:
-                    await call.message.answer(text=f"🔑 Доступ для копирования:\n{matches[0].access_url}", parse_mode=None)
+                elif matches:
+                    # Ownership check: only owner or admin
+                    if not _is_admin(call.from_user.id) and matches[0].account != call.from_user.id:
+                        await call.answer("Нет доступа к этому ключу", show_alert=True)
+                    elif matches[0].access_url:
+                        await call.message.answer(text=f"🔑 Доступ для копирования:\n{matches[0].access_url}", parse_mode=None)
+                    else:
+                        await call.message.answer(text="Доступ не найден.", parse_mode=None)
                 else:
                     await call.message.answer(text="Доступ не найден.", parse_mode=None)
             except Exception as e:
@@ -217,6 +226,13 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
         if data.startswith('ask_del_'):
             try:
                 short_id = data.split('_')[-1]
+                # Ownership check
+                from core.sql.function_db_user_vpn.users_vpn import get_all_user_keys as get_all_keys_for_del
+                all_keys_del = await get_all_keys_for_del()
+                matches_del = [uk for uk in all_keys_del if str(uk.id).endswith(short_id)]
+                if matches_del and not _is_admin(call.from_user.id) and matches_del[0].account != call.from_user.id:
+                    await call.answer("Нет доступа к этому ключу", show_alert=True)
+                    return
                 from core.keyboards.accept_del_button import accept_del_userkey_keyboard
                 from core.utils.create_view import create_answer_from_html
                 content = await create_answer_from_html(name_temp='ask_del_key', result='Подтверждаете удаление доступа?')
@@ -234,7 +250,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 short_id = data.split('_')[-1]
                 from core.services.key_service import key_service
 
-                result = await key_service.delete_key_by_short_id(short_id)
+                result = await key_service.delete_key_by_short_id(short_id, caller_user_id=call.from_user.id)
                 if not result['success']:
                     await call.message.answer(text=result.get('error', 'Доступ не найден.'), parse_mode=None)
                     return

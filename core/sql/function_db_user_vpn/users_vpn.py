@@ -1,22 +1,17 @@
 from datetime import datetime
-import os
 from typing import Union, Dict
-from sqlalchemy import create_engine, func
+from sqlalchemy import func
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
 import uuid
 import traceback
 
 from core.api_s.outline.outline_api import OutlineManager
-from core.sql.base import Base, Users, UserKey
+from core.sql.base import Users, UserKey
+from core.sql.engine import engine
 from logs.log_main import RotatingFileLogger
 
 _logger = RotatingFileLogger()
-
-DATABASE_URL = 'sqlite:///olvpnbot.db'
-SQL_ECHO = os.getenv('SQL_ECHO', 'false').lower() == 'true'
-engine = create_engine(DATABASE_URL, echo=SQL_ECHO)
-Base.metadata.create_all(engine)
 
 
 async def add_user_to_db(account: int, account_name: str) -> None:
@@ -147,7 +142,7 @@ async def set_date_to_table_users(account: int, value_date: str) -> bool:
             user_record = session.query(Users).filter_by(account=account).one()
             if value_date:
                 date = datetime.strptime(value_date, '%d.%m.%Y - %H:%M')
-            elif value_date is None:
+            else:
                 date = datetime.strptime('01.01.2000 - 00:00', '%d.%m.%Y - %H:%M')
             if date != user_record.date:
                 user_record.date = date

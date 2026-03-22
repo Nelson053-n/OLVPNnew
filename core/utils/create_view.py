@@ -1,4 +1,5 @@
 import os
+import re
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 # Абсолютный путь к шаблонам (работает из любого рабочего каталога)
@@ -21,6 +22,9 @@ async def create_answer_from_html(name_temp: str, **kwargs) -> str:
     :return str - строка с ответом из шаблона
     """
     page = name_temp.removeprefix('/')
+    # Sanitize: allow only alphanumeric, underscore, hyphen
+    if not re.match(r'^[a-zA-Z0-9_-]+$', page):
+        return _FALLBACK_ERROR
     try:
         template = _env.get_template(f"{page}.html")
         return template.render(**kwargs)

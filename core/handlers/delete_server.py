@@ -2,7 +2,6 @@
 Обработчик команды /deleteserver - удаление Outline сервера
 """
 import json
-import os
 import traceback
 from aiogram import Router
 from aiogram.filters import Command
@@ -11,20 +10,12 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from core.settings import admin_tlg
 from core.sql.function_db_user_vpn.users_vpn import get_all_records_from_table_users
-from core.sql.base import Users
-from sqlalchemy.orm import Session
-from sqlalchemy import create_engine
 from core.api_s.outline.outline_api import OutlineManager
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
 
 router = Router()
-
-# Подключение к БД
-DATABASE_URL = 'sqlite:///olvpnbot.db'
-SQL_ECHO = os.getenv('SQL_ECHO', 'false').lower() == 'true'
-engine = create_engine(DATABASE_URL, echo=SQL_ECHO)
 
 
 @router.message(Command('deleteserver'))
@@ -106,7 +97,12 @@ async def confirm_delete_server(callback: CallbackQuery) -> None:
     """
     try:
         await callback.answer()
-        
+
+        # Проверка прав администратора
+        if not admin_tlg or callback.from_user.id != admin_tlg:
+            await callback.answer("Нет доступа", show_alert=True)
+            return
+
         # Извлекаем название сервера
         server_name = callback.data.replace('delsvr_', '')
         
@@ -165,7 +161,12 @@ async def execute_delete_server(callback: CallbackQuery) -> None:
     """
     try:
         await callback.answer()
-        
+
+        # Проверка прав администратора
+        if not admin_tlg or callback.from_user.id != admin_tlg:
+            await callback.answer("Нет доступа", show_alert=True)
+            return
+
         # Извлекаем название сервера
         server_name = callback.data.replace('cfmdel_', '')
         

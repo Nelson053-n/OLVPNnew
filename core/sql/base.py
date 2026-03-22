@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import String, Column, DateTime, Integer, Boolean, ForeignKey
+from sqlalchemy import String, Column, DateTime, Integer, Boolean, ForeignKey, Index
 from sqlalchemy.orm import DeclarativeBase, relationship
 
 
@@ -65,6 +65,10 @@ class UserKey(Base):
     Таблица с несколькими ключами пользователя
     """
     __tablename__ = 'user_keys'
+    __table_args__ = (
+        Index('ix_userkey_account', 'account'),
+        Index('ix_userkey_region_server', 'region_server'),
+    )
     id = Column(String, primary_key=True)
     account = Column(Integer, ForeignKey('users_vpn.account'))
     access_url = Column(String, nullable=False)

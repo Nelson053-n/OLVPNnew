@@ -130,6 +130,10 @@ bot = Bot(token=SUPPORT_BOT_TOKEN)
 dp = Dispatcher()
 router = Router()
 
+# Максимальные размеры словарей для предотвращения утечки памяти
+_MAX_MAPPING_SIZE = 5000
+_MAX_ADMIN_MESSAGES_SIZE = 10000
+
 # Словарь для хранения сопоставления пользователей и их последних сообщений
 # Структура: {user_id: {'username': ..., 'full_name': ..., 'last_message_id': ..., 'messages': [...]}}
 user_mapping = {}
@@ -271,6 +275,12 @@ async def forward_to_admin(message: Message):
         'username': username,
         'full_name': full_name
     }
+
+    # Очистка user_mapping при превышении лимита
+    if len(user_mapping) > _MAX_MAPPING_SIZE:
+        keys_to_remove = list(user_mapping.keys())[:len(user_mapping) - _MAX_MAPPING_SIZE]
+        for k in keys_to_remove:
+            del user_mapping[k]
     
     # Добавляем сообщение в историю
     add_to_history(user_id, message.text, 'user')
@@ -299,6 +309,12 @@ async def forward_to_admin(message: Message):
         # Сохраняем связь между сообщением администратора и пользователем
         admin_messages[sent_message.message_id] = user_id
         user_mapping[user_id]['last_message_id'] = sent_message.message_id
+
+        # Очистка admin_messages при превышении лимита
+        if len(admin_messages) > _MAX_ADMIN_MESSAGES_SIZE:
+            keys_to_remove = list(admin_messages.keys())[:len(admin_messages) - _MAX_ADMIN_MESSAGES_SIZE]
+            for k in keys_to_remove:
+                del admin_messages[k]
         
         # Подтверждение пользователю
         await message.answer(

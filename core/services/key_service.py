@@ -88,6 +88,7 @@ class KeyService:
             unique_name = f"{user_id}-promo-{uuid.uuid4().hex[:8]}"
             olm = OutlineManager(region_server=server)
 
+            # Using _client directly because OutlineManager.create_key_from_ol() uses PUT with fixed ID
             key_data = olm._client.create_key(name=unique_name)
             if not key_data or not getattr(key_data, 'access_url', None):
                 return {'success': False, 'error': 'Ошибка создания ключа на сервере'}
@@ -169,6 +170,7 @@ class KeyService:
             try:
                 olm_new = OutlineManager(new_server)
                 unique_name = f"{user_id}-replaced-{uuid.uuid4().hex[:8]}"
+                # Using _client directly because OutlineManager.create_key_from_ol() uses PUT with fixed ID
                 new_key = olm_new._client.create_key(name=unique_name)
 
                 if not new_key:
@@ -297,12 +299,13 @@ class KeyService:
             return {'success': False, 'error': str(e)}
 
 
-    async def delete_key_by_short_id(self, short_id: str) -> Dict[str, Any]:
+    async def delete_key_by_short_id(self, short_id: str, caller_user_id: int = None) -> Dict[str, Any]:
         """
         Удалить ключ по короткому ID (последние 8 символов UUID).
         Удаляет из Outline, из БД, синхронизирует Users-таблицу.
 
         :param short_id: последние символы UUID ключа
+        :param caller_user_id: ID вызывающего пользователя (для проверки прав)
         :return: dict с результатом: success, has_remaining_keys, account
         """
         try:
@@ -313,6 +316,13 @@ class KeyService:
             k = matches[0] if matches else None
             if not k:
                 return {'success': False, 'error': 'Ключ не найден'}
+
+            # Ownership check: only owner or admin can delete
+            if caller_user_id is not None:
+                from core.settings import admin_tlg
+                is_admin = bool(admin_tlg) and caller_user_id == admin_tlg
+                if not is_admin and k.account != caller_user_id:
+                    return {'success': False, 'error': 'Нет доступа к этому ключу'}
 
             # Удаляем на сервере Outline
             try:

@@ -53,6 +53,15 @@ async def del_key(call: CallbackQuery, state: FSMContext) -> (str, InlineKeyboar
     region_server_to_db = await set_region_server(account=id_user, value_region=None)
     date_user_db = await set_date_to_table_users(account=id_user, value_date=None)
     key_user = olm.delete_key_from_ol(id_user=str(id_user))
+    # Удаляем записи из UserKey для этого пользователя на данном сервере
+    try:
+        from core.sql.function_db_user_vpn.users_vpn import get_user_keys, delete_user_key_record
+        user_keys = await get_user_keys(account=id_user)
+        for uk in user_keys:
+            if uk.region_server == region_server:
+                await delete_user_key_record(uk.id)
+    except Exception:
+        pass
     name_temp = call.data
     # Consider deletion successful if DB was cleared even if the key was already absent on the server
     if all((key_user_db, premium_user_db,  region_server_to_db, date_user_db)):
