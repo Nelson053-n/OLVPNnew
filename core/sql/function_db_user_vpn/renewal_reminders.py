@@ -7,6 +7,9 @@ import uuid
 
 from core.sql.base import RenewalReminder
 from core.sql.engine import engine
+from logs.log_main import RotatingFileLogger
+
+logger = RotatingFileLogger()
 
 
 async def create_renewal_reminder(account: int, key_id: str, days_until_expiry: int) -> bool:
@@ -42,7 +45,7 @@ async def create_renewal_reminder(account: int, key_id: str, days_until_expiry: 
             session.commit()
             return True
         except Exception as e:
-            print(f"ERROR create_renewal_reminder: {e}")
+            logger.log('error', f"ERROR create_renewal_reminder: {e}")
             return False
 
 
@@ -70,7 +73,7 @@ async def get_unsent_reminders(days_filter: int = None) -> list[dict]:
                 })
             return result
         except Exception as e:
-            print(f"ERROR get_unsent_reminders: {e}")
+            logger.log('error', f"ERROR get_unsent_reminders: {e}")
             return []
 
 
@@ -89,7 +92,7 @@ async def mark_reminder_sent(reminder_id: str) -> bool:
             session.commit()
             return True
         except Exception as e:
-            print(f"ERROR mark_reminder_sent: {e}")
+            logger.log('error', f"ERROR mark_reminder_sent: {e}")
             return False
 
 
@@ -113,7 +116,7 @@ async def get_user_reminders(account: int) -> list[dict]:
                 })
             return result
         except Exception as e:
-            print(f"ERROR get_user_reminders: {e}")
+            logger.log('error', f"ERROR get_user_reminders: {e}")
             return []
 
 
@@ -138,5 +141,5 @@ async def cleanup_old_reminders(days_old: int = 30) -> int:
             session.commit()
             return count
         except Exception as e:
-            print(f"ERROR cleanup_old_reminders: {e}")
+            logger.log('error', f"ERROR cleanup_old_reminders: {e}")
             return 0

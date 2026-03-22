@@ -94,7 +94,7 @@ async def command_my_connections(message: Message) -> None:
             
             connections = await get_active_connections(
                 key_id=key.id,
-                activity_within_minutes=30
+                max_age_minutes=30
             )
             
             if connections:
@@ -103,8 +103,8 @@ async def command_my_connections(message: Message) -> None:
                 text += f"📊 <b>Активные подключения: {len(connections)}/{MAX_CONCURRENT_CONNECTIONS}</b>\n\n"
                 
                 for idx, conn in enumerate(connections, 1):
-                    last_activity = conn.last_activity or conn.connected_at
-                    
+                    last_activity = conn['last_activity'] or conn['connected_at']
+
                     # Вычисляем время со последней активности
                     if last_activity:
                         elapsed = (datetime.now() - last_activity).total_seconds()
@@ -118,9 +118,9 @@ async def command_my_connections(message: Message) -> None:
                             time_str = f"{hours}ч назад"
                     else:
                         time_str = "Unknown"
-                    
-                    status_emoji = "🟢" if conn.status == 'active' else "⚫"
-                    text += f"{status_emoji} #{idx} | {conn.ip_address} | {time_str}\n"
+
+                    status_emoji = "🟢" if conn.get('status', 'active') == 'active' else "⚫"
+                    text += f"{status_emoji} #{idx} | {conn['ip_address']} | {time_str}\n"
                 
                 text += "\n"
         
@@ -149,12 +149,9 @@ async def admin_connection_stats(message: Message) -> None:
             return
         
         from core.sql.base import KeyConnection
-        from sqlalchemy import func, create_engine
+        from sqlalchemy import func
         from sqlalchemy.orm import Session
-        
-        # Инициализируем БД
-        DATABASE_URL = 'sqlite:///olvpnbot.db'
-        engine = create_engine(DATABASE_URL)
+        from core.sql.engine import engine
         
         # Получаем статистику
         with Session(engine) as s:
@@ -198,7 +195,7 @@ async def admin_block_connection(message: Message, connection_id: int, reason: s
         if not admin_tlg or message.from_user.id != admin_tlg:
             return False
         
-        result = await block_connection(connection_id=connection_id, reason=reason)
+        result = await block_connection(connection_id=connection_id)
         
         if result:
             logger.log('info', f'Admin {message.from_user.id} blocked connection {connection_id}: {reason}')

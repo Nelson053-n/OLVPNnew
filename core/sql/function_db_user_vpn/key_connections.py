@@ -7,6 +7,9 @@ import uuid
 
 from core.sql.base import KeyConnection
 from core.sql.engine import engine
+from logs.log_main import RotatingFileLogger
+
+logger = RotatingFileLogger()
 
 
 async def log_connection(key_id: str, ip_address: str, user_agent: str = None) -> str | None:
@@ -32,7 +35,7 @@ async def log_connection(key_id: str, ip_address: str, user_agent: str = None) -
             session.commit()
             return connection_id
         except Exception as e:
-            print(f"ERROR log_connection: {e}")
+            logger.log('error', f"ERROR log_connection: {e}")
             return None
 
 
@@ -63,7 +66,7 @@ async def get_active_connections(key_id: str, max_age_minutes: int = 30) -> list
                 })
             return result
         except Exception as e:
-            print(f"ERROR get_active_connections: {e}")
+            logger.log('error', f"ERROR get_active_connections: {e}")
             return []
 
 
@@ -81,7 +84,7 @@ async def update_connection_activity(connection_id: str) -> bool:
             session.commit()
             return True
         except Exception as e:
-            print(f"ERROR update_connection_activity: {e}")
+            logger.log('error', f"ERROR update_connection_activity: {e}")
             return False
 
 
@@ -99,7 +102,7 @@ async def disconnect_connection(connection_id: str) -> bool:
             session.commit()
             return True
         except Exception as e:
-            print(f"ERROR disconnect_connection: {e}")
+            logger.log('error', f"ERROR disconnect_connection: {e}")
             return False
 
 
@@ -117,7 +120,7 @@ async def block_connection(connection_id: str) -> bool:
             session.commit()
             return True
         except Exception as e:
-            print(f"ERROR block_connection: {e}")
+            logger.log('error', f"ERROR block_connection: {e}")
             return False
 
 
@@ -139,7 +142,7 @@ async def count_active_connections(key_id: str, max_age_minutes: int = 30) -> in
             ).count()
             return count
         except Exception as e:
-            print(f"ERROR count_active_connections: {e}")
+            logger.log('error', f"ERROR count_active_connections: {e}")
             return 0
 
 
@@ -164,5 +167,5 @@ async def disconnect_oldest_connection(key_id: str) -> str | None:
                 return ip
             return None
         except Exception as e:
-            print(f"ERROR disconnect_oldest_connection: {e}")
+            logger.log('error', f"ERROR disconnect_oldest_connection: {e}")
             return None

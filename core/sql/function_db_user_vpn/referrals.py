@@ -9,6 +9,9 @@ import uuid
 
 from core.sql.base import Referral
 from core.sql.engine import engine
+from logs.log_main import RotatingFileLogger
+
+logger = RotatingFileLogger()
 
 
 async def add_referral(referrer_id: int, referred_id: int, bonus_days: int = 7) -> bool:
@@ -44,7 +47,7 @@ async def add_referral(referrer_id: int, referred_id: int, bonus_days: int = 7) 
             session.commit()
             return True
         except Exception as e:
-            print(f"ERROR add_referral: {e}")
+            logger.log('error', f"ERROR add_referral: {e}")
             return False
 
 
@@ -83,7 +86,7 @@ async def mark_referral_bonus_given(referred_id: int) -> bool:
             session.commit()
             return True
         except Exception as e:
-            print(f"ERROR mark_referral_bonus_given: {e}")
+            logger.log('error', f"ERROR mark_referral_bonus_given: {e}")
             return False
 
 
@@ -107,7 +110,7 @@ async def get_user_referrals(referrer_id: int) -> list[dict]:
                 })
             return result
         except Exception as e:
-            print(f"ERROR get_user_referrals: {e}")
+            logger.log('error', f"ERROR get_user_referrals: {e}")
             return []
 
 
@@ -126,7 +129,7 @@ async def get_referral_count_by_user(referrer_id: int, only_with_bonus: bool = F
                 query = query.filter_by(bonus_given=True)
             return query.count()
         except Exception as e:
-            print(f"ERROR get_referral_count_by_user: {e}")
+            logger.log('error', f"ERROR get_referral_count_by_user: {e}")
             return 0
 
 
@@ -153,5 +156,5 @@ async def get_referral_counts_for_users(referrer_ids: list[int]) -> dict[int, in
             )
             return {int(referrer_id): int(count) for referrer_id, count in rows}
         except Exception as e:
-            print(f"ERROR get_referral_counts_for_users: {e}")
+            logger.log('error', f"ERROR get_referral_counts_for_users: {e}")
             return {}

@@ -1,7 +1,10 @@
 import json
+from pathlib import Path
 
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+CONFIG_FILE = Path(__file__).resolve().parent.parent / 'api_s' / 'outline' / 'settings_api_outline.json'
 
 
 def choise_region_keyboard() -> InlineKeyboardMarkup:
@@ -26,7 +29,7 @@ def create_region_button_from_json() -> list:
 
     :return: list - список (call_back и текст)
     """
-    config_file = 'core/api_s/outline/settings_api_outline.json'
+    config_file = CONFIG_FILE
     with open(config_file, 'r') as f:
         config = json.load(f)
     filtered_data = []

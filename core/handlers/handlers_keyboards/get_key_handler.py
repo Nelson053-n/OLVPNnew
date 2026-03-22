@@ -2,6 +2,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup
 import json
 from datetime import datetime
+from pathlib import Path
 
 from core.keyboards.choise_region_button import choise_region_keyboard
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -12,7 +13,7 @@ from core.utils.create_view import create_answer_from_html
 from core.utils.get_region_name import get_region_name_from_json
 
 
-PRICES_FILE = 'core/settings_prices.json'
+PRICES_FILE = Path(__file__).resolve().parent.parent.parent / 'settings_prices.json'
 
 
 def load_prices() -> dict:

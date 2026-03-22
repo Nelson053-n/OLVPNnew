@@ -8,6 +8,7 @@ import logging
 import json
 import uuid
 import traceback
+from html import escape
 from datetime import datetime, timedelta
 from pathlib import Path
 from aiogram import Bot, Dispatcher, Router, F
@@ -164,7 +165,7 @@ def add_to_history(user_id: int, text: str, from_who: str):
         user_history[user_id] = []
     
     user_history[user_id].append({
-        'text': text,
+        'text': text[:500],  # Limit stored text length
         'timestamp': datetime.now(),
         'from': from_who  # 'user' или 'admin'
     })
@@ -233,18 +234,18 @@ async def forward_to_admin(message: Message):
             try:
                 await bot.send_message(
                     chat_id=user_id,
-                    text=f"📬 <b>Ответ от службы поддержки:</b>\n\n{message.text}",
+                    text=f"📬 <b>Ответ от службы поддержки:</b>\n\n{escape(message.text)}",
                     parse_mode=ParseMode.HTML
                 )
-                
+
                 # Подтверждение администратору
                 user_info = user_mapping.get(user_id, {})
                 username = user_info.get('username', 'неизвестно')
                 full_name = user_info.get('full_name', 'Неизвестный пользователь')
-                
+
                 await message.answer(
                     f"✅ Ответ отправлен пользователю:\n"
-                    f"👤 {full_name} (@{username})\n"
+                    f"👤 {escape(full_name)} (@{escape(username)})\n"
                     f"🆔 ID: <code>{user_id}</code>",
                     parse_mode=ParseMode.HTML
                 )
@@ -288,10 +289,10 @@ async def forward_to_admin(message: Message):
     # Формируем сообщение для администратора
     admin_message_text = (
         f"📩 <b>Новое сообщение в техподдержку</b>\n\n"
-        f"👤 <b>От:</b> {full_name}\n"
+        f"👤 <b>От:</b> {escape(full_name)}\n"
         f"🆔 <b>User ID:</b> <code>{user_id}</code>\n"
-        f"📧 <b>Username:</b> @{username}\n\n"
-        f"💬 <b>Сообщение:</b>\n{message.text}"
+        f"📧 <b>Username:</b> @{escape(username)}\n\n"
+        f"💬 <b>Сообщение:</b>\n{escape(message.text)}"
     )
     
     try:
@@ -361,7 +362,7 @@ async def reply_to_user(message: Message):
         # Отправляем ответ пользователю
         await bot.send_message(
             chat_id=user_id,
-            text=f"📬 <b>Ответ от службы поддержки:</b>\n\n{reply_text}",
+            text=f"📬 <b>Ответ от службы поддержки:</b>\n\n{escape(reply_text)}",
             parse_mode=ParseMode.HTML
         )
         
@@ -399,8 +400,11 @@ async def handle_media(message: Message):
 @router.callback_query(F.data.startswith("reply_"))
 async def callback_reply(callback: CallbackQuery):
     """Обработка нажатия кнопки 'Ответить'"""
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("Нет доступа", show_alert=True)
+        return
     user_id = int(callback.data.split("_")[1])
-    
+
     user_info = user_mapping.get(user_id, {})
     username = user_info.get('username', 'неизвестно')
     full_name = user_info.get('full_name', 'Неизвестный пользователь')
@@ -707,8 +711,11 @@ async def callback_replace_key(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("history_"))
 async def callback_history(callback: CallbackQuery):
     """Обработка нажатия кнопки 'История'"""
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("Нет доступа", show_alert=True)
+        return
     user_id = int(callback.data.split("_")[1])
-    
+
     user_info = user_mapping.get(user_id, {})
     username = user_info.get('username', 'неизвестно')
     full_name = user_info.get('full_name', 'Неизвестный пользователь')
@@ -739,7 +746,7 @@ async def callback_history(callback: CallbackQuery):
             text = text[:97] + "..."
         
         history_text += f"<b>{idx}. {from_who}</b> ({timestamp})\n"
-        history_text += f"{text}\n\n"
+        history_text += f"{escape(text)}\n\n"
     
     if len(history) > 10:
         history_text += f"<i>Показаны последние 10 из {len(history)} сообщений</i>"

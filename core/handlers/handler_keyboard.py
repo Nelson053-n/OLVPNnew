@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from typing import Callable, Tuple
 import traceback
 
@@ -95,6 +96,9 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
             try:
                 from core.settings import main_bot_username
                 user_id = int(data.split('_')[-1])
+                if call.from_user.id != user_id:
+                    await call.answer("Нет доступа", show_alert=True)
+                    return
                 referral_link = f"https://t.me/{main_bot_username}?start=ref_{user_id}"
                 await call.message.answer(
                     text=(
@@ -382,7 +386,7 @@ def create_region_handler_from_json() -> list:
     В случае если параметр is_active true, добавляет в список
     :return: list - список с call-back данными и обработчиком
     """
-    config_file = 'core/api_s/outline/settings_api_outline.json'
+    config_file = Path(__file__).resolve().parent.parent / 'api_s' / 'outline' / 'settings_api_outline.json'
     with open(config_file, 'r') as f:
         config = json.load(f)
     filtered_data = []

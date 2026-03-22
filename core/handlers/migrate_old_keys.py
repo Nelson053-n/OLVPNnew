@@ -17,11 +17,8 @@ from core.sql.function_db_user_payments.users_payments import get_all_user_payme
 from core.sql.base import Users, UserKey
 from core.settings import admin_tlg
 from sqlalchemy.orm import Session
-from sqlalchemy import create_engine
+from core.sql.engine import engine
 from logs.log_main import RotatingFileLogger
-
-# Инициализируем движок БД и логгер
-engine = create_engine('sqlite:///olvpnbot.db')
 logger = RotatingFileLogger()
 
 
@@ -219,31 +216,6 @@ async def command_migrate(message: types.Message):
                         f"(outline_id: {outline_key.key_id}, РЕАЛЬНЫЙ сервер: {found_on_server}, "
                         f"БД указан: {region_server}, premium: {user.premium}, date: {user.date})"
                     )
-                    new_key_record = UserKey(
-                        id=str(uuid.uuid4()),
-                        account=user.account,
-                        access_url=outline_key.access_url,
-                        outline_id=outline_key.key_id,
-                        region_server=region_server,
-                        premium=user.premium,
-                        date=user.date,
-                        promo=user.promo_key,  # Если был промо, сохраняем флаг
-                        created_at=estimated_created,  # Используем реальную или вычисленную дату
-                    )
-
-                    session.add(new_key_record)
-                    session.commit()
-
-                    stats['successfully_migrated'] += 1
-                    migration_details.append(
-                        f"✅ @{user.account_name} (ID: {user.account}): "
-                        f"мигрирован на {region_server} (outline_id: {outline_key.key_id})"
-                    )
-                    logger.log('info',
-                        f"[MIGRATION] Успешно мигрирован ключ пользователя {user.account} "
-                        f"(outline_id: {outline_key.key_id}, region: {region_server}, "
-                        f"premium: {user.premium}, date: {user.date})"
-                    )
 
                 except Exception as e:
                     stats['failed_migrations'] += 1
@@ -312,7 +284,7 @@ async def command_check_migration_status(message: types.Message):
                 no_keys += 1
                 continue
 
-            existing_keys = get_user_keys(user.account)
+            existing_keys = await get_user_keys(user.account)
             if existing_keys:
                 already_migrated += 1
             else:

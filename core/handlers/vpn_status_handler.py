@@ -60,6 +60,10 @@ async def command_vpn_status(message: Message) -> None:
     """
     Команда /vpnstatus - проверка здоровья всех серверов
     """
+    if not admin_tlg or message.from_user.id != admin_tlg:
+        await message.answer("У вас нет доступа к этой команде", parse_mode=None)
+        return
+
     try:
         # Загружаем конфиг серверов
         config_path = Path(__file__).parent.parent / 'api_s' / 'outline' / 'settings_api_outline.json'

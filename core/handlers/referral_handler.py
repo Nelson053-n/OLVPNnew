@@ -164,10 +164,7 @@ async def give_referral_bonus(account: int, referrer_id: int = None) -> bool:
         old_expiry = None
         ref_user = await get_user_data_from_table_users(account=referrer_id)
         if ref_user and ref_user.date:
-            try:
-                old_expiry = datetime.strptime(ref_user.date, '%d.%m.%Y - %H:%M')
-            except Exception:
-                old_expiry = None
+            old_expiry = ref_user.date  # Already a datetime object from SQLAlchemy Column(DateTime)
 
         # выдаём ключ (промо, бесплатный)
         region = await get_region_server(account=referrer_id) or 'nederland'

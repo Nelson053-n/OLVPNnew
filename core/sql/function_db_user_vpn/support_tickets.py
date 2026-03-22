@@ -8,6 +8,9 @@ import uuid
 
 from core.sql.base import SupportTicket
 from core.sql.engine import engine
+from logs.log_main import RotatingFileLogger
+
+logger = RotatingFileLogger()
 
 
 async def create_ticket(account: int, title: str, description: str, category: str = 'general', priority: str = 'normal') -> str | None:
@@ -37,7 +40,7 @@ async def create_ticket(account: int, title: str, description: str, category: st
             session.commit()
             return ticket_id
         except Exception as e:
-            print(f"ERROR create_ticket: {e}")
+            logger.log('error', f"ERROR create_ticket: {e}")
             return None
 
 
@@ -84,7 +87,7 @@ async def update_ticket_status(ticket_id: str, status: str) -> bool:
             session.commit()
             return True
         except Exception as e:
-            print(f"ERROR update_ticket_status: {e}")
+            logger.log('error', f"ERROR update_ticket_status: {e}")
             return False
 
 
@@ -104,7 +107,7 @@ async def add_admin_response(ticket_id: str, response: str) -> bool:
             session.commit()
             return True
         except Exception as e:
-            print(f"ERROR add_admin_response: {e}")
+            logger.log('error', f"ERROR add_admin_response: {e}")
             return False
 
 
@@ -133,7 +136,7 @@ async def get_user_tickets(account: int, status: str = None) -> list[dict]:
                 })
             return result
         except Exception as e:
-            print(f"ERROR get_user_tickets: {e}")
+            logger.log('error', f"ERROR get_user_tickets: {e}")
             return []
 
 
@@ -161,7 +164,7 @@ async def get_open_tickets() -> list[dict]:
                 })
             return result
         except Exception as e:
-            print(f"ERROR get_open_tickets: {e}")
+            logger.log('error', f"ERROR get_open_tickets: {e}")
             return []
 
 
@@ -185,5 +188,5 @@ async def get_ticket_stats() -> dict:
                 'resolved': resolved
             }
         except Exception as e:
-            print(f"ERROR get_ticket_stats: {e}")
+            logger.log('error', f"ERROR get_ticket_stats: {e}")
             return {}

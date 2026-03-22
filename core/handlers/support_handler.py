@@ -243,12 +243,12 @@ async def command_support_my_tickets(message: Message) -> None:
         }
         
         for ticket in tickets:
-            status = ticket.status or 'open'
+            status = ticket['status'] or 'open'
             emoji = status_emoji.get(status, '❓')
             text += (
-                f"{emoji} <b>#{ticket.id}</b> - {ticket.title}\n"
-                f"   Категория: {ticket.category}\n"
-                f"   Создан: {fmt(ticket.created_at)}\n\n"
+                f"{emoji} <b>#{ticket['id']}</b> - {ticket['title']}\n"
+                f"   Категория: {ticket.get('category', 'Другое')}\n"
+                f"   Создан: {fmt(ticket['created_at'])}\n\n"
             )
         
         await message.answer(text)
@@ -287,16 +287,16 @@ async def admin_support_queue(message: Message) -> None:
         }
         
         for ticket in tickets:
-            priority = ticket.priority or 'normal'
+            priority = ticket.get('priority', 'normal') or 'normal'
             emoji = priority_emoji.get(priority, '?')
-            user_name = ticket.account_name or f"User {ticket.account}"
-            
+            user_name = ticket.get('account_name') or f"User {ticket['account']}"
+
             text += (
-                f"{emoji} <b>#{ticket.id}</b> - {ticket.title}\n"
-                f"   От: {user_name} (ID: {ticket.account})\n"
-                f"   Категория: {ticket.category}\n"
+                f"{emoji} <b>#{ticket['id']}</b> - {ticket['title']}\n"
+                f"   От: {user_name} (ID: {ticket['account']})\n"
+                f"   Категория: {ticket.get('category', 'Другое')}\n"
                 f"   Приоритет: {priority}\n"
-                f"   Создан: {fmt(ticket.created_at)}\n\n"
+                f"   Создан: {fmt(ticket['created_at'])}\n\n"
             )
         
         await message.answer(text)
@@ -323,7 +323,7 @@ async def admin_support_stats(message: Message) -> None:
         text += f"🟢 Решённых: {stats.get('resolved', 0)}\n"
         text += f"⚫ Закрытых: {stats.get('closed', 0)}\n\n"
         
-        total = sum(stats.values())
+        total = stats.get('total', 0)
         text += f"📈 Всего: {total}\n"
         
         if total > 0:

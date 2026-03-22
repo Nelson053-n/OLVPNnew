@@ -44,4 +44,4 @@ async def pin_disclaimer_handler(message: Message, bot: Bot) -> None:
         
     except Exception as e:
         logger.log('error', f'Error pinning disclaimer: {e}')
-        await message.answer(f"❌ Ошибка при закреплении: {str(e)}")
+        await message.answer("Ошибка при закреплении сообщения")

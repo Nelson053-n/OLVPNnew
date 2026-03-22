@@ -85,18 +85,18 @@ async def send_renewal_reminders(bot) -> int:
         for reminder in reminders:
             try:
                 # Получаем информацию о ключе и пользователе
-                user = await get_user_data_from_table_users(account=reminder.account)
+                user = await get_user_data_from_table_users(account=reminder['account'])
                 if not user:
                     continue
-                
-                keys = await get_user_keys(account=reminder.account)
-                key = next((k for k in keys if k.id == reminder.key_id), None)
-                
+
+                keys = await get_user_keys(account=reminder['account'])
+                key = next((k for k in keys if k.id == reminder['key_id']), None)
+
                 if not key:
                     continue
-                
+
                 # Составляем сообщение
-                days = reminder.days_until_expiry
+                days = reminder['days_until_expiry']
                 
                 if days == 7:
                     emoji = "🟡"
@@ -117,14 +117,14 @@ async def send_renewal_reminders(bot) -> int:
                 )
                 
                 # Отправляем сообщение
-                await bot.send_message(chat_id=reminder.account, text=text)
-                
+                await bot.send_message(chat_id=reminder['account'], text=text)
+
                 # Помечаем как отправленное
-                await mark_reminder_sent(reminder.id)
+                await mark_reminder_sent(reminder['id'])
                 sent_count += 1
-                
+
             except Exception as e:
-                logger.log('warning', f'Failed to send reminder {reminder.id}: {e}')
+                logger.log('warning', f'Failed to send reminder {reminder["id"]}: {e}')
                 failed_count += 1
         
         logger.log('info', f'Sent {sent_count} renewal reminders (failed: {failed_count})')
@@ -155,8 +155,8 @@ async def command_renewal_stats(message: Message) -> None:
         text = f"<b>📋 Ваши напоминания о продлении ({len(reminders)})</b>\n\n"
         
         for reminder in reminders:
-            days = reminder.days_until_expiry
-            
+            days = reminder['days_until_expiry']
+
             if days == 7:
                 emoji = "🟡"
                 status = "Напомню на неделю раньше"
@@ -169,11 +169,11 @@ async def command_renewal_stats(message: Message) -> None:
             else:
                 emoji = "❓"
                 status = f"Напомню через {days} дней"
-            
-            sent_status = "✅ Отправлено" if reminder.sent_at else "⏳ Ожидает отправки"
-            
+
+            sent_status = "✅ Отправлено" if reminder.get('sent', False) else "⏳ Ожидает отправки"
+
             text += (
-                f"{emoji} <b>Ключ #{reminder.key_id}</b>\n"
+                f"{emoji} <b>Ключ #{reminder['key_id']}</b>\n"
                 f"   {status}\n"
                 f"   {sent_status}\n\n"
             )
@@ -197,7 +197,7 @@ async def admin_renewal_stats(message: Message) -> None:
             return
         
         from core.sql.base import RenewalReminder
-        from core.sql.function_db_user_vpn.renewal_reminders import engine
+        from core.sql.engine import engine
         from sqlalchemy.orm import Session
         from sqlalchemy import func
         

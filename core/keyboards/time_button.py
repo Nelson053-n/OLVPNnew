@@ -1,5 +1,8 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import json
+from pathlib import Path
+
+PRICES_FILE = Path(__file__).resolve().parent.parent / 'settings_prices.json'
 
 
 async def time_keyboard(id_user: int) -> InlineKeyboardMarkup:
@@ -12,7 +15,7 @@ async def time_keyboard(id_user: int) -> InlineKeyboardMarkup:
     """
     # Загружаем цены
     try:
-        with open('core/settings_prices.json', 'r', encoding='utf-8') as f:
+        with open(PRICES_FILE, 'r', encoding='utf-8') as f:
             prices = json.load(f)
     except Exception:
         prices = {

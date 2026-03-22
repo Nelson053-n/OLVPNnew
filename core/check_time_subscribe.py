@@ -10,18 +10,19 @@ from logs.log_main import RotatingFileLogger
 logger = RotatingFileLogger()
 
 
-def check_time_subscribe(date: datetime) -> bool:
+def check_time_subscribe(date) -> bool:
     """
     Проверка окончилась подписка или нет
 
     :param date: datetime - дата подписки
     :return: True в случае окончания, в противном False
     """
-    if date is not None:
-        if datetime.now() < date:
-            return False
-        else:
-            return True
+    if date is None:
+        return False
+    if datetime.now() < date:
+        return False
+    else:
+        return True
 
 
 async def get_and_check_records(all_records: list) -> list:

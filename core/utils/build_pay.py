@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from aiogram.types import InlineKeyboardMarkup
 
@@ -9,7 +10,7 @@ from logs.log_main import RotatingFileLogger
 
 _logger = RotatingFileLogger()
 
-PRICES_FILE = 'core/settings_prices.json'
+PRICES_FILE = Path(__file__).resolve().parent.parent / 'settings_prices.json'
 
 
 def _get_valid_amounts() -> set[int]:
@@ -50,7 +51,7 @@ async def build_pay(*args) -> (str, InlineKeyboardMarkup):
     payment_url, payment = data.get('pay', (None, None))
     region_server = data.get('region_server', 'back')
     new_payment = False
-    if payment_url is None or amount != int(payment.amount.value):
+    if payment_url is None or payment is None or amount != int(payment.amount.value):
         payment_url, payment = await create_payment(amount_value=amount, count_day=day_count,
                                                     word_day=word_days, id_user=id_user)
         new_payment = True
