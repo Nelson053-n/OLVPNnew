@@ -37,17 +37,19 @@ async def save_snapshot(outline_id: str, region_server: str, bytes_total: int) -
             return False
 
 
-async def get_last_snapshot(outline_id: str) -> TrafficSnapshot | None:
+async def get_last_snapshot(outline_id: str, region_server: str) -> TrafficSnapshot | None:
     """
-    Получить последний снапшот для ключа
+    Получить последний снапшот для ключа на конкретном сервере.
+    Outline ID не уникальны глобально — один и тот же ID может быть на разных серверах.
 
     :param outline_id: ID ключа в Outline
+    :param region_server: Регион сервера
     :return: TrafficSnapshot или None
     """
     with Session(engine) as session:
         return (
             session.query(TrafficSnapshot)
-            .filter_by(outline_id=outline_id)
+            .filter_by(outline_id=outline_id, region_server=region_server)
             .order_by(desc(TrafficSnapshot.measured_at))
             .first()
         )

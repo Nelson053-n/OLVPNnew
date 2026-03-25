@@ -81,7 +81,7 @@ async def check_traffic_anomalies(bot: Bot):
             transferred = data.get("bytesTransferredByUserId", {})
 
             for outline_id, total_bytes in transferred.items():
-                prev = await get_last_snapshot(outline_id)
+                prev = await get_last_snapshot(outline_id, server)
                 await save_snapshot(outline_id, server, total_bytes)
 
                 if prev:
