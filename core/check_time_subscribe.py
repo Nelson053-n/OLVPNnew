@@ -80,14 +80,16 @@ async def finish_set_date_and_premium() -> int:
                 olm = OutlineManager(region_server=region)
                 olm.delete_key_by_id(uk.outline_id)
                 outline_deleted = True
+            except KeyError:
+                # Сервер удалён из конфига — ключ уже недоступен
+                outline_deleted = True
+                logger.log('info', f'Server {uk.region_server} removed from config, skipping Outline delete for key {uk.id}')
             except Exception as e:
                 err_msg = str(e).lower()
                 if 'not found' in err_msg or '404' in err_msg:
-                    # Ключ уже удалён на сервере — можно чистить БД
                     outline_deleted = True
                     logger.log('warning', f'Key {uk.id} already absent from Outline, cleaning DB')
                 else:
-                    # Сетевая/серверная ошибка — НЕ удаляем из БД, повторим в следующем цикле
                     logger.log('error', f'Failed to delete key {uk.id} from Outline (will retry): {e}')
                     continue
 
@@ -127,8 +129,11 @@ async def finish_set_date_and_premium() -> int:
                     region = record.region_server or 'nederland'
                     olm = OutlineManager(region_server=region)
                     olm.delete_key_from_ol(id_user=str(record.account))
+                except KeyError:
+                    # Сервер удалён из конфига — ключ уже недоступен, просто чистим БД
+                    logger.log('info', f'Server {record.region_server} removed from config, skipping Outline delete for user {record.account}')
                 except Exception as e:
-                    logger.log('error', f'Failed to delete legacy key for user {record.account}: {e}\n{traceback.format_exc()}')
+                    logger.log('error', f'Failed to delete legacy key for user {record.account}: {e}')
 
                 try:
                     await send_notification_to_user(bot=bot, id_user=record.account)

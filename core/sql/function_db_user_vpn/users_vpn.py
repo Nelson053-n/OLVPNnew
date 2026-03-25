@@ -143,7 +143,7 @@ async def set_date_to_table_users(account: int, value_date: str) -> bool:
             if value_date:
                 date = datetime.strptime(value_date, '%d.%m.%Y - %H:%M')
             else:
-                date = datetime.strptime('01.01.2000 - 00:00', '%d.%m.%Y - %H:%M')
+                date = None
             if date != user_record.date:
                 user_record.date = date
                 session.commit()
