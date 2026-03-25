@@ -95,6 +95,11 @@ from core.handlers.test_key_broadcast import (
     process_testkey_server_choice,
     TestKeyStates
 )
+from core.handlers.broadcast import (
+    command_broadcast,
+    broadcast_message_handler,
+    BroadcastStates,
+)
 from core.handlers.replace_key import replace_key_handler
 from core.handlers.admin_keys import (
     command_keys,
@@ -199,6 +204,7 @@ async def start_bot():
     dp.message.register(deleteserver_handler, Command('deleteserver'))
     dp.message.register(editprice_handler, Command('editprice'))
     dp.message.register(command_testkey, Command('testkey'))
+    dp.message.register(command_broadcast, Command('broadcast'))
     
     # Новые команды для функций платформы:
     dp.message.register(command_referral, Command('ref'))  # Информация о рефералах для пользователей
@@ -357,7 +363,10 @@ async def start_bot():
         lambda c: c.data and c.data.startswith('admin_servers_')
     )
     
-    # 5. Обработчик блокировки с причиной (БЕЗ фильтра, регистрируется ПОСЛЕДНИМ)
+    # 5. Обработчик рассылки (FSM state)
+    dp.message.register(broadcast_message_handler, BroadcastStates.waiting_for_message)
+
+    # 6. Обработчик блокировки с причиной (БЕЗ фильтра, регистрируется ПОСЛЕДНИМ)
     dp.message.register(command_block_reason)
     
     # 6. Callback query обработчик (общий, регистрируется после специфичных)
