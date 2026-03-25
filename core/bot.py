@@ -100,6 +100,7 @@ from core.handlers.broadcast import (
     broadcast_message_handler,
     BroadcastStates,
 )
+from core.handlers.traffic_monitor import command_trafficstats
 from core.handlers.replace_key import replace_key_handler
 from core.handlers.admin_keys import (
     command_keys,
@@ -220,6 +221,7 @@ async def start_bot():
     dp.message.register(command_renewal_stats, Command('renewalstats'))  # Мои напоминания о продлении
     dp.message.register(admin_renewal_stats, Command('renewalstats_admin'))  # Статистика продлений (админ)
     dp.message.register(admin_trigger_renewal_reminders, Command('trigger_reminders'))  # Ручная отправка напоминаний (админ)
+    dp.message.register(command_trafficstats, Command('trafficstats'))  # Статистика трафика ключей (админ)
     dp.message.register(cmd_logs, Command('logs'))  # Управление логами (админ)
     
     # 2. Обработчики состояний (FSM) для добавления сервера

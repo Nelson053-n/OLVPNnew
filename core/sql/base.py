@@ -150,3 +150,18 @@ class RenewalReminder(Base):
     reminded_at = Column(DateTime, default=datetime.now)
     sent = Column(Boolean, default=False)
     sent_at = Column(DateTime, nullable=True)
+
+
+class TrafficSnapshot(Base):
+    """
+    Снапшоты трафика ключей для обнаружения аномалий (шеринга)
+    """
+    __tablename__ = 'traffic_snapshots'
+    __table_args__ = (
+        Index('ix_traffic_outline_id', 'outline_id'),
+    )
+    id = Column(String, primary_key=True)
+    outline_id = Column(String, nullable=False)
+    region_server = Column(String, nullable=False)
+    bytes_total = Column(Integer, nullable=False)
+    measured_at = Column(DateTime, default=datetime.now)

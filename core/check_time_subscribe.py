@@ -162,12 +162,16 @@ async def finish_set_date_and_premium() -> int:
     return deleted_count
 
 
+_traffic_counter = 0
+
+
 async def main_check_subscribe() -> None:
     """
     Запуск цикла проверки БД на активную подписку
     и отправки напоминаний о продлении
     :return: None
     """
+    global _traffic_counter
     from core.handlers.renewal_handler import send_renewal_reminders
 
     while True:
@@ -181,6 +185,17 @@ async def main_check_subscribe() -> None:
                 await send_renewal_reminders(bot)
             except Exception as e:
                 logger.log('warning', f'Failed to send renewal reminders: {e}')
+
+            # Проверка трафика каждые 6 итераций (30 мин)
+            _traffic_counter += 1
+            if _traffic_counter >= 6:
+                _traffic_counter = 0
+                try:
+                    from core.handlers.traffic_monitor import check_traffic_anomalies
+                    from core.bot import bot
+                    await check_traffic_anomalies(bot)
+                except Exception as e:
+                    logger.log('warning', f'Traffic check error: {e}')
         except Exception as e:
             logger.log('error', f'main_check_subscribe error: {e}\n{traceback.format_exc()}')
         await asyncio.sleep(5*60)  # Проверка раз в 5 минут
