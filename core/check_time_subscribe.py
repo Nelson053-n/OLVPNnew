@@ -9,6 +9,13 @@ from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
 
+# Множество пользователей, которым уже отправлено уведомление об истечении ключа
+# (защита от повторной отправки при ошибках обработки)
+_notified_users: set[int] = set()
+
+# Множество пользователей, заблокировавших бота (не пытаемся слать повторно)
+_blocked_users: set[int] = set()
+
 
 def check_time_subscribe(date) -> bool:
     """
@@ -38,15 +45,33 @@ async def get_and_check_records(all_records: list) -> list:
     return finish_subscribe
 
 
-async def send_notification_to_user(bot: Bot, id_user: int) -> None:
+async def send_notification_to_user(bot: Bot, id_user: int) -> bool:
     """
-    Сообщение администратору о запуске и остановке бота
-    :param bot: объект Bot, полученный при вызове команды.
+    Отправка уведомления пользователю об истечении ключа.
+    Проверяет кэш уже уведомлённых и заблокировавших бота.
+
+    :param bot: объект Bot
     :param id_user: id пользователя
-    :return: None
+    :return: True если отправлено, False если пропущено
     """
+    if id_user in _notified_users:
+        return False
+    if id_user in _blocked_users:
+        return False
+
     text = 'Действие вашего ключа завершено\nВы можете купить новый,\nчто бы продолжить пользоваться сервисом'
-    await bot.send_message(chat_id=id_user, text=text)
+    try:
+        await bot.send_message(chat_id=id_user, text=text)
+        _notified_users.add(id_user)
+        return True
+    except Exception as e:
+        err_str = str(e).lower()
+        if 'blocked' in err_str or 'deactivated' in err_str or 'not found' in err_str:
+            _blocked_users.add(id_user)
+            logger.log('info', f'User {id_user} blocked bot, added to skip list')
+        else:
+            logger.log('warning', f'Failed to notify user {id_user}: {e}')
+        return False
 
 
 async def finish_set_date_and_premium() -> int:
@@ -64,6 +89,7 @@ async def finish_set_date_and_premium() -> int:
         get_user_keys,
         delete_user_key_record,
         sync_premium_status,
+        set_region_server,
     )
     from core.bot import bot
 
@@ -81,7 +107,6 @@ async def finish_set_date_and_premium() -> int:
                 olm.delete_key_by_id(uk.outline_id)
                 outline_deleted = True
             except KeyError:
-                # Сервер удалён из конфига — ключ уже недоступен
                 outline_deleted = True
                 logger.log('info', f'Server {uk.region_server} removed from config, skipping Outline delete for key {uk.id}')
             except Exception as e:
@@ -98,7 +123,7 @@ async def finish_set_date_and_premium() -> int:
                     await delete_user_key_record(uk.id)
                     deleted_count += 1
                 except Exception as e:
-                    logger.log('error', f'Failed to delete key record {uk.id} from DB: {e}\n{traceback.format_exc()}')
+                    logger.log('error', f'Failed to delete key record {uk.id} from DB: {e}')
                     continue
 
             # Пересчитать premium-статус на основании оставшихся ключей
@@ -106,10 +131,8 @@ async def finish_set_date_and_premium() -> int:
             if not has_active:
                 await set_key_to_table_users(account=uk.account, value_key=None)
                 await set_date_to_table_users(account=uk.account, value_date=None)
-                try:
-                    await send_notification_to_user(bot=bot, id_user=uk.account)
-                except Exception as e:
-                    logger.log('warning', f'Failed to notify user {uk.account}: {e}')
+                await set_region_server(account=uk.account, value_region=None)
+                await send_notification_to_user(bot=bot, id_user=uk.account)
 
     # Совместимость: если где-то ещё сохраняется Users.date — обработаем и это
     all_records = await get_all_records_from_table_users()
@@ -124,21 +147,18 @@ async def finish_set_date_and_premium() -> int:
             if not has_active:
                 await set_key_to_table_users(account=record.account, value_key=None)
                 await set_date_to_table_users(account=record.account, value_date=None)
+                await set_region_server(account=record.account, value_region=None)
 
                 try:
                     region = record.region_server or 'nederland'
                     olm = OutlineManager(region_server=region)
                     olm.delete_key_from_ol(id_user=str(record.account))
                 except KeyError:
-                    # Сервер удалён из конфига — ключ уже недоступен, просто чистим БД
                     logger.log('info', f'Server {record.region_server} removed from config, skipping Outline delete for user {record.account}')
                 except Exception as e:
                     logger.log('error', f'Failed to delete legacy key for user {record.account}: {e}')
 
-                try:
-                    await send_notification_to_user(bot=bot, id_user=record.account)
-                except Exception as e:
-                    logger.log('warning', f'Failed to notify user {record.account}: {e}')
+                await send_notification_to_user(bot=bot, id_user=record.account)
     return deleted_count
 
 
@@ -154,8 +174,8 @@ async def main_check_subscribe() -> None:
         try:
             # Блокируем истекшие ключи
             await finish_set_date_and_premium()
-            
-            # Отправляем напоминания о скором истечении (один раз в час)
+
+            # Отправляем напоминания о скором истечении
             try:
                 from core.bot import bot
                 await send_renewal_reminders(bot)
@@ -163,7 +183,6 @@ async def main_check_subscribe() -> None:
                 logger.log('warning', f'Failed to send renewal reminders: {e}')
         except Exception as e:
             logger.log('error', f'main_check_subscribe error: {e}\n{traceback.format_exc()}')
-            print(f'[check_subscribe] Error: {e}')
         await asyncio.sleep(5*60)  # Проверка раз в 5 минут
 
 
