@@ -45,12 +45,19 @@ async def notify_admin_traffic(bot: Bot, outline_id: str, server: str, delta_byt
     else:
         owner_text = "не найден"
 
+    speed_gb = (delta_gb / hours) if hours > 0 else 0
+    if hours >= 1:
+        period_text = f"{hours:.1f}ч"
+    else:
+        period_text = f"{hours * 60:.0f}мин"
+
     text = (
         f"⚠️ <b>Аномальный трафик</b>\n\n"
         f"Ключ: <code>{outline_id}</code> ({server_display})\n"
         f"Владелец: {owner_text}\n"
-        f"Скорость: {delta_gb:.1f} ГБ за {hours:.1f}ч\n"
-        f"Порог: {threshold_gb:.0f} ГБ/час"
+        f"Потребление: {delta_gb:.1f} ГБ за {period_text}\n"
+        f"Скорость: {speed_gb:.1f} ГБ/ч\n"
+        f"Порог: {threshold_gb:.0f} ГБ/ч"
     )
 
     try:
@@ -82,7 +89,8 @@ async def check_traffic_anomalies(bot: Bot):
                     elapsed_seconds = (datetime.now() - prev.measured_at).total_seconds()
                     hours = elapsed_seconds / 3600
 
-                    if hours > 0 and delta > 0 and (delta / hours) > TRAFFIC_THRESHOLD_BYTES_PER_HOUR:
+                    # Минимум 20 минут между замерами, иначе деление на ~0 даёт ложные срабатывания
+                    if hours >= 0.33 and delta > 0 and (delta / hours) > TRAFFIC_THRESHOLD_BYTES_PER_HOUR:
                         await notify_admin_traffic(bot, outline_id, server, delta, hours)
 
         except KeyError:
