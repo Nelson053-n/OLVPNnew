@@ -14,16 +14,11 @@ from core.handlers.handlers_keyboards.del_key_handler import del_key, ask_del_ke
 from core.handlers.handlers_keyboards.get_promo_handler import get_promo
 from core.handlers.handlers_keyboards.choise_region import region_handler
 from core.handlers.handlers_keyboards.admin_block_key_handler import admin_block_key_handler
-from core.settings import admin_tlg
+from core.utils.admin_check import is_admin
 from core.utils.throttle import throttle
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
-
-
-def _is_admin(user_id: int) -> bool:
-    """Проверяет, является ли пользователь администратором."""
-    return bool(admin_tlg) and user_id == admin_tlg
 
 
 @throttle(seconds=0.2)
@@ -45,7 +40,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
 
         # Handle promo give callback (admin only)
         if data.startswith('give_promo_'):
-            if not _is_admin(call.from_user.id):
+            if not is_admin(call.from_user.id):
                 return
             try:
                 user_id = int(data.split('_')[-1])
@@ -58,7 +53,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
 
         # Handle mass promo select server (admin only)
         if data == 'mass_promo_select_server':
-            if not _is_admin(call.from_user.id):
+            if not is_admin(call.from_user.id):
                 return
             try:
                 from core.handlers.give_promo import mass_promo_select_server
@@ -70,7 +65,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
 
         # Handle mass promo execute (admin only)
         if data.startswith('mass_promo_exec_'):
-            if not _is_admin(call.from_user.id):
+            if not is_admin(call.from_user.id):
                 return
             try:
                 region_server = data.replace('mass_promo_exec_', '', 1)
@@ -126,7 +121,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
         
         # Handle special callbacks that perform side-effects (copy key, confirmations)
         # Admin-only block callbacks
-        if data.startswith('confirm_block_key_') and not _is_admin(call.from_user.id):
+        if data.startswith('confirm_block_key_') and not is_admin(call.from_user.id):
             return
         if data.startswith('confirm_block_key_'):
             try:
@@ -142,7 +137,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
             return
 
         if data.startswith('cfm_blk_'):
-            if not _is_admin(call.from_user.id):
+            if not is_admin(call.from_user.id):
                 return
             try:
                 short_id = data.split('_')[-1]  # Последние 8 символов UUID
@@ -157,7 +152,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
             return
 
         if data.startswith('block_with_reason_'):
-            if not _is_admin(call.from_user.id):
+            if not is_admin(call.from_user.id):
                 return
             try:
                 user_id = int(data.split('_')[-1])
@@ -169,7 +164,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
             return
 
         if data.startswith('blk_rsn_'):
-            if not _is_admin(call.from_user.id):
+            if not is_admin(call.from_user.id):
                 return
             try:
                 short_id = data.split('_')[-1]
@@ -192,7 +187,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
             try:
                 user_id = int(data.split('_')[-1])
                 # Only admin or the key owner can copy
-                if not _is_admin(call.from_user.id) and call.from_user.id != user_id:
+                if not is_admin(call.from_user.id) and call.from_user.id != user_id:
                     return
                 from core.sql.function_db_user_vpn.users_vpn import get_key_from_table_users
                 key = await get_key_from_table_users(account=user_id)
@@ -215,7 +210,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                     await call.message.answer(text="Ошибка: найдено несколько ключей с таким ID.", parse_mode=None)
                 elif matches:
                     # Ownership check: only owner or admin
-                    if not _is_admin(call.from_user.id) and matches[0].account != call.from_user.id:
+                    if not is_admin(call.from_user.id) and matches[0].account != call.from_user.id:
                         await call.answer("Нет доступа к этому ключу", show_alert=True)
                     elif matches[0].access_url:
                         await call.message.answer(text=f"🔑 Доступ для копирования:\n{matches[0].access_url}", parse_mode=None)
@@ -234,7 +229,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
                 from core.sql.function_db_user_vpn.users_vpn import get_all_user_keys as get_all_keys_for_del
                 all_keys_del = await get_all_keys_for_del()
                 matches_del = [uk for uk in all_keys_del if str(uk.id).endswith(short_id)]
-                if matches_del and not _is_admin(call.from_user.id) and matches_del[0].account != call.from_user.id:
+                if matches_del and not is_admin(call.from_user.id) and matches_del[0].account != call.from_user.id:
                     await call.answer("Нет доступа к этому ключу", show_alert=True)
                     return
                 from core.keyboards.accept_del_button import accept_del_userkey_keyboard
@@ -300,11 +295,11 @@ async def switch_menu(case_number: str, call: CallbackQuery, state: FSMContext) 
     try:
         # Обработка admin callback'ов для блокировки ключей (admin only)
         if case_number.startswith('admin_block_key_'):
-            if not _is_admin(call.from_user.id):
+            if not is_admin(call.from_user.id):
                 return ("Нет доступа", InlineKeyboardBuilder().as_markup())
             return await admin_block_key_handler(call)
         if case_number.startswith('adm_blk_'):
-            if not _is_admin(call.from_user.id):
+            if not is_admin(call.from_user.id):
                 return ("Нет доступа", InlineKeyboardBuilder().as_markup())
             short_id = case_number.split('_')[-1]
             from core.sql.function_db_user_vpn.users_vpn import get_all_user_keys
@@ -321,7 +316,7 @@ async def switch_menu(case_number: str, call: CallbackQuery, state: FSMContext) 
         
         # Обработка callback для проверки ключа пользователя (admin only)
         if case_number.startswith('chk_usr_'):
-            if not _is_admin(call.from_user.id):
+            if not is_admin(call.from_user.id):
                 return ("Нет доступа", InlineKeyboardBuilder().as_markup())
             try:
                 user_id = int(case_number.split('_')[-1])

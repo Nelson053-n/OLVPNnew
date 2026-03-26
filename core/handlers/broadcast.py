@@ -5,7 +5,7 @@ from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin, is_admin
 from core.sql.function_db_user_vpn.users_vpn import get_all_records_from_table_users
 from logs.log_main import RotatingFileLogger
 
@@ -16,15 +16,13 @@ class BroadcastStates(StatesGroup):
     waiting_for_message = State()
 
 
+@require_admin
 async def command_broadcast(message: Message, state: FSMContext) -> None:
     """
     -- Админ-команда --
     /broadcast
     Рассылка текстового сообщения всем пользователям бота.
     """
-    if not admin_tlg or message.from_user.id != admin_tlg:
-        await message.answer('❌ У вас нет доступа к этой команде', parse_mode=None)
-        return
 
     await state.set_state(BroadcastStates.waiting_for_message)
     await message.answer(
@@ -42,7 +40,7 @@ async def broadcast_message_handler(message: Message, state: FSMContext) -> None
         await message.answer('❌ Рассылка отменена', parse_mode=None)
         return
 
-    if not admin_tlg or message.from_user.id != admin_tlg:
+    if not is_admin(message.from_user.id if message.from_user else None):
         await state.clear()
         return
 

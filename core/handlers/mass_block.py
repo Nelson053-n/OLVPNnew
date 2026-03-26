@@ -1,20 +1,18 @@
 from aiogram.types import Message
 import traceback
 
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
 
 
+@require_admin
 async def command_mass_block(message: Message) -> None:
     """
     Команда администратора для немедленной массовой блокировки всех просроченных подписок.
     """
     try:
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await message.answer('У вас нет доступа к этой команде', parse_mode=None)
-            return
         from core.check_time_subscribe import finish_set_date_and_premium
         deleted_count = await finish_set_date_and_premium()
         

@@ -23,7 +23,7 @@ from core.sql.function_db_user_vpn.referrals import (
     mark_referral_bonus_given,
 )
 from core.api_s.outline.outline_api import OutlineManager, get_server_display_name
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from logs.log_main import RotatingFileLogger
 import uuid
 
@@ -221,15 +221,12 @@ async def give_referral_bonus(account: int, referrer_id: int = None) -> bool:
         return False
 
 
+@require_admin
 async def command_referrals_admin(message: Message) -> None:
     """
     Команда администратора для просмотра реферальной статистики
     """
     try:
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await message.answer("❌ У вас нет доступа к этой команде", parse_mode=None)
-            return
-        
         from core.sql.function_db_user_vpn.users_vpn import get_all_records_from_table_users
         
         all_users = await get_all_records_from_table_users()

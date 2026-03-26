@@ -2,10 +2,11 @@ from aiogram.types import Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
 
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from core.sql.function_db_user_vpn.users_vpn import get_all_records_from_table_users, get_all_user_keys
 
 
+@require_admin
 async def command_active_keys(message: Message) -> None:
     """
     -- Админ-команда --
@@ -15,10 +16,6 @@ async def command_active_keys(message: Message) -> None:
 
     :param message: Message - Объект Message, полученный при вызове команды.
     """
-    if message.from_user.id != admin_tlg:
-        await message.answer("❌ У вас нет доступа к этой команде")
-        return
-
     try:
         # Получаем пользователей и все ключи
         all_users = await get_all_records_from_table_users()

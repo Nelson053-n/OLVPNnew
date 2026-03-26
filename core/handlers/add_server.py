@@ -5,7 +5,8 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 import json
 import traceback
 
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
+from core.api_s.outline.outline_api import invalidate_outline_cache
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
@@ -52,6 +53,7 @@ class AddServerStates(StatesGroup):
     waiting_for_cert = State()
 
 
+@require_admin
 async def command_addserver(message: Message, state: FSMContext) -> None:
     """
     -- Админ-команда --
@@ -60,10 +62,6 @@ async def command_addserver(message: Message, state: FSMContext) -> None:
     Пошагово запрашивает: страну (через кнопки), русское название, API URL, сертификат.
     """
     try:
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await message.answer('❌ У вас нет доступа к этой команде', parse_mode=None)
-            return
-
         # Создаем кнопки со странами
         builder = InlineKeyboardBuilder()
         
@@ -256,6 +254,7 @@ async def process_cert_input(message: Message, state: FSMContext) -> None:
         with open(config_file, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=4, ensure_ascii=False)
 
+        invalidate_outline_cache()
         await state.clear()
         
         await message.answer(

@@ -17,7 +17,6 @@ from core.handlers.seed_test_data import command_seed
 from core.handlers.unseed_test_data import command_unseed
 from core.handlers.server_stats import command_server_stats
 from core.handlers.bot_statistics import command_stats
-from core.handlers.bot_stats import command_stats as command_stats_new
 from core.handlers.pin_disclaimer import pin_disclaimer_handler
 from core.handlers.docs import command_docs
 from core.handlers.referral_handler import (

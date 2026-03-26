@@ -4,7 +4,7 @@ import traceback
 import random
 import string
 
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from core.api_s.outline.outline_api import OutlineManager
 from core.sql.function_db_user_vpn.users_vpn import (
     get_user_data_from_table_users,
@@ -27,6 +27,7 @@ def generate_test_id() -> str:
     return 'test_' + ''.join(random.choice(chars) for _ in range(5))
 
 
+@require_admin
 async def command_seed(message: Message) -> None:
     """
     -- Админ-команда --
@@ -39,9 +40,6 @@ async def command_seed(message: Message) -> None:
     Ключи создаются на реальном сервере Outline, но платёж не проходит через YooKassa.
     """
     try:
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await message.answer('❌ У вас нет доступа к этой команде', parse_mode=None)
-            return
 
         # Генерируем уникальный test ID
         test_id_str = generate_test_id()

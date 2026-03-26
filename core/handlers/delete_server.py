@@ -8,9 +8,9 @@ from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from core.sql.function_db_user_vpn.users_vpn import get_all_records_from_table_users
-from core.api_s.outline.outline_api import OutlineManager
+from core.api_s.outline.outline_api import OutlineManager, invalidate_outline_cache
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
@@ -19,17 +19,13 @@ router = Router()
 
 
 @router.message(Command('deleteserver'))
+@require_admin
 async def deleteserver_handler(message: Message) -> None:
     """
     Команда удаления Outline сервера (только для администратора)
     Показывает список активных серверов с количеством ключей
     """
     try:
-        # Проверка прав администратора
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await message.answer('❌ Эта команда доступна только администратору', parse_mode=None)
-            return
-
         # Читаем конфигурацию серверов
         config_file = 'core/api_s/outline/settings_api_outline.json'
         try:
@@ -90,6 +86,7 @@ async def deleteserver_handler(message: Message) -> None:
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith('delsvr_'))
+@require_admin
 async def confirm_delete_server(callback: CallbackQuery) -> None:
     """
     Обработчик выбора сервера для удаления
@@ -97,11 +94,6 @@ async def confirm_delete_server(callback: CallbackQuery) -> None:
     """
     try:
         await callback.answer()
-
-        # Проверка прав администратора
-        if not admin_tlg or callback.from_user.id != admin_tlg:
-            await callback.answer("Нет доступа", show_alert=True)
-            return
 
         # Извлекаем название сервера
         server_name = callback.data.replace('delsvr_', '')
@@ -155,17 +147,13 @@ async def confirm_delete_server(callback: CallbackQuery) -> None:
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith('cfmdel_'))
+@require_admin
 async def execute_delete_server(callback: CallbackQuery) -> None:
     """
     Выполняет удаление сервера и всех связанных ключей
     """
     try:
         await callback.answer()
-
-        # Проверка прав администратора
-        if not admin_tlg or callback.from_user.id != admin_tlg:
-            await callback.answer("Нет доступа", show_alert=True)
-            return
 
         # Извлекаем название сервера
         server_name = callback.data.replace('cfmdel_', '')
@@ -248,11 +236,13 @@ async def execute_delete_server(callback: CallbackQuery) -> None:
         
         # Удаляем сервер из конфигурации
         del config[server_name]
-        
+
         # Сохраняем обновленную конфигурацию
         with open(config_file, 'w', encoding='utf-8') as f:
             json.dump(config, f, ensure_ascii=False, indent=2)
-        
+
+        invalidate_outline_cache(server_name)
+
         # Формируем итоговое сообщение
         result_text = (
             f'✅ <b>Сервер удален</b>\n\n'

@@ -7,7 +7,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 import traceback
 
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from core.api_s.outline.outline_api import OutlineManager, get_name_all_active_server_ol, get_server_display_name
 from core.sql.function_db_user_vpn.users_vpn import (
     get_all_user_keys,
@@ -24,6 +24,7 @@ class MigrateServerStates(StatesGroup):
     waiting_for_target_server = State()
 
 
+@require_admin
 async def command_migrate_server(message: Message, state: FSMContext) -> None:
     """
     -- Админ-команда --
@@ -31,10 +32,6 @@ async def command_migrate_server(message: Message, state: FSMContext) -> None:
     Переносит всех пользователей с одного сервера на другой через кнопки выбора
     """
     try:
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await message.answer('❌ У вас нет доступа к этой команде', parse_mode=None)
-            return
-
         # Получаем список активных серверов
         all_servers = get_name_all_active_server_ol()
         

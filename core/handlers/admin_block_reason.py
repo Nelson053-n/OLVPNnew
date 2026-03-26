@@ -2,12 +2,13 @@ from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 import traceback
 
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
 
 
+@require_admin
 async def command_block_reason(message: Message, state: FSMContext) -> None:
     """
     Обработчик для получения причины блокировки от администратора.
@@ -15,9 +16,6 @@ async def command_block_reason(message: Message, state: FSMContext) -> None:
     Иначе просто игнорирует сообщение (не является командой блокировки).
     """
     try:
-        # Только для админа
-        if message.from_user.id != admin_tlg:
-            return
         
         data = await state.get_data()
         # приоритет: блокировка конкретного ключа (по short_id или полному), затем пользователя целиком

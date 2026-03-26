@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import traceback
 import json
 
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from core.api_s.outline.outline_api import OutlineManager
 from core.sql.function_db_user_vpn.users_vpn import (
     get_all_records_from_table_users,
@@ -29,6 +29,7 @@ class TestKeyStates(StatesGroup):
     waiting_for_server = State()
 
 
+@require_admin
 async def command_testkey(message: Message, state: FSMContext) -> None:
     """
     -- Админ-команда --
@@ -37,10 +38,6 @@ async def command_testkey(message: Message, state: FSMContext) -> None:
     Используется для промо-акций при добавлении нового сервера.
     """
     try:
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await message.answer('❌ У вас нет доступа к этой команде', parse_mode=None)
-            return
-
         # Получаем список активных серверов
         config_file = 'core/api_s/outline/settings_api_outline.json'
         try:

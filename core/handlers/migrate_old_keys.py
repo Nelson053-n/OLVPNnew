@@ -15,29 +15,25 @@ from core.sql.function_db_user_vpn.users_vpn import (
 )
 from core.sql.function_db_user_payments.users_payments import get_all_user_payments
 from core.sql.base import Users, UserKey
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from sqlalchemy.orm import Session
 from core.sql.engine import engine
 from logs.log_main import RotatingFileLogger
 logger = RotatingFileLogger()
 
 
+@require_admin
 async def command_migrate(message: types.Message):
     """
     Команда миграции старых ключей в новую систему.
     Доступна только администратору.
-    
+
     Процесс:
     1. Находит всех пользователей со старым полем Users.key
     2. Проверяет наличие ключа на Outline сервере
     3. Создает запись в UserKey с сохранением всех параметров
     4. НЕ удаляет старые данные (для безопасности)
     """
-    # Проверка прав администратора
-    if not admin_tlg or message.from_user.id != admin_tlg:
-        await message.answer("❌ Эта команда доступна только администратору")
-        return
-
     await message.answer("🔄 Начинаю миграцию старых ключей...\n\n⏳ Сканирую базу данных...")
 
     # Статистика миграции
@@ -262,16 +258,12 @@ async def command_migrate(message: types.Message):
         logger.log('error', f"[MIGRATION] Критическая ошибка: {e}")
 
 
+@require_admin
 async def command_check_migration_status(message: types.Message):
     """
     Проверка статуса миграции - сколько пользователей нуждаются в миграции.
     Доступна только администратору.
     """
-    # Проверка прав администратора
-    if not admin_tlg or message.from_user.id != admin_tlg:
-        await message.answer("❌ Эта команда доступна только администратору")
-        return
-
     try:
         all_users = await get_all_records_from_table_users()
         
@@ -310,17 +302,13 @@ async def command_check_migration_status(message: types.Message):
         logger.log('error', f"[MIGRATION] Ошибка проверки статуса: {e}")
 
 
+@require_admin
 async def command_fix_migration_dates(message: types.Message):
     """
     Исправление дат created_at для уже мигрированных ключей.
     Используется если миграция прошла, но даты установились неправильно.
     Доступна только администратору.
     """
-    # Проверка прав администратора
-    if not admin_tlg or message.from_user.id != admin_tlg:
-        await message.answer("❌ Эта команда доступна только администратору")
-        return
-
     await message.answer("🔄 Начинаю исправление дат мигрированных ключей...")
 
     try:
@@ -408,16 +396,12 @@ async def command_fix_migration_dates(message: types.Message):
         logger.log('error', f"[MIGRATION] Ошибка исправления дат: {e}")
 
 
+@require_admin
 async def command_debug_keys(message: types.Message):
     """
     Диагностика - показать все ключи из БД с полной информацией.
     Доступна только администратору.
     """
-    # Проверка прав администратора
-    if not admin_tlg or message.from_user.id != admin_tlg:
-        await message.answer("❌ Эта команда доступна только администратору")
-        return
-
     try:
         all_users = await get_all_records_from_table_users()
         all_keys = await get_all_user_keys()
@@ -501,17 +485,13 @@ async def command_debug_keys(message: types.Message):
         logger.log('error', f"[MIGRATION] Ошибка диагностики: {e}")
 
 
+@require_admin
 async def command_show_old_keys(message: types.Message):
     """
     Показать старые ключи из таблицы Users (поле key).
     Помогает понять что осталось не мигрированным.
     Доступна только администратору.
     """
-    # Проверка прав администратора
-    if not admin_tlg or message.from_user.id != admin_tlg:
-        await message.answer("❌ Эта команда доступна только администратору")
-        return
-
     try:
         all_users = await get_all_records_from_table_users()
         

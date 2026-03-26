@@ -4,23 +4,21 @@
 from aiogram.types import Message
 from aiogram import Bot
 from core.utils.create_view import create_answer_from_html
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
 
 
+@require_admin
 async def pin_disclaimer_handler(message: Message, bot: Bot) -> None:
     """
     Отправляет и закрепляет сообщение с юридическим дисклеймером.
     Доступно только администратору.
-    
+
     :param message: Message - объект сообщения
     :param bot: Bot - объект бота
     """
-    if message.from_user.id != admin_tlg:
-        await message.answer("❌ Доступно только администратору")
-        return
     
     try:
         # Загружаем шаблон дисклеймера

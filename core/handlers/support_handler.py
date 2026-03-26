@@ -19,6 +19,7 @@ from core.sql.function_db_user_vpn.support_tickets import (
 )
 from core.sql.function_db_user_vpn.users_vpn import get_user_data_from_table_users
 from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
@@ -258,15 +259,12 @@ async def command_support_my_tickets(message: Message) -> None:
         await message.answer("❌ Ошибка при получении тикетов", parse_mode=None)
 
 
+@require_admin
 async def admin_support_queue(message: Message) -> None:
     """
     Команда администратора для просмотра очереди тикетов
     """
     try:
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await message.answer("❌ У вас нет доступа к этой команде", parse_mode=None)
-            return
-        
         tickets = await get_open_tickets()
         
         if not tickets:
@@ -306,15 +304,12 @@ async def admin_support_queue(message: Message) -> None:
         await message.answer("❌ Ошибка при получении очереди", parse_mode=None)
 
 
+@require_admin
 async def admin_support_stats(message: Message) -> None:
     """
     Команда администратора для просмотра статистики поддержки
     """
     try:
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await message.answer("❌ У вас нет доступа к этой команде", parse_mode=None)
-            return
-        
         stats = await get_ticket_stats()
         
         text = "<b>📊 Статистика тикетов</b>\n\n"

@@ -2,7 +2,7 @@ from aiogram.types import Message, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 import traceback
 
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from core.api_s.outline.outline_api import OutlineManager, get_name_all_active_server_ol
 from core.sql.function_db_user_vpn.users_vpn import get_all_records_from_table_users, get_user_keys
 from core.utils.create_view import create_answer_from_html
@@ -112,6 +112,7 @@ async def get_key_info_response(user_id: int) -> tuple:
         return ("Ошибка при обработке запроса", InlineKeyboardBuilder().as_markup())
 
 
+@require_admin
 async def command_keyinfo(message: Message) -> None:
     """
     -- Админ-команда --
@@ -121,10 +122,6 @@ async def command_keyinfo(message: Message) -> None:
     :param message: Message - Объект Message, полученный при вызове команды.
     """
     try:
-        if message.from_user.id != admin_tlg:
-            await message.answer("У вас нет доступа к этой команде", parse_mode=None)
-            return
-
         data = message.text.split(' ')
         
         if len(data) != 2:

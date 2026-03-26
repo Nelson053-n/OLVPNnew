@@ -68,6 +68,8 @@ class UserKey(Base):
     __table_args__ = (
         Index('ix_userkey_account', 'account'),
         Index('ix_userkey_region_server', 'region_server'),
+        Index('ix_userkey_date', 'date'),
+        Index('ix_userkey_premium_date', 'premium', 'date'),
     )
     id = Column(String, primary_key=True)
     account = Column(Integer, ForeignKey('users_vpn.account'))

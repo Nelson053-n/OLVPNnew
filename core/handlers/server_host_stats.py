@@ -9,7 +9,7 @@ from pathlib import Path
 
 from aiogram.types import Message
 
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
@@ -130,16 +130,13 @@ def _get_cpu_load_percent() -> float | None:
     return None
 
 
+@require_admin
 async def command_server_host_stats(message: Message) -> None:
     """
     -- Админ-команда --
     Статистика хоста: диск, CPU, нагрузка канала.
     """
     try:
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await message.answer('❌ У вас нет доступа к этой команде', parse_mode=None)
-            return
-
         disk_root = Path.cwd().anchor or '/'
         total, used, free = shutil.disk_usage(disk_root)
         disk_percent = (used / total) * 100 if total else 0

@@ -4,7 +4,7 @@ from datetime import datetime
 import traceback
 
 from core.services.key_service import key_service
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from core.sql.function_db_user_vpn.users_vpn import (
     get_all_records_from_table_users,
     get_all_user_keys,
@@ -14,6 +14,7 @@ from logs.log_main import RotatingFileLogger
 logger = RotatingFileLogger()
 
 
+@require_admin
 async def command_promo(message: Message) -> None:
     """
     -- Админ-команда --
@@ -21,13 +22,10 @@ async def command_promo(message: Message) -> None:
     Показывает список всех пользователей БЕЗ платного активного ключа И БЕЗ промо ключа.
     Для каждого пользователя показывает кнопку "Промо" для выдачи промо-ключа на 7 дней.
     Добавлена кнопка для массовой выдачи со выбором сервера.
-    
+
     :param message: Message - Объект Message, полученный при вызове команды.
     """
     try:
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await message.answer("❌ У вас нет доступа к этой команде", parse_mode=None)
-            return
 
         # Получаем всех пользователей
         all_users = await get_all_records_from_table_users()

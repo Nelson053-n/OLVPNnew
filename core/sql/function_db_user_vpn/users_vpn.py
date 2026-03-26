@@ -80,7 +80,7 @@ async def set_key_to_table_users(account: int, value_key: OutlineManager) -> boo
             return False
 
 
-async def get_key_from_table_users(account: int) -> str or bool:
+async def get_key_from_table_users(account: int) -> str | None:
     """
     Получение ключа пользователя из таблицы users_vpn
 

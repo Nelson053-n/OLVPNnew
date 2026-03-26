@@ -11,7 +11,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
@@ -47,17 +47,13 @@ def save_prices(prices: dict) -> None:
 
 
 @router.message(Command('editprice'))
+@require_admin
 async def editprice_handler(message: Message, state: FSMContext) -> None:
     """
     Команда редактирования цен на подписки (только для администратора)
     Показывает текущие цены и кнопки для редактирования
     """
     try:
-        # Проверка прав администратора
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await message.answer('❌ Эта команда доступна только администратору', parse_mode=None)
-            return
-
         # Загружаем текущие цены
         prices = load_prices()
         
@@ -102,6 +98,7 @@ async def editprice_handler(message: Message, state: FSMContext) -> None:
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith('edprc_'))
+@require_admin
 async def select_period_to_edit(callback: CallbackQuery, state: FSMContext) -> None:
     """
     Обработчик выбора периода для редактирования
@@ -109,10 +106,6 @@ async def select_period_to_edit(callback: CallbackQuery, state: FSMContext) -> N
     """
     try:
         await callback.answer()
-
-        # Проверка прав администратора
-        if not admin_tlg or callback.from_user.id != admin_tlg:
-            return
 
         # Извлекаем период (day, month, year)
         period = callback.data.replace('edprc_', '')
@@ -166,16 +159,12 @@ async def select_period_to_edit(callback: CallbackQuery, state: FSMContext) -> N
 
 
 @router.message(EditPriceStates.waiting_for_new_price)
+@require_admin
 async def process_new_price(message: Message, state: FSMContext) -> None:
     """
     Обработка ввода новой цены
     """
     try:
-        # Проверка прав администратора
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await state.clear()
-            return
-
         if message.text == '/cancel':
             await state.clear()
             await message.answer('❌ Изменение цены отменено', parse_mode=None)

@@ -20,10 +20,23 @@ from logging.handlers import TimedRotatingFileHandler
 from typing import List, Optional
 
 
+_instances: dict[str, "RotatingFileLogger"] = {}
+
+
 class RotatingFileLogger:
     """
     Расширенный логгер с ротацией, очисткой и сжатием.
+    Singleton по config_file — один экземпляр на каждый уникальный конфиг.
     """
+
+    def __new__(cls, config_file: str = 'logs/log_settings_base.json'):
+        normalized = str(Path(config_file).resolve())
+        if normalized in _instances:
+            return _instances[normalized]
+        instance = super().__new__(cls)
+        instance._initialized = False
+        _instances[normalized] = instance
+        return instance
 
     def __init__(self, config_file: str = 'logs/log_settings_base.json'):
         """
@@ -31,6 +44,10 @@ class RotatingFileLogger:
 
         :param config_file: Путь к JSON файлу конфигурации
         """
+        if self._initialized:
+            return
+        self._initialized = True
+
         with open(config_file, 'r', encoding='utf-8') as f:
             config = json.load(f)
 

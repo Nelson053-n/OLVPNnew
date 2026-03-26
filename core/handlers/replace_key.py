@@ -7,12 +7,13 @@ from aiogram.types import CallbackQuery
 from core.api_s.outline.outline_api import get_server_display_name
 from core.services.key_service import key_service
 from core.sql.function_db_user_vpn.users_vpn import get_all_user_keys
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
 
 
+@require_admin
 async def replace_key_handler(callback: CallbackQuery) -> None:
     """
     Обработчик замены ключа пользователя.
@@ -20,10 +21,6 @@ async def replace_key_handler(callback: CallbackQuery) -> None:
     """
     try:
         await callback.answer()
-
-        if not admin_tlg or callback.from_user.id != admin_tlg:
-            await callback.message.answer('❌ У вас нет доступа к этой функции', parse_mode=None)
-            return
 
         short_id = callback.data.replace('rpl_key_', '')
         logger.log('info', f'Replace key request: short_id={short_id}, from admin={callback.from_user.id}')

@@ -5,7 +5,7 @@ from aiogram.types import Message
 from datetime import datetime, timedelta
 import traceback
 
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from core.sql.function_db_user_vpn.users_vpn import get_all_records_from_table_users, get_all_user_keys
 from core.sql.function_db_user_payments.users_payments import get_all_user_payments
 from core.api_s.outline.outline_api import get_server_display_name
@@ -14,15 +14,12 @@ from logs.log_main import RotatingFileLogger
 logger = RotatingFileLogger()
 
 
+@require_admin
 async def command_stats(message: Message) -> None:
     """
     Команда администратора для просмотра статистики бота
     """
     try:
-        # Проверка прав администратора
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await message.answer('❌ У вас нет доступа к этой команде', parse_mode=None)
-            return
 
         # Получаем данные из БД
         all_users = await get_all_records_from_table_users()

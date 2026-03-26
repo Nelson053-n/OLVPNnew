@@ -24,7 +24,7 @@ def get_future_date(add_day: int) -> str:
     return future_date.strftime('%d.%m.%Y - %H:%M')
 
 
-async def get_ol_key_func(call: CallbackQuery, untill_date: str, region_server: str = 'nederland') -> str or bool:
+async def get_ol_key_func(call: CallbackQuery, untill_date: str, region_server: str = 'nederland') -> str | bool:
     """
     Проверяет наличие ключа у пользователя
     Если ключа нет - создает.

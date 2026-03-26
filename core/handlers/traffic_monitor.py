@@ -6,6 +6,7 @@ from aiogram.types import Message
 
 from core.api_s.outline.outline_api import OutlineManager, get_name_all_active_server_ol, get_server_display_name
 from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from core.sql.base import UserKey, Users
 from core.sql.engine import engine
 from core.sql.function_db_user_vpn.traffic import save_snapshot, get_last_snapshot, get_top_traffic, cleanup_old_snapshots
@@ -107,13 +108,12 @@ async def check_traffic_anomalies(bot: Bot):
         logger.log('warning', f'Traffic cleanup failed: {e}')
 
 
+@require_admin
 async def command_trafficstats(message: Message):
     """
     Команда /trafficstats — Top-10 ключей по трафику за 24 часа.
     Доступна только администратору.
     """
-    if message.from_user.id != admin_tlg:
-        return
 
     try:
         top = await get_top_traffic(hours=24, limit=10)

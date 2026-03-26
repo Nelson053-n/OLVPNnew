@@ -1,8 +1,9 @@
 from aiogram.types import Message, FSInputFile
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from core.sql.engine import _DB_PATH
 
 
+@require_admin
 async def command_get_db(message: Message) -> None:
     """
     -- Админ-команда --
@@ -11,10 +12,9 @@ async def command_get_db(message: Message) -> None:
 
     :param message: Message - Объект Message, полученный при вызове команды.
     """
-    if message.from_user.id == admin_tlg:
-        try:
-            sending_db_file = FSInputFile(path=str(_DB_PATH), filename="olvpnbot.db")
-        except Exception:
-            await message.answer('Какая-то проблема с файлом БД')
-        else:
-            await message.answer_document(sending_db_file)
+    try:
+        sending_db_file = FSInputFile(path=str(_DB_PATH), filename="olvpnbot.db")
+    except Exception:
+        await message.answer('Какая-то проблема с файлом БД')
+    else:
+        await message.answer_document(sending_db_file)

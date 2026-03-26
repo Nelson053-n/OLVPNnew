@@ -19,7 +19,7 @@ from core.sql.function_db_user_vpn.users_vpn import (
     get_user_keys,
     get_user_data_from_table_users,
 )
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
@@ -127,7 +127,8 @@ async def send_renewal_reminders(bot) -> int:
                 logger.log('warning', f'Failed to send reminder {reminder["id"]}: {e}')
                 failed_count += 1
         
-        logger.log('info', f'Sent {sent_count} renewal reminders (failed: {failed_count})')
+        if sent_count > 0 or failed_count > 0:
+            logger.log('info', f'Sent {sent_count} renewal reminders (failed: {failed_count})')
         return sent_count
         
     except Exception as e:
@@ -187,15 +188,12 @@ async def command_renewal_stats(message: Message) -> None:
         await message.answer("❌ Ошибка при получении информации", parse_mode=None)
 
 
+@require_admin
 async def admin_renewal_stats(message: Message) -> None:
     """
     Команда администратора для просмотра статистики напоминаний
     """
     try:
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await message.answer("❌ У вас нет доступа к этой команде", parse_mode=None)
-            return
-        
         from core.sql.base import RenewalReminder
         from core.sql.engine import engine
         from sqlalchemy.orm import Session
@@ -251,15 +249,12 @@ async def admin_renewal_stats(message: Message) -> None:
         await message.answer("❌ Ошибка при получении статистики", parse_mode=None)
 
 
+@require_admin
 async def admin_trigger_renewal_reminders(message: Message) -> None:
     """
     Команда администратора для ручной отправки напоминаний (без ожидания расписания)
     """
     try:
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await message.answer("❌ У вас нет доступа к этой команде", parse_mode=None)
-            return
-        
         from core.bot import bot
         
         msg = await message.answer("📤 Отправляю напоминания...", parse_mode=None)

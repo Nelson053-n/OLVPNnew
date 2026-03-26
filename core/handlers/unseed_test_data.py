@@ -1,7 +1,7 @@
 from aiogram.types import Message
 import traceback
 
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from core.api_s.outline.outline_api import OutlineManager
 from core.sql.function_db_user_vpn.users_vpn import (
     get_all_user_keys,
@@ -66,6 +66,7 @@ async def _delete_user_payments(user_id: int):
     return 0
 
 
+@require_admin
 async def command_unseed(message: Message) -> None:
     """
     -- Админ-команда --
@@ -77,10 +78,6 @@ async def command_unseed(message: Message) -> None:
     - Удаляет самого пользователя из БД
     """
     try:
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await message.answer('❌ У вас нет доступа к этой команде', parse_mode=None)
-            return
-
         # Находим всех тестовых пользователей
         all_users = await get_all_records_from_table_users()
         test_users = [u for u in all_users if is_test_user(u.account_name, u.account)]

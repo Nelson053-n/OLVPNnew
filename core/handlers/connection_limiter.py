@@ -17,7 +17,7 @@ from core.sql.function_db_user_vpn.users_vpn import (
     get_user_keys,
     get_user_data_from_table_users,
 )
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from logs.log_main import RotatingFileLogger
 
 logger = RotatingFileLogger()
@@ -139,15 +139,12 @@ async def command_my_connections(message: Message) -> None:
         await message.answer("❌ Ошибка при получении информации о подключениях", parse_mode=None)
 
 
+@require_admin
 async def admin_connection_stats(message: Message) -> None:
     """
     Команда администратора для просмотра статистики подключений
     """
     try:
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await message.answer("❌ У вас нет доступа к этой команде", parse_mode=None)
-            return
-        
         from core.sql.base import KeyConnection
         from sqlalchemy import func
         from sqlalchemy.orm import Session
@@ -182,19 +179,17 @@ async def admin_connection_stats(message: Message) -> None:
         await message.answer("❌ Ошибка при получении статистики", parse_mode=None)
 
 
+@require_admin
 async def admin_block_connection(message: Message, connection_id: int, reason: str = None) -> bool:
     """
     Администратор может заблокировать подозрительное подключение
-    
+
     :param message: Объект сообщения
     :param connection_id: ID подключения
     :param reason: Причина блокировки
     :return: bool успешность
     """
     try:
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            return False
-        
         result = await block_connection(connection_id=connection_id)
         
         if result:

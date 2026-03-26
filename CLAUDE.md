@@ -10,7 +10,7 @@ Telegram-бот для продажи и управления ключами Out
 
 ```bash
 # Установка зависимостей
-pip install -r requerements.txt
+pip install -r requirements.txt
 
 # Запуск бота (два процесса: бот + проверка подписок)
 python main.py

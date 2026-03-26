@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 import json
 
-from core.settings import admin_tlg
+from core.utils.admin_check import require_admin
 from core.api_s.outline.outline_api import OutlineManager
 from logs.log_main import RotatingFileLogger
 
@@ -56,14 +56,11 @@ def ping_outline_server(region_name: str) -> tuple[bool, str]:
         return False, "Error"
 
 
+@require_admin
 async def command_vpn_status(message: Message) -> None:
     """
     Команда /vpnstatus - проверка здоровья всех серверов
     """
-    if not admin_tlg or message.from_user.id != admin_tlg:
-        await message.answer("У вас нет доступа к этой команде", parse_mode=None)
-        return
-
     try:
         # Загружаем конфиг серверов
         config_path = Path(__file__).parent.parent / 'api_s' / 'outline' / 'settings_api_outline.json'
@@ -151,15 +148,12 @@ async def command_vpn_status(message: Message) -> None:
         await message.answer("❌ Ошибка при проверке статуса", parse_mode=None)
 
 
+@require_admin
 async def admin_vpn_detailed_check(message: Message) -> None:
     """
     Детальная проверка статуса каждого сервера (команда администратора)
     """
     try:
-        if not admin_tlg or message.from_user.id != admin_tlg:
-            await message.answer("❌ У вас нет доступа к этой команде", parse_mode=None)
-            return
-        
         from core.api_s.outline.outline_api import OutlineManager
         
         # Загружаем конфиг
