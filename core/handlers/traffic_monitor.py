@@ -15,8 +15,8 @@ from sqlalchemy.orm import Session
 
 logger = RotatingFileLogger()
 
-# Порог аномального трафика: 2 ГБ/час
-TRAFFIC_THRESHOLD_BYTES_PER_HOUR = 2 * 1024**3
+# Порог аномального трафика: 3 ГБ/час
+TRAFFIC_THRESHOLD_BYTES_PER_HOUR = 3 * 1024**3
 
 
 def _find_key_owner(outline_id: str) -> dict | None:
