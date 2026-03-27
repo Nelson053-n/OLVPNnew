@@ -162,17 +162,12 @@ async def finish_set_date_and_premium() -> int:
     return deleted_count
 
 
-_snapshot_counter = 0  # Снапшоты каждые 6 итераций (30 мин)
-_daily_counter = 0     # Суточная проверка каждые 288 итераций (24ч)
-
-
 async def main_check_subscribe() -> None:
     """
     Запуск цикла проверки БД на активную подписку
     и отправки напоминаний о продлении
     :return: None
     """
-    global _snapshot_counter, _daily_counter
     from core.handlers.renewal_handler import send_renewal_reminders
 
     while True:
@@ -186,27 +181,6 @@ async def main_check_subscribe() -> None:
                 await send_renewal_reminders(bot)
             except Exception as e:
                 logger.log('warning', f'Failed to send renewal reminders: {e}')
-
-            # Сбор снапшотов трафика каждые 30 мин (6 итераций × 5 мин)
-            _snapshot_counter += 1
-            if _snapshot_counter >= 6:
-                _snapshot_counter = 0
-                try:
-                    from core.handlers.traffic_monitor import collect_traffic_snapshots
-                    await collect_traffic_snapshots()
-                except Exception as e:
-                    logger.log('warning', f'Traffic snapshot error: {e}')
-
-            # Суточная проверка аномалий каждые 24ч (288 итераций × 5 мин)
-            _daily_counter += 1
-            if _daily_counter >= 288:
-                _daily_counter = 0
-                try:
-                    from core.handlers.traffic_monitor import check_daily_anomalies
-                    from core.bot import bot
-                    await check_daily_anomalies(bot)
-                except Exception as e:
-                    logger.log('warning', f'Daily traffic check error: {e}')
         except Exception as e:
             logger.log('error', f'main_check_subscribe error: {e}\n{traceback.format_exc()}')
         await asyncio.sleep(5*60)  # Проверка раз в 5 минут
