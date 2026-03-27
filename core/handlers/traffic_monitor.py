@@ -1,5 +1,5 @@
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from aiogram import Bot
 from aiogram.types import Message
@@ -9,14 +9,18 @@ from core.settings import admin_tlg
 from core.utils.admin_check import require_admin
 from core.sql.base import UserKey, Users
 from core.sql.engine import engine
-from core.sql.function_db_user_vpn.traffic import save_snapshot, get_last_snapshot, get_top_traffic, cleanup_old_snapshots
+from core.sql.function_db_user_vpn.traffic import save_snapshot, get_top_traffic, cleanup_old_snapshots
 from logs.log_main import RotatingFileLogger
 from sqlalchemy.orm import Session
 
 logger = RotatingFileLogger()
 
-# Порог аномального трафика: 3 ГБ/час
-TRAFFIC_THRESHOLD_BYTES_PER_HOUR = 3 * 1024**3
+# Порог аномального трафика: 20 ГБ за 24 часа
+TRAFFIC_THRESHOLD_BYTES_PER_DAY = 20 * 1024**3
+
+# Множество ключей, по которым уже отправлен алерт сегодня (outline_id:server)
+_alerted_today: set[str] = set()
+_last_alert_reset: datetime = datetime.now()
 
 
 def _find_key_owner(outline_id: str) -> dict | None:
@@ -34,11 +38,18 @@ def _find_key_owner(outline_id: str) -> dict | None:
         return {'account': user.account, 'account_name': user.account_name or 'N/A'}
 
 
-async def notify_admin_traffic(bot: Bot, outline_id: str, server: str, delta_bytes: int, hours: float):
-    """Отправить уведомление администратору об аномальном трафике"""
+def _reset_daily_alerts():
+    """Сброс кеша алертов раз в сутки."""
+    global _alerted_today, _last_alert_reset
+    if datetime.now() - _last_alert_reset > timedelta(hours=24):
+        _alerted_today = set()
+        _last_alert_reset = datetime.now()
+
+
+async def notify_admin_daily_traffic(bot: Bot, outline_id: str, server: str, delta_gb: float):
+    """Отправить суточный отчёт об аномальном трафике"""
     owner = _find_key_owner(outline_id)
-    delta_gb = delta_bytes / (1024**3)
-    threshold_gb = TRAFFIC_THRESHOLD_BYTES_PER_HOUR / (1024**3)
+    threshold_gb = TRAFFIC_THRESHOLD_BYTES_PER_DAY / (1024**3)
     server_display = get_server_display_name(server)
 
     if owner:
@@ -46,19 +57,12 @@ async def notify_admin_traffic(bot: Bot, outline_id: str, server: str, delta_byt
     else:
         owner_text = "не найден"
 
-    speed_gb = (delta_gb / hours) if hours > 0 else 0
-    if hours >= 1:
-        period_text = f"{hours:.1f}ч"
-    else:
-        period_text = f"{hours * 60:.0f}мин"
-
     text = (
-        f"⚠️ <b>Аномальный трафик</b>\n\n"
+        f"⚠️ <b>Аномальный трафик (сутки)</b>\n\n"
         f"Ключ: <code>{outline_id}</code> ({server_display})\n"
         f"Владелец: {owner_text}\n"
-        f"Потребление: {delta_gb:.1f} ГБ за {period_text}\n"
-        f"Скорость: {speed_gb:.1f} ГБ/ч\n"
-        f"Порог: {threshold_gb:.0f} ГБ/ч"
+        f"Потребление за 24ч: <b>{delta_gb:.1f} ГБ</b>\n"
+        f"Порог: {threshold_gb:.0f} ГБ/сутки"
     )
 
     try:
@@ -67,11 +71,10 @@ async def notify_admin_traffic(bot: Bot, outline_id: str, server: str, delta_byt
         logger.log('warning', f'Failed to send traffic alert to admin: {e}')
 
 
-async def check_traffic_anomalies(bot: Bot):
+async def collect_traffic_snapshots():
     """
-    Снимает snapshot трафика со всех активных серверов,
-    сравнивает с предыдущим замером, уведомляет админа при аномалиях.
-    Также очищает старые снапшоты.
+    Снимает snapshot трафика со всех серверов.
+    Вызывается каждые 30 минут — просто собирает данные.
     """
     servers = get_name_all_active_server_ol()
 
@@ -82,22 +85,38 @@ async def check_traffic_anomalies(bot: Bot):
             transferred = data.get("bytesTransferredByUserId", {})
 
             for outline_id, total_bytes in transferred.items():
-                prev = await get_last_snapshot(outline_id, server)
                 await save_snapshot(outline_id, server, total_bytes)
-
-                if prev:
-                    delta = total_bytes - prev.bytes_total
-                    elapsed_seconds = (datetime.now() - prev.measured_at).total_seconds()
-                    hours = elapsed_seconds / 3600
-
-                    # Минимум 20 минут между замерами, иначе деление на ~0 даёт ложные срабатывания
-                    if hours >= 0.33 and delta > 0 and (delta / hours) > TRAFFIC_THRESHOLD_BYTES_PER_HOUR:
-                        await notify_admin_traffic(bot, outline_id, server, delta, hours)
 
         except KeyError:
             continue
         except Exception as e:
-            logger.log('warning', f'Traffic check failed for {server}: {e}')
+            logger.log('warning', f'Traffic snapshot failed for {server}: {e}')
+
+
+async def check_daily_anomalies(bot: Bot):
+    """
+    Проверяет суточный трафик и алертит админа при превышении порога.
+    Вызывается раз в сутки. Один алерт на ключ в день.
+    """
+    _reset_daily_alerts()
+
+    try:
+        top = await get_top_traffic(hours=24, limit=50)
+
+        for item in top:
+            key = f"{item['outline_id']}:{item['region_server']}"
+            if key in _alerted_today:
+                continue
+
+            if item['delta_bytes'] > TRAFFIC_THRESHOLD_BYTES_PER_DAY:
+                delta_gb = item['delta_bytes'] / (1024**3)
+                await notify_admin_daily_traffic(
+                    bot, item['outline_id'], item['region_server'], delta_gb
+                )
+                _alerted_today.add(key)
+
+    except Exception as e:
+        logger.log('warning', f'Daily traffic check failed: {e}')
 
     # Очистка старых снапшотов
     try:
@@ -122,11 +141,10 @@ async def command_trafficstats(message: Message):
             await message.answer("📊 Нет данных о трафике за последние 24 часа.")
             return
 
-        lines = ["📊 <b>Top-10 по трафику (24ч)</b>\n"]
+        threshold_gb = TRAFFIC_THRESHOLD_BYTES_PER_DAY / (1024**3)
+        lines = [f"📊 <b>Top-10 по трафику (24ч)</b>\n<i>Порог: {threshold_gb:.0f} ГБ/сутки</i>\n"]
         for i, item in enumerate(top, 1):
             delta_gb = item['delta_bytes'] / (1024**3)
-            hours = item['hours']
-            speed_gb = (item['delta_bytes'] / hours / (1024**3)) if hours > 0 else 0
             server_display = get_server_display_name(item['region_server'])
 
             owner = _find_key_owner(item['outline_id'])
@@ -135,10 +153,12 @@ async def command_trafficstats(message: Message):
             else:
                 owner_text = "—"
 
+            flag = "🔴" if item['delta_bytes'] > TRAFFIC_THRESHOLD_BYTES_PER_DAY else "🟢"
+
             lines.append(
-                f"{i}. <code>{item['outline_id']}</code>\n"
+                f"{flag} {i}. <code>{item['outline_id']}</code>\n"
                 f"   {server_display} | {owner_text}\n"
-                f"   {delta_gb:.2f} ГБ за {hours:.1f}ч ({speed_gb:.2f} ГБ/ч)"
+                f"   <b>{delta_gb:.2f} ГБ</b> за 24ч"
             )
 
         text = "\n".join(lines)
