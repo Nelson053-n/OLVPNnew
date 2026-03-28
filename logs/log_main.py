@@ -11,6 +11,7 @@ Features:
 import logging
 import os
 import json
+import re
 import sys
 import gzip
 import shutil
@@ -87,7 +88,7 @@ class RotatingFileLogger:
             utc=True
         )
         handler.suffix = self.log_file_format
-        handler.extMatch = r'^\d{4}-\d{2}-\d{2}.log$'
+        handler.extMatch = re.compile(r'^\d{4}-\d{2}-\d{2}\.log$')
 
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s',

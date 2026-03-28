@@ -274,10 +274,14 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
             return
 
         text, reply_markup = await switch_menu(data, call, state)
-        if text != call.message.text:
+        if text:
             # Choose parse_mode automatically when templates contain HTML tags
             parse_mode = 'HTML' if any(tag in text for tag in ('<a ', '<code>', '<b>', '<i>', '<pre>')) else None
-            await call.message.edit_text(text=text, reply_markup=reply_markup, parse_mode=parse_mode)
+            try:
+                await call.message.edit_text(text=text, reply_markup=reply_markup, parse_mode=parse_mode)
+            except Exception as edit_err:
+                if 'message is not modified' not in str(edit_err):
+                    raise
     except Exception as e:
         tb = traceback.format_exc()
         logger.log('error', f'build_and_edit_message error for user {call.from_user.id}, data={call.data}: {e}\n{tb}')
