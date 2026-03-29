@@ -285,9 +285,8 @@ async def replace_key_execute(call: CallbackQuery, state: FSMContext) -> (str, I
         return (text, kb.as_markup())
         
     except Exception as e:
-        logger.log('error', f'Error replacing key: {e}')
         import traceback
-        traceback.print_exc()
+        logger.log('error', f'Error replacing key: {e}\n{traceback.format_exc()}')
         return ("❌ Ошибка при замене доступа", InlineKeyboardBuilder().as_markup())
 
 

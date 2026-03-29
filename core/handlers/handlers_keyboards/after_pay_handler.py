@@ -107,9 +107,10 @@ async def pay_check_key(call: CallbackQuery, state: FSMContext) -> tuple:
     data = await state.get_data()
     payment_url, payment = data.get('pay', (None, None))
     region_server = data.get('region_server', 'back')
+    expected_amount = data.get('payment_amount')
     id_user = call.from_user.id
     if payment_url and payment:
-        result_pay = await check_payment(payment.id)
+        result_pay = await check_payment(payment.id, expected_amount=expected_amount)
         if result_pay:
             # Отменяем фоновый polling — оплата подтверждена вручную
             cancel_payment_polling(id_user)
@@ -173,11 +174,12 @@ async def _poll_payment_status(bot: Bot, user_id: int, payment_id: str, payment_
     region_server = state_data.get('region_server', 'nederland')
     day_count = state_data.get('day_count', 0)
     word_days = state_data.get('word_days', 'дней')
+    expected_amount = state_data.get('payment_amount')
 
     for attempt in range(POLL_MAX_ATTEMPTS):
         await asyncio.sleep(POLL_INTERVAL)
         try:
-            if await check_payment(payment_id):
+            if await check_payment(payment_id, expected_amount=expected_amount):
                 # Защита от двойной генерации ключа
                 if not await _try_claim_payment(payment_id):
                     logger_payments.log('info', f'{user_id} - Payment {payment_id} already processed (polling skipped)')

@@ -61,6 +61,7 @@ async def build_pay(*args) -> (str, InlineKeyboardMarkup):
     await state.update_data(pay=(payment_url, payment))
     await state.update_data(day_count=day_count)
     await state.update_data(word_days=word_days)
+    await state.update_data(payment_amount=int(amount))
 
     # Запускаем фоновый polling проверки оплаты
     if new_payment and payment:
@@ -75,6 +76,7 @@ async def build_pay(*args) -> (str, InlineKeyboardMarkup):
                 'region_server': region_server,
                 'day_count': day_count,
                 'word_days': word_days,
+                'payment_amount': int(amount),
             },
         )
 

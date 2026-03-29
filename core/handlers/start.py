@@ -22,6 +22,7 @@ from core.sql.function_db_user_vpn.users_vpn import (
     get_all_user_keys,
 )
 from core.utils.create_view import create_answer_from_html
+from core.utils.throttle import throttle
 from logs.log_main import RotatingFileLogger
 from core.settings import admin_tlg
 from aiogram.enums import ParseMode
@@ -33,6 +34,7 @@ def fmt(dt: datetime) -> str:
     return dt.strftime('%d.%m.%Y - %H:%M')
 
 
+@throttle(seconds=1)
 async def command_start(message: Message, state: FSMContext) -> None:
     """
     Обработчик команды /start.

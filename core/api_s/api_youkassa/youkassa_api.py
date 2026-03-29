@@ -57,17 +57,20 @@ async def create_payment(amount_value: int, count_day: int,
     return url, payment
 
 
-async def check_payment(payment_id: PaymentResponse) -> bool:
+async def check_payment(payment_id: PaymentResponse, expected_amount: int = None) -> bool:
     """
     Проверка платежа
 
     :param payment_id: id платежа для проверки
+    :param expected_amount: ожидаемая сумма платежа (серверная валидация)
     :return: True в случае если платеж прошел, False в противном
     """
     payment = yookassa.Payment.find_one(payment_id)
-    if payment.status == "succeeded":
-        return True
-    return False
+    if payment.status != "succeeded":
+        return False
+    if expected_amount is not None and int(float(payment.amount.value)) != expected_amount:
+        return False
+    return True
 
 
 async def get_user_payments(find_id: int) -> list:

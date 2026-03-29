@@ -131,5 +131,8 @@ async def admin_block_key_handler(call: CallbackQuery) -> tuple[str, InlineKeybo
     """
     Обработчик callback'а для немедленной блокировки (callback_data: admin_block_key_<id>)
     """
-    user_id = int(call.data.split('_')[-1])
+    try:
+        user_id = int(call.data.split('_')[-1])
+    except (ValueError, IndexError):
+        return ("❌ Некорректные данные запроса", InlineKeyboardBuilder().as_markup())
     return await perform_block_user(user_id=user_id, admin_id=call.from_user.id)

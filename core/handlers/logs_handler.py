@@ -206,7 +206,11 @@ async def callback_logs_clean(callback: CallbackQuery):
         await callback.answer("❌ У вас нет доступа", show_alert=True)
         return
 
-    days = int(callback.data.split("_")[-1])
+    try:
+        days = int(callback.data.split("_")[-1])
+    except (ValueError, IndexError):
+        await callback.answer("❌ Некорректные данные", show_alert=True)
+        return
 
     await callback.answer("⏳ Очистка логов...")
 
