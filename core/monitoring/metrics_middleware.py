@@ -7,9 +7,6 @@ from aiogram import BaseMiddleware
 from aiogram.types import Message, CallbackQuery
 
 from core.monitoring.runtime_metrics import record_metric
-from logs.log_main import RotatingFileLogger
-
-_mw_logger = RotatingFileLogger()
 
 
 def _callback_bucket(data: str) -> str:
@@ -29,7 +26,6 @@ class MetricsMiddleware(BaseMiddleware):
                 bucket = "msg:text"
         elif isinstance(event, CallbackQuery):
             bucket = f"cb:{_callback_bucket(event.data or '')}"
-            _mw_logger.log('info', f'[MW] CallbackQuery user={event.from_user.id} data={event.data}')
         else:
             bucket = type(event).__name__.lower()
 
@@ -39,9 +35,6 @@ class MetricsMiddleware(BaseMiddleware):
             result = await handler(event, data)
             success = True
             return result
-        except Exception as exc:
-            _mw_logger.log('error', f'[MW] handler error bucket={bucket}: {exc}')
-            raise
         finally:
             elapsed_ms = (perf_counter() - started) * 1000
             record_metric(bucket, elapsed_ms, success)
