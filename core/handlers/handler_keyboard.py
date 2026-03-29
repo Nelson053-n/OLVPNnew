@@ -32,6 +32,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
     try:
         await call.answer()
         data = call.data
+        logger.log('info', f'[CB] user={call.from_user.id} data={data}')
 
         # Отменяем фоновый polling проверки оплаты при навигации назад
         if data in ('back', 'back_start'):
@@ -274,6 +275,7 @@ async def build_and_edit_message(call: CallbackQuery, state: FSMContext):
             return
 
         text, reply_markup = await switch_menu(data, call, state)
+        logger.log('info', f'[CB] result text_len={len(text) if text else 0} has_markup={reply_markup is not None}')
         if text:
             # Choose parse_mode automatically when templates contain HTML tags
             parse_mode = 'HTML' if any(tag in text for tag in ('<a ', '<code>', '<b>', '<i>', '<pre>')) else None
