@@ -166,8 +166,25 @@ async def setup_bot_commands(bot: Bot):
 
 async def start_bot():
     """Запуск бота"""
+    from logs.log_main import RotatingFileLogger as _RFL
+    _debug_logger = _RFL()
+
     dp: Dispatcher = Dispatcher()
     dp.include_router(router=router)
+
+    # DEBUG: логируем тип каждого update
+    from aiogram.types import Update
+    @dp.update.outer_middleware()
+    async def _debug_update_type(handler, event: Update, data):
+        ut = []
+        if event.message:
+            ut.append(f"message from={event.message.from_user.id if event.message.from_user else '?'} text={repr((event.message.text or '')[:50])}")
+        if event.callback_query:
+            ut.append(f"callback_query from={event.callback_query.from_user.id} data={event.callback_query.data}")
+        if not ut:
+            ut.append(f"other: {[k for k, v in event.model_dump().items() if v is not None and k != 'update_id']}")
+        _debug_logger.log('info', f'[UPD] id={event.update_id} {"; ".join(ut)}')
+        return await handler(event, data)
 
     # Middleware метрик для сообщений и callback
     dp.message.middleware(MetricsMiddleware())
